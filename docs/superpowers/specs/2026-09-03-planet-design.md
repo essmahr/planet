@@ -14,6 +14,39 @@ Two ideas drive the design:
   prompt Scott types during planning is recorded verbatim. A review step reads
   across epics and proposes edits to the planning skills themselves.
 
+## Use cases
+
+**Start an epic from a ticket.** Trigger: `/planet CRM-123` or `/planet new
+<free text>`. Steps: intake pulls the ticket and explores the codebase, scoping
+asks questions and proposes an approach, phasing cuts it into PR-sized phases.
+Result: an epic directory with `plan.md` and draft phases.
+
+**Continue an epic.** Trigger: `/planet continue the GQL thing`. Steps: sync,
+resolve the epic, offer any pending retro, plan the next draft phase. Result:
+one phase moved to `planned`, ready for an implementation session.
+
+**Glance at status.** Trigger: `/planet` with no text, or `planet status` in a
+terminal. Steps: sync, render the table. Result: every active epic, its current
+phase, open PRs, and anything waiting on Scott. No further action.
+
+**Close the loop after a merge.** Trigger: the router notices a shipped phase
+with no retro, or `/planet retro <epic>`. Steps: read the merged diffs against
+the phase plan, write the retro, propose edits to later phases. Result: phase
+`reviewed`, later phases adjusted.
+
+## Success criteria
+
+Rough targets, measured from the store itself where possible.
+
+- The router resolves the epic without asking in most invocations.
+- Status needs one CLI call and no Claude judgment.
+- Revisions per approved proposal trend down over time, per step. This is the
+  feedback loop's own metric, computed from `proposals/`.
+- No planning prompt from Scott is lost: every prompt in a marked session
+  appears in `prompts.jsonl`.
+- No PR opened from a marked implementation session needs a manual `planet link`.
+- Step skills never load outside the router.
+
 ## Decisions
 
 | Question | Decision |
@@ -29,7 +62,7 @@ Two ideas drive the design:
 | Language | TypeScript run directly by Node 24. No build step. No Bun. |
 | Linear | Read-only, Claude-side, via the existing Linear MCP. Ticket IDs stored as strings for context. GitHub closes tickets, not Planet. |
 | Retro trigger | Router lists shipped-but-unreviewed phases and offers the retro. `/planet retro <epic>` also works. |
-| Skill shape | One user-invoked router, several model-invoked step skills. |
+| Skill shape | One user-invoked router, several model-invoked step skills, plus a `planet-proposal` skill shared by every step. Step skills are hidden from the slash menu and only reached through the router. |
 
 ## Repository layout
 
@@ -37,16 +70,17 @@ Two ideas drive the design:
 planet/
   .claude-plugin/plugin.json
   hooks/hooks.json              UserPromptSubmit + PostToolUse -> planet capture
+  README.md                     for humans; no README inside any skill folder
   skills/
-    planet/                     user-invoked router
-      SKILL.md
-      proposal-protocol.md      shared by every step skill
-    planet-intake/SKILL.md      model-invoked step skills
+    planet/SKILL.md             user-invoked router
+    planet-proposal/SKILL.md    the approval gate, invoked by every step skill
+    planet-intake/SKILL.md      step skills, model-invoked via the router only
     planet-scoping/SKILL.md
     planet-phasing/SKILL.md
     planet-phase-plan/SKILL.md
     planet-retro/SKILL.md
     planet-feedback-review/SKILL.md
+    */references/               per-skill detail, loaded on demand
   cli/
     planet.ts                   entry, subcommand dispatch
     commands/                   one file per subcommand
@@ -60,8 +94,10 @@ planet/
 Runtime split:
 
 - **CLI** owns every read and write of structured state and every `gh` call.
-  Skills call it through Bash and read `--json` output. It knows nothing about
-  Claude beyond two environment variables.
+  Skills call it through Bash as `${CLAUDE_PLUGIN_ROOT}/bin/planet` and read
+  `--json` output. It knows nothing about Claude beyond two environment
+  variables. Terminal use needs `bin/` on PATH separately; the plugin does not
+  install it.
 - **Skills** own conversation: questions, proposals, judgment.
 - **Hooks** are one CLI subcommand, `planet capture`, wired to two Claude Code
   events. They exit 0 immediately when no epic is active in the session.
@@ -239,6 +275,35 @@ Hooks never block. Any error exits 0 and appends to `~/.planet/hook.log`.
 
 ## Skills
 
+### Conventions
+
+Every skill follows Anthropic's skill-authoring guide. The per-skill specs carry
+the exact values; this spec sets the rules.
+
+- **Frontmatter.** `name` matches the folder, kebab-case. `description` states
+  what the skill does and when to use it, with trigger phrases, under 1024
+  characters, and no angle brackets. CLI placeholders like `<epic>` stay out of
+  descriptions. `compatibility` names the dependencies: Claude Code hooks, the
+  session ID environment variable, `gh`, Node 24, and the Linear MCP where
+  used. `metadata.version` is present and bumped on every edit, so a proposal
+  can be traced to the skill version that produced it.
+- **Step skills stay hidden.** `user-invocable: false` keeps them out of the
+  slash menu, and each description opens with a negative trigger: "Only
+  invoked by the planet router." Their triggering tests are all
+  should-not-trigger cases.
+- **Superpowers stays off during planning.** Superpowers brainstorming
+  describes itself as mandatory before any creative work and will try to take
+  over a scoping step. The router SKILL.md states that Planet owns planning in
+  this session and superpowers planning skills are not to be invoked.
+  Superpowers execution skills are unaffected.
+- **SKILL.md shape.** Critical rules first. Numbered steps, each with the
+  command to run and what its output looks like. One or two examples. A
+  troubleshooting section for the skill's own failure modes, such as `gh`
+  unauthenticated, no session ID, store missing, or an ambiguous resolve.
+  Under 5,000 words, with detail moved to `references/`.
+- **Scripts over prose.** Any check that can be a CLI command is a CLI
+  command, never an instruction to "make sure".
+
 ### Router: `/planet [text]`
 
 1. Run `planet status --json`. With no text: print the table, list shipped
@@ -262,7 +327,7 @@ and stops.
 ### Step skills
 
 Each is model-invoked and reached only through the router. Each has one input
-and one output and follows the proposal protocol for every approval.
+and one output and invokes `planet-proposal` at every approval gate.
 
 - **intake.** From a Linear ticket or a prompt. Pull ticket context via the
   Linear MCP, explore the codebase with a subagent, find related PRs. Output:
@@ -281,8 +346,8 @@ and one output and follows the proposal protocol for every approval.
 - **retro.** For a shipped phase: read the merged PR diffs against the phase
   plan. Output: `retros/NN-<slug>.md` covering what deviated and why, classed
   as plan was wrong, discovered during implementation, or scope changed. Then
-  proposed edits to remaining phases through the proposal protocol. Sets
-  status `reviewed`.
+  proposed edits to remaining phases through `planet-proposal`. Sets status
+  `reviewed`.
 - **feedback-review.** Cross-epic, via `/planet review feedback`. Reads
   `prompts.jsonl`, `notes.md`, proposals, and retros across all epics, groups
   recurring pushback, and proposes concrete edits to the step skills' own
@@ -290,17 +355,22 @@ and one output and follows the proposal protocol for every approval.
 
 Each step skill gets its own spec before it is written.
 
-### Proposal protocol
+### Proposal skill: `planet-proposal`
 
-Shared reference file, followed by every step skill at every approval gate.
+Model-invoked, hidden, called by every step skill at every approval gate. It is
+a skill rather than a shared reference file so each step skill stays
+self-contained and the feedback loop edits the gate in one place.
+
+Input: the step name, the proposal text, and its destination. Steps:
 
 1. Write the proposal to a scratch file. Register it with `planet propose`.
    Show it to Scott verbatim.
 2. Wait for a response. On pushback: append one line to `feedback/notes.md`
-   with the proposal id, a tag, and a short quote. Revise and register the
-   revision as a new proposal.
+   with the proposal id, a tag, and a short quote. Return the pushback to the
+   calling step, which revises and invokes `planet-proposal` again as a new
+   proposal.
 3. On approval: `planet proposal approve`, then write the result to its
-   destination through the CLI.
+   destination through the CLI. Return approved.
 
 ## Testing
 
@@ -312,8 +382,15 @@ Shared reference file, followed by every step skill at every approval gate.
   Every case exits 0.
 - **Schema.** One validator over every CLI-owned file, run on each read and by
   `planet check`.
-- **Skills.** Superpowers writing-skills approach: run the scenario without the
-  skill, record what goes wrong, write the skill against those failures.
+- **Skills, triggering.** For the router: should-trigger cases including
+  paraphrases such as "what am I working on" and "continue the GQL thing", and
+  should-not-trigger cases such as unrelated coding requests. For every hidden
+  skill: should-not-trigger cases only, run by asking Claude when it would use
+  the skill.
+- **Skills, behavior.** Superpowers writing-skills approach: run the scenario
+  without the skill, record what goes wrong, write the skill against those
+  failures. Then compare with and without the skill on the same task: questions
+  asked, corrections needed, tool calls.
 
 ## Error handling
 
@@ -336,7 +413,12 @@ Shared reference file, followed by every step skill at every approval gate.
 In dependency order:
 
 1. Store and CLI, including hooks.
-2. Router and proposal protocol.
+2. Router and `planet-proposal`.
 3. intake, scoping, phasing, phase-plan.
 4. retro.
 5. feedback-review.
+
+Every skill spec includes: the exact frontmatter, including description,
+compatibility, and version; the SKILL.md outline in the shape above; its
+should-trigger and should-not-trigger cases; the CLI commands it calls and
+their expected output; and its troubleshooting entries.

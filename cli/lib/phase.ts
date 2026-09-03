@@ -42,15 +42,23 @@ export function writePhase(phase: Phase): void {
 
 export function newPhases(home: string, epic: string, inputs: NewPhaseInput[]): Phase[] {
   const existing = listPhases(home, epic);
-  const taken = new Set(existing.map((p) => p.meta.slug));
+  const existingTaken = new Set(existing.map((p) => p.meta.slug));
   let nextId = existing.reduce((max, p) => Math.max(max, p.meta.id), 0) + 1;
   const dir = paths.phases(home, epic);
+
+  // Validation pass: check all inputs before any writes
+  const batchTaken = new Set<string>();
+  for (const input of inputs) {
+    assertSlug(input.slug, "phase slug");
+    if (existingTaken.has(input.slug)) throw new Error(`phase '${input.slug}' already exists in epic '${epic}'`);
+    if (batchTaken.has(input.slug)) throw new Error(`phase '${input.slug}' already exists in epic '${epic}'`);
+    batchTaken.add(input.slug);
+  }
+
+  // Write pass: create directories and write files
   mkdirSync(dir, { recursive: true });
   const created: Phase[] = [];
   for (const input of inputs) {
-    assertSlug(input.slug, "phase slug");
-    if (taken.has(input.slug)) throw new Error(`phase '${input.slug}' already exists in epic '${epic}'`);
-    taken.add(input.slug);
     const meta: PhaseMeta = { id: nextId++, slug: input.slug, title: input.title, status: "draft", linear: input.linear ?? [], prs: [], shipped_at: null };
     const phase: Phase = { meta, body: "", path: join(dir, phaseFileName(meta.id, meta.slug)) };
     writePhase(phase);

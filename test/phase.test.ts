@@ -62,3 +62,9 @@ test("recomputeEpicStatus derives active and shipped", () => {
   assert.equal(epic.shipped_at, "2026-10-01T00:00:00Z");
   void home;
 });
+
+test("newPhases validates all inputs before writing any", () => {
+  const home = epicHome();
+  assert.throws(() => newPhases(home, "e", [{ slug: "ok", title: "Ok" }, { slug: "Bad Slug", title: "Bad" }]), /kebab-case/);
+  assert.deepEqual(listPhases(home, "e"), []);
+});

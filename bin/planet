@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+self="${BASH_SOURCE[0]}"
+while [ -L "$self" ]; do self="$(readlink "$self")"; done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+exec node "$root/cli/planet.ts" "$@"

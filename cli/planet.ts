@@ -3,10 +3,22 @@ import { pathToFileURL } from "node:url";
 import type { Command, Ctx } from "./lib/context.ts";
 import { realGh } from "./lib/gh.ts";
 import { ensureStore, planetHome } from "./lib/store.ts";
+import { checkCommand } from "./commands/check.ts";
 import { epicCommand } from "./commands/epic.ts";
+import { linkCommand, unlinkCommand } from "./commands/link.ts";
+import { phaseCommand } from "./commands/phase.ts";
+import { proposalCommand, proposeCommand } from "./commands/proposal.ts";
+import { sessionCommand } from "./commands/session.ts";
 
 export const COMMANDS: Record<string, Command> = {
   epic: epicCommand,
+  phase: phaseCommand,
+  link: linkCommand,
+  unlink: unlinkCommand,
+  session: sessionCommand,
+  propose: proposeCommand,
+  proposal: proposalCommand,
+  check: checkCommand,
 };
 
 const USAGE = `usage: planet <command> [args] [--json]

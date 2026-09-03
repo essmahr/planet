@@ -1,0 +1,79 @@
+import { readFileSync } from "node:fs";
+import type { Command, CommandResult, Ctx } from "../lib/context.ts";
+import { need, needInt, needString, optList, optString, parse } from "../lib/args.ts";
+import { readEpic, writeEpic } from "../lib/epic.ts";
+import { recomputeEpicStatus } from "../lib/lifecycle.ts";
+import { listPhases, newPhases, setPhaseLinear, setPhaseStatus, writeBody } from "../lib/phase.ts";
+import type { NewPhaseInput } from "../lib/phase.ts";
+import { commit } from "../lib/store.ts";
+
+async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, {
+    title: { type: "string" },
+    linear: { type: "string", multiple: true },
+    phase: { type: "string", multiple: true },
+  });
+  const epic = need(positionals, 0, "epic slug");
+  const inputs: NewPhaseInput[] = [];
+  const slug = positionals[1];
+  if (slug !== undefined) inputs.push({ slug, title: needString(values, "title"), linear: optList(values, "linear") });
+  for (const pair of optList(values, "phase")) {
+    const colon = pair.indexOf(":");
+    if (colon <= 0 || colon === pair.length - 1) throw new Error(`--phase must be slug:title, got '${pair}'`);
+    inputs.push({ slug: pair.slice(0, colon), title: pair.slice(colon + 1) });
+  }
+  if (inputs.length === 0) throw new Error("pass <slug> --title or --phase slug:title");
+  readEpic(ctx.home, epic);
+  const created = newPhases(ctx.home, epic, inputs);
+  const epicDoc = readEpic(ctx.home, epic);
+  epicDoc.updated = ctx.now();
+  writeEpic(ctx.home, epicDoc);
+  commit(ctx.home, `${epic}: add phase${created.length > 1 ? "s" : ""} ${created.map((p) => p.meta.slug).join(", ")}`);
+  return { json: created.map((p) => p.meta), text: created.map((p) => `created phase ${p.meta.id} ${p.meta.slug}`).join("\n") };
+}
+
+async function phaseWrite(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { "body-file": { type: "string" } });
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  const body = readFileSync(needString(values, "body-file"), "utf8");
+  const phase = writeBody(ctx.home, epic, id, body);
+  commit(ctx.home, `${epic}: write phase ${id} body`);
+  return { json: phase.meta, text: `wrote ${phase.path}` };
+}
+
+async function phaseSet(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { status: { type: "string" }, linear: { type: "string", multiple: true } });
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  const status = optString(values, "status");
+  const linear = optList(values, "linear");
+  if (status === undefined && linear.length === 0) throw new Error("nothing to set: pass --status or --linear");
+  const changes: string[] = [];
+  if (status !== undefined) {
+    if (status !== "planned" && status !== "reviewed") throw new Error("--status must be planned or reviewed");
+    setPhaseStatus(ctx.home, epic, id, status);
+    changes.push(`status ${status}`);
+  }
+  if (linear.length) {
+    setPhaseLinear(ctx.home, epic, id, linear);
+    changes.push("linear");
+  }
+  const epicDoc = readEpic(ctx.home, epic);
+  epicDoc.updated = ctx.now();
+  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
+  writeEpic(ctx.home, epicDoc);
+  commit(ctx.home, `${epic}: set phase ${id} ${changes.join(", ")}`);
+  const phase = listPhases(ctx.home, epic).find((p) => p.meta.id === id);
+  return { json: phase?.meta ?? null, text: `updated phase ${id}: ${changes.join(", ")}` };
+}
+
+export const phaseCommand: Command = async (args, ctx) => {
+  const [sub, ...rest] = args;
+  switch (sub) {
+    case "new": return phaseNew(rest, ctx);
+    case "write": return phaseWrite(rest, ctx);
+    case "set": return phaseSet(rest, ctx);
+    default: throw new Error("usage: planet phase new|write|set");
+  }
+};

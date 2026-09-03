@@ -1,0 +1,43 @@
+import { readFileSync } from "node:fs";
+import type { Command, CommandResult, Ctx } from "../lib/context.ts";
+import { need, needInt, needString, optString, parse } from "../lib/args.ts";
+import { readEpic, writeEpic } from "../lib/epic.ts";
+import { approveTo, createProposal, parseDestination } from "../lib/proposal.ts";
+import { sessionIdFrom } from "../lib/session.ts";
+import { commit } from "../lib/store.ts";
+import { parseStep } from "./session.ts";
+
+export const proposeCommand: Command = async (args, ctx) => {
+  const { positionals, values } = parse(args, { file: { type: "string" }, phase: { type: "string" }, session: { type: "string" } });
+  const epic = need(positionals, 0, "epic slug");
+  const step = parseStep(need(positionals, 1, "step name"));
+  const body = readFileSync(needString(values, "file"), "utf8");
+  const phaseText = optString(values, "phase");
+  const phase = phaseText === undefined ? null : Number(phaseText);
+  if (phase !== null && !Number.isInteger(phase)) throw new Error("--phase must be an integer");
+  const session = sessionIdFrom(ctx.env, optString(values, "session"));
+  const proposal = createProposal(ctx.home, epic, { step, phase, session, toolUse: null, planFile: null, body }, ctx.now());
+  commit(ctx.home, `${epic}: snapshot proposal ${proposal.meta.id}`);
+  return { json: proposal.meta, text: `proposal ${proposal.meta.id}` };
+};
+
+async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { to: { type: "string" }, from: { type: "string" } });
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "proposal id");
+  const dest = parseDestination(needString(values, "to"));
+  const from = optString(values, "from");
+  const result = approveTo(ctx.home, epic, id, dest, from === undefined ? undefined : readFileSync(from, "utf8"));
+  const epicDoc = readEpic(ctx.home, epic);
+  epicDoc.updated = ctx.now();
+  writeEpic(ctx.home, epicDoc);
+  const where = dest.kind === "plan" ? "plan" : `phase ${dest.id}`;
+  commit(ctx.home, `${epic}: approve proposal ${id} to ${where}`);
+  return { json: { proposal: result.proposal.meta, wrote: result.wrote }, text: `wrote ${result.wrote}` };
+}
+
+export const proposalCommand: Command = async (args, ctx) => {
+  const [sub, ...rest] = args;
+  if (sub === "approve") return proposalApprove(rest, ctx);
+  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n>");
+};

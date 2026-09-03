@@ -128,7 +128,7 @@ The store path is `~/.planet/`, overridable with `PLANET_HOME` for tests.
     retros/NN-<slug>.md             plan-versus-shipped write-up per phase
     research/                       subagent output: one file per sweep
     <anything else>                 dumps, screenshots, free-form
-  sessions/<session-id>             marker: active epic slug, optional phase id, current step
+  sessions/<session-id>             marker, one JSON line: epic slug, phase id or null, step or null
   hook.log                          hook errors, never surfaced to Claude
 ```
 
@@ -177,6 +177,8 @@ id: 3
 step: phasing                     # intake | scoping | phasing | phase-plan | retro | feedback-review
 phase: null                       # phase id when the step is about one phase
 session: <claude session id>
+tool_use: <ExitPlanMode tool_use_id, or null when snapshotted by planet propose>
+plan_file: <path Claude Code saved the plan to, or null>
 created: 2026-09-03T15:40:00Z
 outcome: pending                  # pending | approved | rejected
 edited: false                     # true when the approved plan differs from the snapshot
@@ -277,9 +279,9 @@ confirmation line when not in JSON mode.
 ### Write, process
 
 - `planet proposal approve <epic> <id> --to plan|phase:<n> [--from <path>]`.
-  Marks the proposal approved and writes the plan file's content to `plan.md`
-  or the phase body, preserving frontmatter. `--from` defaults to the session's
-  plan file.
+  Marks the proposal approved and writes the approved text to `plan.md` or the
+  phase body, preserving frontmatter. The text defaults to what the hook
+  captured at approval, edits included; `--from <path>` overrides it.
 - `planet propose <epic> <step> --file <path> [--phase <id>]`. Manual snapshot
   for paths that skip ExitPlanMode. Prints the id.
 - `planet session start <epic> [--phase <id>] [--step <name>]`,

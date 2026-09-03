@@ -2,8 +2,8 @@
 
 Planet is Scott's personal planning workflow for epics that span several PRs
 and may map to several Linear tickets. It is a Claude Code plugin: a set of
-skills for planning, a CLI that owns all structured state, and two hooks that
-capture feedback and PR links without manual steps.
+skills for planning, a CLI that owns all structured state, and hooks that
+capture proposals, feedback, and PR links without manual steps.
 
 Two ideas drive the design:
 
@@ -13,6 +13,10 @@ Two ideas drive the design:
 - **The planning process learns.** Every proposal Claude shows and every
   prompt Scott types during planning is recorded verbatim. A review step reads
   across epics and proposes edits to the planning skills themselves.
+- **Every model turn is the expensive part.** Tool round trips, re-read prose,
+  and unbounded inputs cost more than any script. The CLI collapses round
+  trips, returns only what the next step needs, and pre-aggregates anything
+  Claude would otherwise read raw.
 
 ## Use cases
 
@@ -38,7 +42,8 @@ the phase plan, write the retro, propose edits to later phases. Result: phase
 
 Rough targets, measured from the store itself where possible.
 
-- The router resolves the epic without asking in most invocations.
+- The router resolves the epic without asking in most invocations, and
+  reaches the step skill in one CLI call on the happy path.
 - Status needs one CLI call and no Claude judgment.
 - Revisions per approved proposal and inline edits per approved proposal trend
   down over time, per step. These are the feedback loop's own metrics, computed
@@ -56,7 +61,7 @@ Rough targets, measured from the store itself where possible.
 | Shape of an epic | A directory. Script-owned state file plus free-form files. |
 | Phase to PR link | Phase frontmatter holds a list of PR URLs. One phase may have several PRs. PRs never reference Planet. |
 | How PRs get linked | PostToolUse hook catches `gh pr create` in a session with an active phase. `planet link` is the manual fallback. |
-| Merge detection | On demand. `planet status` and the router run `planet sync` first. No background jobs. |
+| Merge detection | On demand. `planet status` and the router run `planet sync` first, skipped when the last sync is fresh. No background jobs. |
 | Approval gate | Native plan mode. Proposals are written to the session's plan file and reviewed through ExitPlanMode, so inline editing in VS Code and Ultraplan work unchanged. |
 | Feedback capture | Hooks on ExitPlanMode snapshot what Claude proposed, your inline edits, and any rejection message. A UserPromptSubmit hook logs every prompt verbatim. Claude adds a tag only on rejections. |
 | Relation to superpowers | Planet owns the whole planning flow so every step can learn. Superpowers stays for execution: TDD, worktrees, review. |
@@ -89,6 +94,7 @@ planet/
     lib/                        store, frontmatter, gh, table, git
     schema/                     state types and validator
   bin/planet                    bash shim: exec node cli/planet.ts "$@"
+  bin/planet-hook               hook shim: exits before Node unless a marker exists
   docs/superpowers/specs/
   test/
 ```
@@ -101,8 +107,10 @@ Runtime split:
   variables. Terminal use needs `bin/` on PATH separately; the plugin does not
   install it.
 - **Skills** own conversation: questions, proposals, judgment.
-- **Hooks** are one CLI subcommand, `planet capture`, wired to two Claude Code
-  events. They exit 0 immediately when no epic is active in the session.
+- **Hooks** are one CLI subcommand, `planet capture`, wired to four Claude Code
+  events through `bin/planet-hook`. The shim reads the event JSON, pulls the
+  session id with `sed`, and exits 0 before starting Node unless
+  `sessions/<session-id>` exists. Node only runs in a Planet session.
 
 The store path is `~/.planet/`, overridable with `PLANET_HOME` for tests.
 
@@ -118,7 +126,8 @@ The store path is `~/.planet/`, overridable with `PLANET_HOME` for tests.
     feedback/prompts.jsonl          hook-written, one line per prompt
     feedback/notes.md               Claude-written tags pointing at proposals
     retros/NN-<slug>.md             plan-versus-shipped write-up per phase
-    <anything else>                 dumps, screenshots, research, free-form
+    research/                       subagent output: one file per sweep
+    <anything else>                 dumps, screenshots, free-form
   sessions/<session-id>             marker: active epic slug, optional phase id, current step
   hook.log                          hook errors, never surfaced to Claude
 ```
@@ -133,6 +142,7 @@ status: planning                  # planning | active | paused | shipped | aband
 linear: [CRM-123]
 created: 2026-09-03T15:02:00Z
 updated: 2026-09-03T15:02:00Z
+synced_at: null                   # last successful gh sync
 shipped_at: null
 sessions: [<claude session ids>]
 ```
@@ -234,13 +244,20 @@ confirmation line when not in JSON mode.
 
 ### Read
 
-- `planet status [--all] [--no-sync]`. Runs sync, then one row per epic: slug,
-  repo, status, phases shipped of total, current phase, open PRs, unreviewed
-  shipped phases, last updated. Hides `shipped` and
-  `abandoned` unless `--all`. When `gh` is unavailable, renders from stored
-  state and marks the output stale with the last sync time.
-- `planet epic show <slug>`. Full `epic.yaml`, every phase's frontmatter, paths
-  to `plan.md` and the latest proposal.
+- `planet status [--all] [--no-sync] [--force]`. Runs sync unless every epic's
+  `synced_at` is under the max age, five minutes by default. Then one row per
+  epic: slug, repo, status, phases shipped of total, current phase, open PRs,
+  unreviewed shipped phases, last synced. Hides `shipped` and `abandoned`
+  unless `--all`. When `gh` is unavailable, renders from stored state and marks
+  the output stale. `--json` returns the rows only, no table formatting.
+- `planet open "<text>" [--step <name>]`. The router's happy path in one call:
+  sync as above, resolve the text, and when exactly one epic matches, start the
+  session marker and return `status` plus `epic show` for it in one payload.
+  Zero or several matches return the candidates and the status rows, and set
+  nothing.
+- `planet epic show <slug>`. `epic.yaml`, every phase's frontmatter, and paths
+  to `plan.md`, each phase body, each retro, and the latest proposal. Never
+  bodies. The step skill reads only the paths it needs.
 - `planet epic resolve "<text>"`. Exact slug, then case-insensitive substring
   on slug and title, then Linear ID. Returns all candidates.
 - `planet check`. Validates every file the CLI owns across the store.
@@ -249,7 +266,9 @@ confirmation line when not in JSON mode.
 
 - `planet epic new <slug> --title <t> --repo <owner/name> [--linear ID...]`
 - `planet epic set <slug> [--status paused|abandoned|active] [--linear ...] [--title ...]`
-- `planet phase new <epic> <slug> --title <t> [--linear ID...]`. Assigns the next id, status `draft`, empty body.
+- `planet phase new <epic> <slug> --title <t> [--linear ID...]`, repeatable
+  as `--phase <slug>:<title>` pairs so phasing creates every draft in one call
+  and one commit. Assigns the next ids, status `draft`, empty bodies.
 - `planet phase write <epic> <id> --body-file <path>`. Replaces the body, keeps frontmatter.
 - `planet phase set <epic> <id> --status planned|reviewed [--linear ...]`.
 - `planet link <epic> <id> <pr-url>...`. Validates the URL against the epic's repo.
@@ -269,17 +288,31 @@ confirmation line when not in JSON mode.
   appends the id to `epic.yaml` sessions.
 - `planet capture`. Hook entry, see below.
 
+### Aggregate
+
+Pre-computed views so Claude reads a report, never raw files.
+
+- `planet pr files <epic> <phase>`. Files changed across the phase's merged PRs
+  with added and removed line counts, from `gh`. The retro step reads full
+  diffs only for files the phase plan named.
+- `planet feedback report [epic]`. Per step: proposals, rejection rate, edit
+  rate, revisions per approval. Every rejection message verbatim. Unified diffs
+  of edited approvals, trimmed to changed hunks. Tag counts from `notes.md`.
+  This is the input to feedback-review and the source of the success-criteria
+  trends.
+
 ### Sync
 
-- `planet sync [epic]`. One `gh api graphql` call per repo covering every
-  linked PR not yet in a terminal state. Updates PR entries, flips phase and
-  epic statuses, prints what changed.
+- `planet sync [epic] [--force]`. Skipped when `synced_at` is under the max
+  age unless forced. One `gh api graphql` call per repo covering every linked
+  PR not yet in a terminal state. Updates PR entries, `synced_at`, flips phase
+  and epic statuses, prints what changed.
 
 ## Hooks
 
-Four events run `planet capture`, which reads Claude Code's JSON from stdin and
-dispatches on `hook_event_name`. Every branch starts by looking up
-`sessions/<session_id>` and exits 0 when there is no marker.
+Four events run `bin/planet-hook`, which exits 0 before starting Node unless a
+session marker exists, then `planet capture` reads Claude Code's JSON from
+stdin and dispatches on `hook_event_name`.
 
 - **UserPromptSubmit.** Append the prompt to the epic's `prompts.jsonl` with
   `kind`, `phase`, and the current highest proposal id.
@@ -332,29 +365,40 @@ the exact values; this spec sets the rules.
   command to run and what its output looks like. One or two examples. A
   troubleshooting section for the skill's own failure modes, such as `gh`
   unauthenticated, no session ID, store missing, or an ambiguous resolve.
-  Under 5,000 words, with detail moved to `references/`.
+  Detail goes in `references/`.
+- **Size budgets.** Skill content is re-injected on every invocation. Router
+  under 800 words. `planet-proposal` under 300, since it runs at every gate.
+  Step skills under 1,500.
 - **Scripts over prose.** Any check that can be a CLI command is a CLI
   command, never an instruction to "make sure".
+- **Read only what the step needs.** A step opens the paths `epic show` gives
+  it for its own inputs and nothing else. Never `cat` the epic directory.
+- **Subagents share memory through the store.** A subagent gets a command to
+  run and a file path, not a context transplant. It writes results to
+  `research/` or another free-form file in the epic directory and returns the
+  path plus a few lines of summary. Subagents never call ExitPlanMode and
+  never run Planet write commands: hooks are keyed on the session id, which
+  subagents share, so a subagent exiting plan mode would corrupt proposal
+  snapshots.
 
 ### Router: `/planet [text]`
 
-1. Run `planet status --json`. With no text: print the table, list shipped
-   phases without a retro, ask what Scott wants. Stop
-   if the table was the point.
-2. With text: run `planet epic resolve`. One candidate: use it and say so. Zero
-   or several: Claude picks the likely one from the status table and confirms
-   in one line before continuing. A Linear ID or URL with no match means a new
-   epic. Never a silent guess.
-3. `planet session start <epic>`, then `planet epic show`, `plan.md`, and the
-   phase bodies the step needs. If the session is already in plan mode, the
-   router says so and asks Scott to leave it first, since plan mode blocks the
-   CLI writes.
-4. Choose the step from state unless the text names one:
-   no `plan.md` → intake; plan but no phases → scoping, then phasing; a draft
-   phase → phase-plan; a shipped phase without a retro → offer retro first.
-5. `planet session step <name>`, then dispatch to the step skill. When it
-   returns, go to 4.
-6. `planet session end` when Scott is done.
+1. No text: run `planet status --json`, print the table, list shipped phases
+   without a retro, ask what Scott wants. Stop if the table was the point.
+2. With text: run `planet open "<text>"`. One match: the marker is set and the
+   payload holds status and the epic view. Say which epic was picked. Zero or
+   several: Claude picks the likely one from the returned status rows and
+   confirms in one line, then runs `planet open <slug>`. A Linear ID or URL
+   with no match means a new epic. Never a silent guess. If the session is
+   already in plan mode, the router says so and asks Scott to leave it first,
+   since plan mode blocks the CLI writes.
+3. Choose the step from the frontmatter in the payload, before reading any
+   prose, unless the text names one: no `plan.md` → intake; plan but no phases
+   → scoping, then phasing; a draft phase → phase-plan; a shipped phase without
+   a retro → offer retro first.
+4. `planet session step <name>`, then dispatch to the step skill, passing the
+   paths it needs from the payload. When it returns, go to 3.
+5. `planet session end` when Scott is done.
 
 All CLI writes happen outside plan mode: before a step enters it, or after
 ExitPlanMode returns.
@@ -383,15 +427,16 @@ plan mode, written to its destination on approval.
   sequence following Scott's git conventions, the Linear ticket it closes.
   Output: the phase body, status `planned`. Ends with a fixed footer:
   "Before starting, run `planet session start <epic> --phase <id>`."
-- **retro.** For a shipped phase: read the merged PR diffs against the phase
-  plan. Output: `retros/NN-<slug>.md` covering what deviated and why, classed
-  as plan was wrong, discovered during implementation, or scope changed. Then
-  proposed edits to remaining phases through `planet-proposal`. Sets status
-  `reviewed`.
+- **retro.** For a shipped phase: `planet pr files` for the change list, full
+  diffs only for files the phase plan named, a subagent summary for the rest,
+  all against the phase plan. Output: `retros/NN-<slug>.md` covering what
+  deviated and why, classed as plan was wrong, discovered during
+  implementation, or scope changed. Then proposed edits to remaining phases
+  through `planet-proposal`. Sets status `reviewed`.
 - **feedback-review.** Cross-epic, via `/planet review feedback`. Reads
-  `prompts.jsonl`, `notes.md`, proposals, and retros across all epics, groups
-  recurring pushback, and proposes concrete edits to the step skills' own
-  `SKILL.md` files in this repo. Scott approves each edit.
+  `planet feedback report`, not raw files, plus retros. Groups recurring
+  pushback and proposes concrete edits to the step skills' own `SKILL.md`
+  files in this repo. Scott approves each edit.
 
 Each step skill gets its own spec before it is written.
 
@@ -410,8 +455,8 @@ Input: the proposal text and its destination, `plan` or `phase:<n>`. Steps:
 2. Call ExitPlanMode. The hooks snapshot the proposal, then record the outcome,
    edits, or rejection message. The skill does none of that itself.
 3. Rejected: append one tag line to `feedback/notes.md`, return the rejection
-   message to the calling step, which revises and invokes `planet-proposal`
-   again as a new proposal.
+   message to the calling step, which edits the plan file in place, never
+   regenerates it, and invokes `planet-proposal` again as a new proposal.
 4. Approved: `planet proposal approve <epic> <id> --to <destination>`, which
    copies the plan file, edits included, into place. Return approved.
 
@@ -453,6 +498,19 @@ Input: the proposal text and its destination, `plan` or `phase:<n>`. Steps:
 - Background sync, cron, or launchd.
 - Storing state in project repos or in PR bodies.
 - A `planet` CLI that launches Claude. Possible later via `claude "/planet ..."`, not built now.
+
+## Later
+
+Deferred to the step-skill specs or beyond. None of it changes the store, CLI,
+or hooks.
+
+- A reviewer subagent for phasing and phase-plan output, run before
+  ExitPlanMode so Scott sees fewer first-draft mistakes.
+- Parallel subagents in feedback-review, one per epic or per step.
+- Model routing per subagent. Mechanical work is scripts, not a cheaper model,
+  so there is little to route today.
+- Ultraplan as the planner for a whole phase-plan step.
+- `planet feedback report` trends rendered as a chart or table over time.
 
 ## Follow-on specs
 

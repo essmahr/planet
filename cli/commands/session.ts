@@ -1,6 +1,6 @@
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, optString, parse } from "../lib/args.ts";
-import { endSession, sessionIdFrom, setSessionStep, startSession } from "../lib/session.ts";
+import { endSession, readMarker, sessionIdFrom, setSessionStep, startSession } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 import type { Step } from "../schema/types.ts";
 import { STEPS } from "../schema/types.ts";
@@ -35,8 +35,9 @@ async function sessionStep(args: string[], ctx: Ctx): Promise<CommandResult> {
 async function sessionEnd(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { values } = parse(args, { session: { type: "string" } });
   const id = sessionIdFrom(ctx.env, optString(values, "session"));
+  const marker = readMarker(ctx.home, id);
   const existed = endSession(ctx.home, id);
-  if (existed) commit(ctx.home, `end session ${id}`);
+  if (existed && marker) commit(ctx.home, `${marker.epic}: end session`);
   return { json: { session: id, ended: existed }, text: existed ? "session ended" : "no active session" };
 }
 

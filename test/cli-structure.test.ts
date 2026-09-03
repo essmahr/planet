@@ -75,6 +75,7 @@ test("session start, step, end use the env session id or --session", async () =>
   assert.match(noId.stderr, /no session id/);
   assert.equal((await run(["session", "end"], ctx(home))).code, 0);
   assert.equal(readMarker(home, SESSION), null);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: end session");
 });
 
 test("propose and proposal approve --to", async () => {

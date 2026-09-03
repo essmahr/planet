@@ -5,6 +5,7 @@ import type { Ctx } from "../cli/lib/context.ts";
 import type { Gh, PrFile, PrInfo } from "../cli/lib/gh.ts";
 import { GhUnavailable } from "../cli/lib/gh.ts";
 import { ensureStore } from "../cli/lib/store.ts";
+import { main } from "../cli/planet.ts";
 
 export const NOW = "2026-09-03T15:00:00.000Z";
 export const SESSION = "sess-1";
@@ -47,4 +48,25 @@ export function ctx(home: string, overrides: Partial<Ctx> = {}): Ctx {
     stdin: () => "",
     ...overrides,
   };
+}
+
+export interface RunResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+  json: unknown;
+}
+
+export async function run(argv: string[], c: Ctx): Promise<RunResult> {
+  let stdout = "";
+  let stderr = "";
+  const code = await main(argv, c, {
+    stdout: (s) => { stdout += s; },
+    stderr: (s) => { stderr += s; },
+  });
+  let json: unknown = null;
+  if (argv.includes("--json")) {
+    try { json = JSON.parse(stdout); } catch { json = null; }
+  }
+  return { code, stdout, stderr, json };
 }

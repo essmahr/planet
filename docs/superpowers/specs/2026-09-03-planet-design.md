@@ -40,8 +40,9 @@ Rough targets, measured from the store itself where possible.
 
 - The router resolves the epic without asking in most invocations.
 - Status needs one CLI call and no Claude judgment.
-- Revisions per approved proposal trend down over time, per step. This is the
-  feedback loop's own metric, computed from `proposals/`.
+- Revisions per approved proposal and inline edits per approved proposal trend
+  down over time, per step. These are the feedback loop's own metrics, computed
+  from `proposals/`.
 - No planning prompt from Scott is lost: every prompt in a marked session
   appears in `prompts.jsonl`.
 - No PR opened from a marked implementation session needs a manual `planet link`.
@@ -56,7 +57,8 @@ Rough targets, measured from the store itself where possible.
 | Phase to PR link | Phase frontmatter holds a list of PR URLs. One phase may have several PRs. PRs never reference Planet. |
 | How PRs get linked | PostToolUse hook catches `gh pr create` in a session with an active phase. `planet link` is the manual fallback. |
 | Merge detection | On demand. `planet status` and the router run `planet sync` first. No background jobs. |
-| Feedback capture | UserPromptSubmit hook logs every prompt verbatim. Claude adds tags. Proposal snapshots are anchors. |
+| Approval gate | Native plan mode. Proposals are written to the session's plan file and reviewed through ExitPlanMode, so inline editing in VS Code and Ultraplan work unchanged. |
+| Feedback capture | Hooks on ExitPlanMode snapshot what Claude proposed, your inline edits, and any rejection message. A UserPromptSubmit hook logs every prompt verbatim. Claude adds a tag only on rejections. |
 | Relation to superpowers | Planet owns the whole planning flow so every step can learn. Superpowers stays for execution: TDD, worktrees, review. |
 | Entry point | `/planet` in Claude is primary. The CLI is the same code, usable from a terminal for `status` and `link`. |
 | Language | TypeScript run directly by Node 24. No build step. No Bun. |
@@ -69,7 +71,7 @@ Rough targets, measured from the store itself where possible.
 ```
 planet/
   .claude-plugin/plugin.json
-  hooks/hooks.json              UserPromptSubmit + PostToolUse -> planet capture
+  hooks/hooks.json              four events -> planet capture (see Hooks)
   README.md                     for humans; no README inside any skill folder
   skills/
     planet/SKILL.md             user-invoked router
@@ -117,7 +119,7 @@ The store path is `~/.planet/`, overridable with `PLANET_HOME` for tests.
     feedback/notes.md               Claude-written tags pointing at proposals
     retros/NN-<slug>.md             plan-versus-shipped write-up per phase
     <anything else>                 dumps, screenshots, research, free-form
-  sessions/<session-id>             marker: active epic slug and optional phase id
+  sessions/<session-id>             marker: active epic slug, optional phase id, current step
   hook.log                          hook errors, never surfaced to Claude
 ```
 
@@ -153,7 +155,12 @@ prs:
 shipped_at: null                  # set by sync when the last PR merges
 ```
 
-### Proposal frontmatter
+### Proposals
+
+`proposals/NNN-<step>.md` is the plan file exactly as Claude wrote it, captured
+by the PreToolUse hook before Scott sees it. When Scott approves with inline
+edits, the edited plan file is stored as `proposals/NNN-<step>.edited.md`. Both
+are written only by the hook.
 
 ```yaml
 id: 3
@@ -161,7 +168,9 @@ step: phasing                     # intake | scoping | phasing | phase-plan | re
 phase: null                       # phase id when the step is about one phase
 session: <claude session id>
 created: 2026-09-03T15:40:00Z
-approved: false
+outcome: pending                  # pending | approved | rejected
+edited: false                     # true when the approved plan differs from the snapshot
+feedback: null                    # verbatim rejection message, when rejected
 ```
 
 ### feedback/prompts.jsonl
@@ -179,15 +188,16 @@ help.
 
 ### feedback/notes.md
 
-Appended by Claude, one line per pushback:
+Appended by Claude, one line per rejected proposal:
 
 ```
-- proposal 3 · reorder · "phase 2 should come before 1, codegen has no consumers yet"
+- proposal 3 · reorder
 ```
 
 Tags come from a fixed list: `scope-cut`, `scope-add`, `reorder`,
-`wrong-assumption`, `too-granular`, `too-coarse`, `style`, `other`. The quote is
-the shortest verbatim fragment that identifies the prompt.
+`wrong-assumption`, `too-granular`, `too-coarse`, `style`, `other`. The
+rejection text itself is already in the proposal's frontmatter, and inline
+edits need no tag because the diff is the signal.
 
 ### Lifecycle rules
 
@@ -206,10 +216,11 @@ Applied by the CLI only.
 
 ### Ownership
 
-`epic.yaml`, phase frontmatter, proposal frontmatter, `prompts.jsonl`, and
-session markers are written only by the CLI. Phase bodies are written by Claude
-through `planet phase write --body-file`, which preserves frontmatter. `plan.md`,
-`notes.md`, retros, and everything unlisted are written by Claude directly.
+`epic.yaml`, phase frontmatter, proposal files, `prompts.jsonl`, and session
+markers are written only by the CLI, whether invoked by Claude or by a hook.
+Phase bodies and `plan.md` are written from an approved plan file through
+`planet proposal approve --to`. `notes.md`, retros, and everything unlisted are
+written by Claude directly.
 
 ## CLI
 
@@ -246,11 +257,16 @@ confirmation line when not in JSON mode.
 
 ### Write, process
 
-- `planet propose <epic> <step> --file <path> [--phase <id>]`. Stores the snapshot, prints the id.
-- `planet proposal approve <epic> <id>`.
-- `planet session start <epic> [--phase <id>]` and `planet session end`. Session
-  id from `CLAUDE_CODE_SESSION_ID`, overridable with `--session <id>`. `start`
-  also appends the id to `epic.yaml` sessions.
+- `planet proposal approve <epic> <id> --to plan|phase:<n> [--from <path>]`.
+  Marks the proposal approved and writes the plan file's content to `plan.md`
+  or the phase body, preserving frontmatter. `--from` defaults to the session's
+  plan file.
+- `planet propose <epic> <step> --file <path> [--phase <id>]`. Manual snapshot
+  for paths that skip ExitPlanMode. Prints the id.
+- `planet session start <epic> [--phase <id>] [--step <name>]`,
+  `planet session step <name>`, and `planet session end`. Session id from
+  `CLAUDE_CODE_SESSION_ID`, overridable with `--session <id>`. `start` also
+  appends the id to `epic.yaml` sessions.
 - `planet capture`. Hook entry, see below.
 
 ### Sync
@@ -261,17 +277,33 @@ confirmation line when not in JSON mode.
 
 ## Hooks
 
-Both events run `planet capture`, which reads Claude Code's JSON from stdin and
-dispatches on `hook_event_name`.
+Four events run `planet capture`, which reads Claude Code's JSON from stdin and
+dispatches on `hook_event_name`. Every branch starts by looking up
+`sessions/<session_id>` and exits 0 when there is no marker.
 
-- **UserPromptSubmit.** Look up `sessions/<session_id>`. No marker: exit 0. With
-  a marker: append the prompt to that epic's `prompts.jsonl` with `kind`,
-  `phase`, and the current highest proposal id.
-- **PostToolUse, matcher Bash.** Look up the marker. Exit 0 unless it has a
-  phase and the command contains `gh pr create`. Otherwise pull the PR URL from
-  the tool output and run the same code path as `planet link`.
+- **UserPromptSubmit.** Append the prompt to the epic's `prompts.jsonl` with
+  `kind`, `phase`, and the current highest proposal id.
+- **PreToolUse, matcher ExitPlanMode.** Copy the session's plan file to
+  `proposals/NNN-<step>.md` with `outcome: pending`, using the marker's step and
+  phase. This is what Claude proposed, before any edit.
+- **PostToolUse, matcher ExitPlanMode.** Read the tool result and the plan file
+  again. Approved: set `outcome: approved`, and if the file differs from the
+  snapshot, store it as `.edited.md` and set `edited: true`. Rejected: set
+  `outcome: rejected` and store the message verbatim in `feedback`.
+- **PostToolUse, matcher Bash.** Exit 0 unless the marker has a phase and the
+  command contains `gh pr create`. Otherwise pull the PR URL from the tool
+  output and run the same code path as `planet link`.
 
 Hooks never block. Any error exits 0 and appends to `~/.planet/hook.log`.
+
+Two facts to verify in the CLI spec before relying on them:
+
+- Whether PostToolUse fires for ExitPlanMode on a rejection. If not, the
+  rejection message arrives as Scott's next prompt and UserPromptSubmit still
+  captures it; the proposal then stays `pending` until the next snapshot
+  supersedes it.
+- Whether Ultraplan reviews go through ExitPlanMode. If not, `planet propose`
+  is the fallback and the step skill calls it before presenting.
 
 ## Skills
 
@@ -314,12 +346,18 @@ the exact values; this spec sets the rules.
    in one line before continuing. A Linear ID or URL with no match means a new
    epic. Never a silent guess.
 3. `planet session start <epic>`, then `planet epic show`, `plan.md`, and the
-   phase bodies the step needs.
+   phase bodies the step needs. If the session is already in plan mode, the
+   router says so and asks Scott to leave it first, since plan mode blocks the
+   CLI writes.
 4. Choose the step from state unless the text names one:
    no `plan.md` → intake; plan but no phases → scoping, then phasing; a draft
    phase → phase-plan; a shipped phase without a retro → offer retro first.
-5. Dispatch to the step skill. When it returns, go to 4.
+5. `planet session step <name>`, then dispatch to the step skill. When it
+   returns, go to 4.
 6. `planet session end` when Scott is done.
+
+All CLI writes happen outside plan mode: before a step enters it, or after
+ExitPlanMode returns.
 
 Implementing a phase is out of scope. The router prints the phase file path
 and stops.
@@ -327,7 +365,9 @@ and stops.
 ### Step skills
 
 Each is model-invoked and reached only through the router. Each has one input
-and one output and invokes `planet-proposal` at every approval gate.
+and one output. Clarifying questions happen in chat. Every document a step
+produces goes through `planet-proposal`: drafted in the plan file, reviewed in
+plan mode, written to its destination on approval.
 
 - **intake.** From a Linear ticket or a prompt. Pull ticket context via the
   Linear MCP, explore the codebase with a subagent, find related PRs. Output:
@@ -359,18 +399,21 @@ Each step skill gets its own spec before it is written.
 
 Model-invoked, hidden, called by every step skill at every approval gate. It is
 a skill rather than a shared reference file so each step skill stays
-self-contained and the feedback loop edits the gate in one place.
+self-contained and the feedback loop edits the gate in one place. It wraps
+native plan mode so Scott reviews in the editor he already uses, with inline
+edits, and Ultraplan stays available.
 
-Input: the step name, the proposal text, and its destination. Steps:
+Input: the proposal text and its destination, `plan` or `phase:<n>`. Steps:
 
-1. Write the proposal to a scratch file. Register it with `planet propose`.
-   Show it to Scott verbatim.
-2. Wait for a response. On pushback: append one line to `feedback/notes.md`
-   with the proposal id, a tag, and a short quote. Return the pushback to the
-   calling step, which revises and invokes `planet-proposal` again as a new
-   proposal.
-3. On approval: `planet proposal approve`, then write the result to its
-   destination through the CLI. Return approved.
+1. Enter plan mode. Write the proposal into the session's plan file. Nothing
+   else is written while in plan mode.
+2. Call ExitPlanMode. The hooks snapshot the proposal, then record the outcome,
+   edits, or rejection message. The skill does none of that itself.
+3. Rejected: append one tag line to `feedback/notes.md`, return the rejection
+   message to the calling step, which revises and invokes `planet-proposal`
+   again as a new proposal.
+4. Approved: `planet proposal approve <epic> <id> --to <destination>`, which
+   copies the plan file, edits included, into place. Return approved.
 
 ## Testing
 
@@ -378,8 +421,10 @@ Input: the step name, the proposal text, and its destination. Steps:
   subcommand: JSON output and resulting files. `gh` lives in one module and is
   replaced with recorded GraphQL fixtures, so sync tests run offline.
 - **Hooks.** Fed the JSON Claude Code sends. Cases: no marker, marker without
-  phase, `gh pr create` with and without a URL in the output, malformed input.
-  Every case exits 0.
+  phase, `gh pr create` with and without a URL in the output, PreToolUse
+  snapshot with and without a marker, PostToolUse with approve,
+  approve-with-edits, reject, and a missing plan file, malformed input. Every
+  case exits 0.
 - **Schema.** One validator over every CLI-owned file, run on each read and by
   `planet check`.
 - **Skills, triggering.** For the router: should-trigger cases including
@@ -394,7 +439,8 @@ Input: the step name, the proposal text, and its destination. Steps:
 
 ## Error handling
 
-- Hooks never fail a prompt or a tool call.
+- Hooks never fail a prompt or a tool call. A missing or unreadable plan file
+  is logged and the proposal is left `pending`.
 - CLI writes are validate, write, commit. Nothing partial.
 - `gh` unavailable: sync reports it, status renders stored state marked stale.
 - PR closed without merge: entry marked `closed`, phase flagged, no status change.

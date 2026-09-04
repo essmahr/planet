@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
+import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected } from "../lib/proposal.ts";
 import { readMarker } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
@@ -90,6 +91,21 @@ function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: s
   return [`proposal ${proposal.meta.id} rejected`];
 }
 
+export const GH_PR_CREATE_RE = /\bgh\s+pr\s+create\b/;
+
+function onBash(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
+  const command = typeof input.tool_input?.command === "string" ? input.tool_input.command : "";
+  if (!GH_PR_CREATE_RE.test(command)) return ["ignored"];
+  if (marker.phase === null) return ["no phase in session; not linking"];
+  const match = PR_URL_RE.exec(responseText(input.tool_response));
+  if (!match) return ["no PR url in output"];
+  const url = match[0];
+  const result = linkPrs(ctx.home, marker.epic, marker.phase, [url], ctx.now());
+  if (result.added.length === 0) return ["already linked"];
+  commit(ctx.home, `${marker.epic}: link phase ${marker.phase} to ${url}`);
+  return [`linked ${url} to phase ${marker.phase}`];
+}
+
 export function handleHook(raw: string, ctx: Ctx): string[] {
   const input = JSON.parse(raw) as HookInput;
   const marker = readMarker(ctx.home, input.session_id);
@@ -101,6 +117,7 @@ export function handleHook(raw: string, ctx: Ctx): string[] {
       return input.tool_name === "ExitPlanMode" ? onPlanProposed(input, marker, ctx) : ["ignored"];
     case "PostToolUse":
       if (input.tool_name === "ExitPlanMode") return onPlanResult(input, marker, ctx, responseText(input.tool_response));
+      if (input.tool_name === "Bash") return onBash(input, marker, ctx);
       return ["ignored"];
     case "PostToolUseFailure":
     case "PermissionDenied":

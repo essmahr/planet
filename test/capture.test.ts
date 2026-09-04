@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
-import { newPhases } from "../cli/lib/phase.ts";
+import { newPhases, readPhase } from "../cli/lib/phase.ts";
 import { editedPath, readProposal } from "../cli/lib/proposal.ts";
 import { startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
@@ -120,4 +120,38 @@ test("capture command never fails: bad json is logged and exit code is 0", async
   assert.equal(r.code, 0);
   assert.equal(r.stdout, "");
   assert.match(readFileSync(paths.hookLog(home), "utf8"), /Unexpected token|not valid JSON/);
+});
+
+const PR = "https://github.com/o/r/pull/12";
+
+test("gh pr create output links the PR to the session phase", () => {
+  const home = setup(1);
+  const actions = handleHook(hook("PostToolUse", {
+    tool_name: "Bash",
+    tool_input: { command: "gh pr create --title x --body y" },
+    tool_response: `Creating pull request for feat in o/r\n\n${PR}\n`,
+  }), ctx(home));
+  assert.deepEqual(actions, [`linked ${PR} to phase 1`]);
+  const phase = readPhase(home, "e", 1);
+  assert.equal(phase.meta.status, "in-progress");
+  assert.equal(phase.meta.prs[0].url, PR);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), `e: link phase 1 to ${PR}`);
+  assert.deepEqual(handleHook(hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr create" }, tool_response: { stdout: PR, stderr: "" } }), ctx(home)), ["already linked"]);
+});
+
+test("gh pr create is ignored without a phase, without a url, or for other commands", () => {
+  const home = setup();
+  assert.deepEqual(handleHook(hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr create" }, tool_response: PR }), ctx(home)), ["no phase in session; not linking"]);
+  const withPhase = setup(1);
+  assert.deepEqual(handleHook(hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr create" }, tool_response: "error: not authenticated" }), ctx(withPhase)), ["no PR url in output"]);
+  assert.deepEqual(handleHook(hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr view 12" }, tool_response: PR }), ctx(withPhase)), ["ignored"]);
+});
+
+test("a PR from another repo is logged, not linked, and the hook still exits 0", async () => {
+  const home = setup(1);
+  const raw = hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr create" }, tool_response: "https://github.com/other/repo/pull/1" });
+  const r = await run(["capture"], ctx(home, { stdin: () => raw }));
+  assert.equal(r.code, 0);
+  assert.match(readFileSync(paths.hookLog(home), "utf8"), /is not in o\/r/);
+  assert.deepEqual(readPhase(home, "e", 1).meta.prs, []);
 });

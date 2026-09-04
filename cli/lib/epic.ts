@@ -71,7 +71,7 @@ export function resolveEpics(epics: Epic[], text: string, phasesOf: (slug: strin
   if (!q) return [];
   const exact = epics.filter((e) => e.slug === q);
   if (exact.length) return exact;
-  const tokens = q.split(/\s+/).filter((t) => t.length >= 3 && !RESOLVE_STOPWORDS.has(t));
+  const tokens = q.split(/[^a-z0-9-]+/).filter((t) => t.length >= 3 && !RESOLVE_STOPWORDS.has(t));
   if (tokens.length) {
     const scored = epics.map((e) => {
       const title = e.title.toLowerCase();

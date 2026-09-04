@@ -70,3 +70,13 @@ test("resolveEpics: scores tokens and drops stopwords", () => {
   assert.deepEqual(resolveEpics(epics, "the gql thing", phasesOf).map((e) => e.slug), ["gql-migration"]);
   assert.deepEqual(resolveEpics(epics, "continue gql migration", phasesOf).map((e) => e.slug), ["gql-migration"]);
 });
+
+test("resolveEpics: tokens split on punctuation, not just whitespace", () => {
+  const home = tmpHome();
+  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r" }, NOW);
+  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repo: "o/r" }, NOW);
+  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repo: "o/r" }, NOW);
+  const phasesOf = (): PhaseMeta[] => [];
+  const epics = [gql, auth, db];
+  assert.deepEqual(resolveEpics(epics, "what's up with gql?", phasesOf).map((e) => e.slug), ["gql-migration"]);
+});

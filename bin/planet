@@ -3,4 +3,6 @@ set -euo pipefail
 self="${BASH_SOURCE[0]}"
 while [ -L "$self" ]; do self="$(readlink "$self")"; done
 root="$(cd "$(dirname "$self")/.." && pwd)"
-exec node "$root/cli/planet.ts" "$@"
+. "$root/cli/find-node.sh"
+node_bin="$(planet_find_node)" || { echo "planet: node 24 not found; install node or set PLANET_NODE" >&2; exit 127; }
+exec "$node_bin" "$root/cli/planet.ts" "$@"

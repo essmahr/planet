@@ -67,7 +67,8 @@ export function resolveEpics(epics: Epic[], text: string, phasesOf: (slug: strin
   if (!q) return [];
   const exact = epics.filter((e) => e.slug === q);
   if (exact.length) return exact;
-  const partial = epics.filter((e) => e.slug.includes(q) || e.title.toLowerCase().includes(q));
+  const tokens = q.split(/\s+/);
+  const partial = epics.filter((e) => tokens.some((t) => e.slug.includes(t) || e.title.toLowerCase().includes(t)));
   if (partial.length) return partial;
   const m = LINEAR_ID_RE.exec(text);
   if (!m) return [];

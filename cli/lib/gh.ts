@@ -61,7 +61,7 @@ export function realGh(): Gh {
         const raw = JSON.parse(await gh(["api", "graphql", "-f", `query={ ${fields} }`])) as { data: Record<string, GraphqlPr | null> };
         chunk.forEach((u, j) => {
           const pr = raw.data[`p${j}`];
-          if (!pr) throw new Error(`PR not found: ${u}`);
+          if (!pr) return;
           out.push({ url: u, state: pr.state.toLowerCase() as PrState, merged_at: pr.mergedAt });
         });
       }

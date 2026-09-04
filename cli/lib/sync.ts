@@ -1,6 +1,5 @@
 import type { PrInfo } from "./gh.ts";
 import type { Gh } from "./gh.ts";
-import { GhUnavailable } from "./gh.ts";
 import { listEpics, readEpic, writeEpic } from "./epic.ts";
 import { recomputeEpicStatus } from "./lifecycle.ts";
 import { listPhases, writePhase } from "./phase.ts";
@@ -17,12 +16,13 @@ export interface SyncResult {
   epic: string;
   skipped: boolean;
   stale: boolean;
+  stale_reason: string | null;
   changes: string[];
 }
 
 export async function syncEpic(home: string, slug: string, gh: Gh, now: string, opts: SyncOptions = {}): Promise<SyncResult> {
   const epic = readEpic(home, slug);
-  const result: SyncResult = { epic: slug, skipped: false, stale: false, changes: [] };
+  const result: SyncResult = { epic: slug, skipped: false, stale: false, stale_reason: null, changes: [] };
   if (epic.status === "shipped" || epic.status === "abandoned") return { ...result, skipped: true };
   const maxAge = opts.maxAgeMs ?? DEFAULT_MAX_AGE_MS;
   if (!opts.force && epic.synced_at !== null && Date.parse(now) - Date.parse(epic.synced_at) < maxAge) {
@@ -35,14 +35,18 @@ export async function syncEpic(home: string, slug: string, gh: Gh, now: string, 
     try {
       infos = await gh.prStates(openUrls);
     } catch (err) {
-      if (err instanceof GhUnavailable) return { ...result, stale: true };
-      throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      return { ...result, stale: true, stale_reason: message };
     }
   }
   const byUrl = new Map(infos.map((i) => [i.url, i]));
   for (const phase of phases) {
     let changed = false;
     for (const pr of phase.meta.prs) {
+      if (pr.state === "open" && !byUrl.has(pr.url)) {
+        result.changes.push(`phase ${phase.meta.id}: ${pr.url} not found on github`);
+        continue;
+      }
       const info = byUrl.get(pr.url);
       if (!info || info.state === pr.state) continue;
       result.changes.push(`phase ${phase.meta.id}: ${pr.url} ${pr.state} -> ${info.state}`);

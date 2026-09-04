@@ -68,6 +68,24 @@ test("syncEpic reports stale when gh is unavailable and writes nothing", async (
   assert.equal(readEpic(home, "e").synced_at, null);
 });
 
+test("syncEpic treats any gh error as stale and writes nothing", async () => {
+  const home = setup();
+  const r = await syncEpic(home, "e", fakeGh({}, {}, false, new Error("API rate limit exceeded")), NOW);
+  assert.equal(r.stale, true);
+  assert.match(r.stale_reason ?? "", /rate limit/);
+  assert.deepEqual(r.changes, []);
+  assert.equal(readEpic(home, "e").synced_at, null);
+});
+
+test("an open pr missing from github's response gets a change note and stays open", async () => {
+  const home = setup();
+  const gh = fakeGh({ [PR2]: { url: PR2, state: "open", merged_at: null } });
+  const r = await syncEpic(home, "e", gh, NOW);
+  assert.match(r.changes.join("\n"), new RegExp(`phase 1: ${PR1.replace(/[/.]/g, "\\$&")} not found on github`));
+  const phase = readPhase(home, "e", 1);
+  assert.equal(phase.meta.prs.find((pr) => pr.url === PR1)?.state, "open");
+});
+
 test("closed prs are recorded without changing the phase", async () => {
   const home = setup();
   const gh = fakeGh({ [PR1]: { url: PR1, state: "closed", merged_at: null }, [PR2]: { url: PR2, state: "merged", merged_at: NOW } });

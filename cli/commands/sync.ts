@@ -6,7 +6,7 @@ import type { SyncResult } from "../lib/sync.ts";
 export function describeSync(results: SyncResult[]): string {
   return results
     .map((r) => {
-      if (r.stale) return `${r.epic}: gh unavailable, state is stale`;
+      if (r.stale) return r.stale_reason ? `${r.epic}: gh unavailable (${r.stale_reason}), state is stale` : `${r.epic}: gh unavailable, state is stale`;
       if (r.skipped) return `${r.epic}: skipped`;
       if (r.changes.length === 0) return `${r.epic}: no changes`;
       return [`${r.epic}:`, ...r.changes.map((c) => `  ${c}`)].join("\n");

@@ -18,18 +18,15 @@ export function tmpHome(): string {
 
 export type FakeGh = Gh & { calls: string[] };
 
-export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false): FakeGh {
+export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false, failWith?: Error): FakeGh {
   const calls: string[] = [];
   return {
     calls,
     async prStates(urls) {
       calls.push(`prStates:${urls.length}`);
+      if (failWith) throw failWith;
       if (unavailable) throw new GhUnavailable("offline");
-      return urls.map((u) => {
-        const info = states[u];
-        if (!info) throw new Error(`PR not found: ${u}`);
-        return info;
-      });
+      return urls.filter((u) => states[u]).map((u) => states[u]);
     },
     async prFiles(url) {
       calls.push(`prFiles:${url}`);

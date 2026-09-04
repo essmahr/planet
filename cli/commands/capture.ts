@@ -5,10 +5,12 @@ import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected } from "../lib/proposal.ts";
 import { readMarker } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
+import { rejectionFeedback } from "../lib/transcript.ts";
 
 export interface HookInput {
   hook_event_name: string;
   session_id: string;
+  transcript_path?: string;
   agent_id?: string;
   tool_name?: string;
   tool_use_id?: string;
@@ -43,6 +45,20 @@ export function approvedPlanText(response: string, fallback: string): string {
   return response.slice(at + APPROVED_PLAN_HEADING.length);
 }
 
+/**
+ * The approved plan when Claude Code reports ExitPlanMode success as a structured
+ * object, which is what PostToolUse actually carries: `{ plan, filePath, isAgent }`.
+ * The sentence form (`User has approved your plan ...`) is what the model sees, not
+ * the hook, but stays supported as a fallback.
+ */
+export function structuredPlan(response: unknown): string | null {
+  if (typeof response !== "object" || response === null) return null;
+  const plan = (response as { plan?: unknown }).plan;
+  return typeof plan === "string" ? plan : null;
+}
+
+const REJECTION_NOT_CAPTURED = "rejected before the next plan was proposed; message not captured";
+
 function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const text = input.user_input ?? input.prompt ?? "";
   if (!text) return ["empty prompt"];
@@ -60,10 +76,25 @@ function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   return ["prompt captured"];
 }
 
+/**
+ * A rejected plan fires no hook event. The only signal is a new ExitPlanMode arriving while
+ * the previous proposal from this session is still pending, so that is when it is marked
+ * rejected, with the message read from the transcript when it can be.
+ */
+function rejectPending(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
+  const pending = latestPending(ctx.home, marker.epic, input.session_id);
+  if (!pending) return [];
+  const feedback = rejectionFeedback(input.transcript_path, pending.meta.tool_use) ?? REJECTION_NOT_CAPTURED;
+  markRejected(ctx.home, marker.epic, pending.meta.id, feedback);
+  commit(ctx.home, `${marker.epic}: reject proposal ${pending.meta.id}`);
+  return [`proposal ${pending.meta.id} rejected`];
+}
+
 function onPlanProposed(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   if (input.agent_id) return ["subagent plan ignored"];
   const plan = input.tool_input?.plan;
   if (typeof plan !== "string") return ["no plan text"];
+  const actions = rejectPending(input, marker, ctx);
   const planFile = typeof input.tool_input?.planFilePath === "string" ? input.tool_input.planFilePath : null;
   const proposal = createProposal(
     ctx.home,
@@ -72,7 +103,8 @@ function onPlanProposed(input: HookInput, marker: SessionMarker, ctx: Ctx): stri
     ctx.now(),
   );
   commit(ctx.home, `${marker.epic}: snapshot proposal ${proposal.meta.id}`);
-  return [`proposal ${proposal.meta.id} created`];
+  actions.push(`proposal ${proposal.meta.id} created`);
+  return actions;
 }
 
 function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: string, forceReject: boolean): string[] {
@@ -81,8 +113,9 @@ function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: s
   const proposal = byId ?? latestPending(ctx.home, marker.epic, input.session_id);
   if (!proposal) return ["no pending proposal"];
   if (proposal.meta.outcome !== "pending") return [`proposal ${proposal.meta.id} already ${proposal.meta.outcome}`];
-  if (APPROVED_RE.test(text)) {
-    const approved = markApproved(ctx.home, marker.epic, proposal.meta.id, approvedPlanText(text, proposal.body));
+  const planFromResult = forceReject ? null : structuredPlan(input.tool_response);
+  if (planFromResult !== null || APPROVED_RE.test(text)) {
+    const approved = markApproved(ctx.home, marker.epic, proposal.meta.id, planFromResult ?? approvedPlanText(text, proposal.body));
     const suffix = approved.meta.edited ? " with edits" : "";
     commit(ctx.home, `${marker.epic}: approve proposal ${proposal.meta.id}${suffix}`);
     return [`proposal ${proposal.meta.id} approved${approved.meta.edited ? " (edited)" : ""}`];

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
@@ -96,7 +97,7 @@ test("PostToolUse approval with inline edits stores the edited plan", () => {
 test("an unrecognized PostToolUse result leaves the proposal pending and logs it", () => {
   const home = setup();
   handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN } }), ctx(home));
-  const actions = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN }, tool_response: { plan: "x", isAgent: false } }), ctx(home));
+  const actions = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN }, tool_response: { isAgent: false, filePath: "/plans/x.md" } }), ctx(home));
   assert.deepEqual(actions, ["proposal 1 left pending: unrecognized result"]);
   assert.equal(readProposal(home, "e", 1).meta.outcome, "pending");
   assert.match(readFileSync(paths.hookLog(home), "utf8"), /unrecognized ExitPlanMode result/);
@@ -163,4 +164,43 @@ test("a PR from another repo is logged, not linked, and the hook still exits 0",
   assert.equal(r.code, 0);
   assert.match(readFileSync(paths.hookLog(home), "utf8"), /is not in o\/r/);
   assert.deepEqual(readPhase(home, "e", 1).meta.prs, []);
+});
+
+test("PostToolUse approval arrives as a structured result carrying the approved plan", () => {
+  const home = setup();
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home));
+  const same = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: {}, tool_response: { filePath: "/plans/x.md", isAgent: false, plan: PLAN } }), ctx(home));
+  assert.deepEqual(same, ["proposal 1 approved"]);
+  assert.equal(readProposal(home, "e", 1).meta.edited, false);
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s2", tool_input: { plan: PLAN } }), ctx(home));
+  const edited = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s2", tool_input: {}, tool_response: { filePath: "/plans/x.md", isAgent: false, plan: "# Phase 1\n\nDo B then A.\n" } }), ctx(home));
+  assert.deepEqual(edited, ["proposal 2 approved (edited)"]);
+  assert.equal(readFileSync(editedPath(readProposal(home, "e", 2).path), "utf8"), "# Phase 1\n\nDo B then A.\n");
+});
+
+test("a new plan while one is pending rejects the pending one with the transcript's feedback", () => {
+  const home = setup();
+  const transcript = join(home, "transcript.jsonl");
+  const rejection = {
+    type: "user",
+    toolDenialKind: "user-rejected",
+    userFeedback: "trim down, too much surface area",
+    message: { role: "user", content: [{ type: "tool_result", tool_use_id: "r1", is_error: true, content: "The user doesn't want to proceed with this tool use. To tell you how to proceed, the user said:\ntrim down, too much surface area" }] },
+  };
+  writeFileSync(transcript, `${JSON.stringify({ type: "assistant", message: { content: [] } })}\n${JSON.stringify(rejection)}\n`);
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "r1", tool_input: { plan: PLAN }, transcript_path: transcript }), ctx(home));
+  const actions = handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "r2", tool_input: { plan: PLAN }, transcript_path: transcript }), ctx(home));
+  assert.deepEqual(actions, ["proposal 1 rejected", "proposal 2 created"]);
+  const rejected = readProposal(home, "e", 1);
+  assert.equal(rejected.meta.outcome, "rejected");
+  assert.equal(rejected.meta.feedback, "trim down, too much surface area");
+  assert.equal(readProposal(home, "e", 2).meta.outcome, "pending");
+  assert.equal(git(home, ["log", "-2", "--format=%s"]).trim(), "e: snapshot proposal 2\ne: reject proposal 1");
+});
+
+test("a pending proposal is rejected with a placeholder when the transcript has no record", () => {
+  const home = setup();
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q1", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home));
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q2", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home));
+  assert.match(readProposal(home, "e", 1).meta.feedback ?? "", /message not captured/);
 });

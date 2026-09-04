@@ -1,0 +1,21 @@
+{
+  "description": "Planet: capture prompts, plan-mode proposals, and PR links for the active epic",
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "ExitPlanMode", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "ExitPlanMode", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] },
+      { "matcher": "Bash", "hooks": [{ "type": "command", "if": "Bash(gh pr create *)", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] }
+    ],
+    "PostToolUseFailure": [
+      { "matcher": "ExitPlanMode", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] }
+    ],
+    "PermissionDenied": [
+      { "matcher": "ExitPlanMode", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/planet-hook", "timeout": 10 }] }
+    ]
+  }
+}

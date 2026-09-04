@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Hook entry for Claude Code. Exits before starting Node unless this session has a Planet marker.
+input="$(cat)"
+sid="$(printf '%s' "$input" | grep -o '"session_id": *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')"
+home="${PLANET_HOME:-$HOME/.planet}"
+if [ -z "$sid" ] || [ ! -f "$home/sessions/$sid" ]; then
+  exit 0
+fi
+self="${BASH_SOURCE[0]}"
+while [ -L "$self" ]; do self="$(readlink "$self")"; done
+root="$(cd "$(dirname "$self")/.." && pwd)"
+printf '%s' "$input" | node "$root/cli/planet.ts" capture >/dev/null 2>>"$home/hook.log" || true
+exit 0

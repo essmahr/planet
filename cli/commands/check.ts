@@ -4,7 +4,7 @@ import { parse as parseYaml } from "yaml";
 import type { Command } from "../lib/context.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { paths } from "../lib/store.ts";
-import { validateEpic, validateMarker, validatePhaseMeta, validateProposalMeta } from "../schema/validate.ts";
+import { validateEpic, validateMarker, validatePhaseMeta, validatePromptLine, validateProposalMeta } from "../schema/validate.ts";
 
 interface CheckError {
   file: string;
@@ -37,8 +37,17 @@ export function checkStore(home: string): CheckError[] {
     for (const file of listFiles(paths.proposals(home, slug), /^\d{3}-[a-z-]+\.md$/)) {
       attempt(errors, file, () => validateProposalMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));
     }
+    const promptsFile = paths.prompts(home, slug);
+    if (existsSync(promptsFile)) {
+      const lines = readFileSync(promptsFile, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (!line.trim()) return;
+        const label = `${promptsFile}:${i + 1}`;
+        attempt(errors, label, () => validatePromptLine(JSON.parse(line), label));
+      });
+    }
   }
-  for (const file of listFiles(paths.sessions(home), /./)) {
+  for (const file of listFiles(paths.sessions(home), /^[^.]/)) {
     attempt(errors, file, () => validateMarker(JSON.parse(readFileSync(file, "utf8")), file));
   }
   return errors;

@@ -111,3 +111,16 @@ test("check reports every invalid file and exits 1", async () => {
   assert.match(errors[0].message, /status must be one of/);
   assert.match(errors[1].message, /epic must be a non-empty string/);
 });
+
+test("check validates prompts.jsonl lines and skips dotfiles in sessions", async () => {
+  const home = await setup();
+  const valid = { ts: "t", session: "s", kind: "planning", phase: null, proposal: null, text: "hi" };
+  writeFileSync(paths.prompts(home, "e"), `${JSON.stringify(valid)}\n${JSON.stringify({ ts: "t", kind: "nap" })}\n`);
+  writeFileSync(join(paths.sessions(home), ".DS_Store"), "junk");
+  const r = await run(["check", "--json"], ctx(home));
+  assert.equal(r.code, 1);
+  const errors = (r.json as { errors: { file: string; message: string }[] }).errors;
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].file, /prompts\.jsonl:2$/);
+  assert.match(errors[0].message, /kind must be one of/);
+});

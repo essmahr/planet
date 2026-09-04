@@ -130,6 +130,23 @@ export function validateProposalMeta(v: unknown, file: string): ProposalMeta {
   };
 }
 
+const PROMPT_KINDS = ["planning", "implementation"] as const;
+
+export function validatePromptLine(
+  v: unknown,
+  file: string,
+): { ts: string; session: string; kind: "planning" | "implementation"; phase: number | null; proposal: number | null; text: string } {
+  const o = obj(v, file);
+  return {
+    ts: str(o, "ts", file),
+    kind: oneOf(o, "kind", file, PROMPT_KINDS),
+    session: str(o, "session", file),
+    phase: nullableInt(o, "phase", file),
+    proposal: nullableInt(o, "proposal", file),
+    text: str(o, "text", file),
+  };
+}
+
 export function validateMarker(v: unknown, file: string): SessionMarker {
   const o = obj(v, file);
   return {

@@ -47,6 +47,24 @@ Run with a catch-all probe hook logging every raw payload (138 events).
 Fixed in commits `fd6e6b4` and the one after it. Proposals 1 to 5 in the probe epic
 stayed `pending` because they were captured before the fix.
 
-## Steps 4 to 6
+## Re-run after the fix
 
-Pending.
+Proposal 6 `rejected` with the exact rejection words as `feedback`; proposal 7
+`approved`. Both from real hook payloads, no manual step.
+
+## Step 5: PR auto-link, and the `if` filter
+
+Run without a real PR: `cd /tmp && echo "<pr url>" && gh pr create --help`. The
+Bash hook fired on the chained command, so the hooks.json `if: "Bash(gh pr create *)"`
+rule is checked per subcommand as the reference says, not as a prefix. The URL was
+taken from the output, the phase went `in-progress` with one open PR, `planet unlink`
+returned it to `planned`. The filter stays.
+
+## Step 6: terminal use
+
+`PATH="$HOME/code/personal/planet/bin:$PATH" planet status` rendered the same table
+outside Claude.
+
+## Cleanup
+
+Probe epic removed from the store, session markers cleared, `planet check` clean.

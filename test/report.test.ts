@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { NOW, SESSION, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
@@ -53,6 +54,19 @@ test("buildReport aggregates per step with rejections, edits, tags, and prompts"
   assert.doesNotMatch(report.edits[0].diff, /^-id:/m, "frontmatter is not part of the edit diff");
   assert.deepEqual(report.tags, { reorder: 1 });
   assert.deepEqual(report.prompts, { planning: 1, implementation: 1 });
+});
+
+test("buildReport removes its temp diff directories after use", () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
+  const p = createProposal(home, "e", { ...base, step: "phasing", body: "# A\n1\n2\n" }, NOW);
+  markApproved(home, "e", p.meta.id, "# A\n2\n1\n3\n");
+
+  const countLeaked = () => readdirSync(tmpdir()).filter((f) => f.startsWith("planet-diff-")).length;
+  const before = countLeaked();
+  buildReport(home, ["e"]);
+  assert.equal(countLeaked(), before);
 });
 
 test("pr files sums per path across merged prs", async () => {

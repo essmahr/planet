@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,19 +33,28 @@ export function parseTags(notes: string): Record<string, number> {
   return tags;
 }
 
-/** The snapshot body written to a temp file, so the diff against the edited plan excludes frontmatter. */
-function snapshotBodyFile(proposal: Proposal): string {
-  const file = join(mkdtempSync(join(tmpdir(), "planet-diff-")), "snapshot.md");
-  writeFileSync(file, proposal.body);
-  return file;
-}
-
 /** Unified diff between two files, hunks only. git exits 1 when the files differ, so the status is ignored. */
 export function diffFiles(a: string, b: string): string {
   const result = spawnSync("git", ["diff", "--no-index", "--no-color", "--unified=1", "--", a, b], { encoding: "utf8" });
   const lines = result.stdout.split("\n");
   const first = lines.findIndex((l) => l.startsWith("@@"));
   return first === -1 ? "" : lines.slice(first).join("\n").trimEnd();
+}
+
+/** Diffs a proposal's snapshot body against an edited file, so frontmatter never appears in the diff.
+ *
+ * Writes the body to a temp dir (frontmatter lives only in the proposal file, not `proposal.body`) and always
+ * cleans that dir up afterward, so repeated report runs don't leak temp directories.
+ */
+function diffAgainstBody(proposal: Proposal, editedFile: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "planet-diff-"));
+  try {
+    const snapshotPath = join(dir, "snapshot.md");
+    writeFileSync(snapshotPath, proposal.body);
+    return diffFiles(snapshotPath, editedFile);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 export interface StepStats {
@@ -103,7 +112,7 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
         rejections.push({ epic, id: p.meta.id, step: p.meta.step, feedback, comments: parseComments(feedback) });
       }
       if (p.meta.edited && existsSync(editedPath(p.path))) {
-        edits.push({ epic, id: p.meta.id, step: p.meta.step, diff: diffFiles(snapshotBodyFile(p), editedPath(p.path)) });
+        edits.push({ epic, id: p.meta.id, step: p.meta.step, diff: diffAgainstBody(p, editedPath(p.path)) });
       }
     }
     const notes = paths.notes(home, epic);

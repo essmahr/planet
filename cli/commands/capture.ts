@@ -54,18 +54,25 @@ export function approvedPlanText(response: string, fallback: string): string {
 export function structuredPlan(response: unknown): string | null {
   if (typeof response !== "object" || response === null) return null;
   const plan = (response as { plan?: unknown }).plan;
-  return typeof plan === "string" ? plan : null;
+  return typeof plan === "string" && plan.trim() !== "" ? plan : null;
 }
 
 const REJECTION_NOT_CAPTURED = "rejected before the next plan was proposed; message not captured";
 
-/** Claude Code delivers its own notifications through UserPromptSubmit too; they are not Scott's words. */
-const SYSTEM_PROMPT_RE = /^\s*<(task-notification|system-reminder|ide_opened_file|ide_selection)\b/;
+/**
+ * Claude Code wraps its own context in these tags inside UserPromptSubmit: IDE state is
+ * prepended to Scott's real prompt, and task notifications arrive alone. The blocks are
+ * removed and whatever remains is Scott's text; nothing left means nothing to record.
+ */
+const INJECTED_BLOCK_RE = /<(task-notification|system-reminder|ide_opened_file|ide_selection)\b[^>]*>[\s\S]*?<\/\1>\s*/g;
+
+export function userText(prompt: string): string {
+  return prompt.replace(INJECTED_BLOCK_RE, "").trim();
+}
 
 function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
-  const text = input.user_input ?? input.prompt ?? "";
+  const text = userText(input.user_input ?? input.prompt ?? "");
   if (!text) return ["empty prompt"];
-  if (SYSTEM_PROMPT_RE.test(text)) return ["system prompt ignored"];
   const line = {
     ts: ctx.now(),
     session: input.session_id,
@@ -83,7 +90,8 @@ function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
 /**
  * A rejected plan fires no hook event. The only signal is a new ExitPlanMode arriving while
  * the previous proposal from this session is still pending, so that is when it is marked
- * rejected, with the message read from the transcript when it can be.
+ * rejected, with the message read from the transcript when it can be. This also means a
+ * proposal whose approval event failed to record would be misfiled as rejected here.
  */
 function rejectPending(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const pending = latestPending(ctx.home, marker.epic, input.session_id);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
-import { handleHook, responseText, approvedPlanText } from "../cli/commands/capture.ts";
+import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
 import { editedPath, readProposal } from "../cli/lib/proposal.ts";
@@ -205,8 +205,13 @@ test("a pending proposal is rejected with a placeholder when the transcript has 
   assert.match(readProposal(home, "e", 1).meta.feedback ?? "", /message not captured/);
 });
 
-test("system-injected prompts are not captured", () => {
+test("injected context blocks are stripped and Scott's words kept", () => {
   const home = setup();
-  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "<task-notification>\n<task-id>x</task-id>" }), ctx(home)), ["system prompt ignored"]);
-  assert.ok(!existsSync(paths.prompts(home, "e")));
+  const withIde = "<ide_opened_file>The user opened the file /x/y.md in the IDE.</ide_opened_file>here is the output from step 2";
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: withIde }), ctx(home)), ["prompt captured"]);
+  assert.equal(JSON.parse(readFileSync(paths.prompts(home, "e"), "utf8")).text, "here is the output from step 2");
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "<task-notification>\n<task-id>x</task-id>\n</task-notification>" }), ctx(home)), ["empty prompt"]);
+  assert.equal(readFileSync(paths.prompts(home, "e"), "utf8").trim().split("\n").length, 1);
+  assert.equal(userText("<ide_selection>sel</ide_selection>\n<system-reminder>r</system-reminder>\nreal words"), "real words");
+  assert.equal(userText("plain <b>not a wrapper</b>"), "plain <b>not a wrapper</b>");
 });

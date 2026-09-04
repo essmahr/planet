@@ -62,14 +62,25 @@ export function listEpics(home: string): Epic[] {
 
 export const LINEAR_ID_RE = /\b([A-Za-z]{2,10}-\d+)\b/;
 
+export const RESOLVE_STOPWORDS: Set<string> = new Set([
+  "the", "and", "for", "with", "that", "this", "thing", "epic", "plan", "work", "continue", "resume", "open",
+]);
+
 export function resolveEpics(epics: Epic[], text: string, phasesOf: (slug: string) => PhaseMeta[]): Epic[] {
   const q = text.trim().toLowerCase();
   if (!q) return [];
   const exact = epics.filter((e) => e.slug === q);
   if (exact.length) return exact;
-  const tokens = q.split(/\s+/);
-  const partial = epics.filter((e) => tokens.some((t) => e.slug.includes(t) || e.title.toLowerCase().includes(t)));
-  if (partial.length) return partial;
+  const tokens = q.split(/\s+/).filter((t) => t.length >= 3 && !RESOLVE_STOPWORDS.has(t));
+  if (tokens.length) {
+    const scored = epics.map((e) => {
+      const title = e.title.toLowerCase();
+      const score = tokens.filter((t) => e.slug.includes(t) || title.includes(t)).length;
+      return { epic: e, score };
+    });
+    const max = Math.max(...scored.map((s) => s.score));
+    if (max > 0) return scored.filter((s) => s.score === max).map((s) => s.epic);
+  }
   const m = LINEAR_ID_RE.exec(text);
   if (!m) return [];
   const id = m[1].toUpperCase();

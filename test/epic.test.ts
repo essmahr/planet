@@ -59,3 +59,14 @@ test("resolveEpics: exact slug, then substring, then linear id", () => {
   assert.deepEqual(resolveEpics([a, b], "nothing here", phasesOf), []);
   assert.deepEqual(resolveEpics([a, b], "   ", phasesOf), []);
 });
+
+test("resolveEpics: scores tokens and drops stopwords", () => {
+  const home = tmpHome();
+  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r" }, NOW);
+  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repo: "o/r" }, NOW);
+  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repo: "o/r" }, NOW);
+  const phasesOf = (): PhaseMeta[] => [];
+  const epics = [gql, auth, db];
+  assert.deepEqual(resolveEpics(epics, "the gql thing", phasesOf).map((e) => e.slug), ["gql-migration"]);
+  assert.deepEqual(resolveEpics(epics, "continue gql migration", phasesOf).map((e) => e.slug), ["gql-migration"]);
+});

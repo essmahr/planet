@@ -6,12 +6,16 @@ import { ensureStore, planetHome } from "./lib/store.ts";
 import { checkCommand } from "./commands/check.ts";
 import { epicCommand } from "./commands/epic.ts";
 import { linkCommand, unlinkCommand } from "./commands/link.ts";
+import { openCommand } from "./commands/open.ts";
 import { phaseCommand } from "./commands/phase.ts";
 import { proposalCommand, proposeCommand } from "./commands/proposal.ts";
 import { sessionCommand } from "./commands/session.ts";
+import { statusCommand } from "./commands/status.ts";
 import { syncCommand } from "./commands/sync.ts";
 
 export const COMMANDS: Record<string, Command> = {
+  status: statusCommand,
+  open: openCommand,
   epic: epicCommand,
   phase: phaseCommand,
   link: linkCommand,

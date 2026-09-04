@@ -3,7 +3,7 @@ import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
 import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected } from "../lib/proposal.ts";
-import { readMarker } from "../lib/session.ts";
+import { endSession, readMarker } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
 import { rejectionFeedback } from "../lib/transcript.ts";
 
@@ -170,6 +170,10 @@ export function handleHook(raw: string, ctx: Ctx): string[] {
       if (input.tool_name === "ExitPlanMode") return onPlanResult(input, marker, ctx, responseText(input.tool_response), false);
       if (input.tool_name === "Bash") return onBash(input, marker, ctx);
       return ["ignored"];
+    case "SessionEnd":
+      endSession(ctx.home, input.session_id);
+      commit(ctx.home, `${marker.epic}: end session`);
+      return ["session ended"];
     case "PostToolUseFailure":
     case "PermissionDenied":
       if (input.tool_name !== "ExitPlanMode") return ["ignored"];

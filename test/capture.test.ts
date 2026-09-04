@@ -7,7 +7,7 @@ import { handleHook, responseText, approvedPlanText, userText } from "../cli/com
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
 import { editedPath, readProposal } from "../cli/lib/proposal.ts";
-import { startSession } from "../cli/lib/session.ts";
+import { readMarker, startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
 
 const PLAN = "# Phase 1\n\nDo A then B.\n";
@@ -214,4 +214,12 @@ test("injected context blocks are stripped and Scott's words kept", () => {
   assert.equal(readFileSync(paths.prompts(home, "e"), "utf8").trim().split("\n").length, 1);
   assert.equal(userText("<ide_selection>sel</ide_selection>\n<system-reminder>r</system-reminder>\nreal words"), "real words");
   assert.equal(userText("plain <b>not a wrapper</b>"), "plain <b>not a wrapper</b>");
+});
+
+test("SessionEnd removes the session marker and commits", () => {
+  const home = setup();
+  assert.deepEqual(handleHook(hook("SessionEnd", { reason: "exit" }), ctx(home)), ["session ended"]);
+  assert.equal(readMarker(home, SESSION), null);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: end session");
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "after end" }), ctx(home)), ["no marker"]);
 });

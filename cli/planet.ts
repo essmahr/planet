@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 import type { Command, Ctx } from "./lib/context.ts";
 import { realGh } from "./lib/gh.ts";
 import { ensureStore, planetHome } from "./lib/store.ts";
+import { captureCommand } from "./commands/capture.ts";
 import { checkCommand } from "./commands/check.ts";
 import { epicCommand } from "./commands/epic.ts";
 import { feedbackCommand } from "./commands/feedback.ts";
@@ -29,6 +30,7 @@ export const COMMANDS: Record<string, Command> = {
   check: checkCommand,
   pr: prCommand,
   feedback: feedbackCommand,
+  capture: captureCommand,
 };
 
 const USAGE = `usage: planet <command> [args] [--json]

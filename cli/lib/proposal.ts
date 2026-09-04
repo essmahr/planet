@@ -124,6 +124,9 @@ export function parseDestination(text: string): Destination {
 
 export function approveTo(home: string, epic: string, id: number, dest: Destination, fromText?: string): { proposal: Proposal; wrote: string } {
   let proposal = readProposal(home, epic, id);
+  if (proposal.meta.outcome === "rejected" && fromText === undefined) {
+    throw new Error(`proposal ${id} was rejected; pass --from to approve different text`);
+  }
   const text = fromText ?? approvedText(proposal);
   if (proposal.meta.outcome !== "approved" || fromText !== undefined) proposal = markApproved(home, epic, id, text);
   const body = text.endsWith("\n") ? text : `${text}\n`;

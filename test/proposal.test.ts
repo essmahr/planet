@@ -91,3 +91,14 @@ test("parseDestination and approveTo", () => {
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# From file\n");
   assert.equal(readProposal(home, "e", s.meta.id).meta.edited, true);
 });
+
+test("approveTo refuses to flip a rejected proposal without --from", () => {
+  const home = setup();
+  const p = createProposal(home, "e", input, NOW);
+  markRejected(home, "e", p.meta.id, "no good");
+  assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "plan" }), /was rejected/);
+  const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, "# Retry\n");
+  assert.equal(r.proposal.meta.outcome, "approved");
+  assert.equal(r.proposal.meta.edited, true);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Retry\n");
+});

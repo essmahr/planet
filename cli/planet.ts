@@ -9,6 +9,7 @@ import { linkCommand, unlinkCommand } from "./commands/link.ts";
 import { phaseCommand } from "./commands/phase.ts";
 import { proposalCommand, proposeCommand } from "./commands/proposal.ts";
 import { sessionCommand } from "./commands/session.ts";
+import { syncCommand } from "./commands/sync.ts";
 
 export const COMMANDS: Record<string, Command> = {
   epic: epicCommand,
@@ -18,6 +19,7 @@ export const COMMANDS: Record<string, Command> = {
   session: sessionCommand,
   propose: proposeCommand,
   proposal: proposalCommand,
+  sync: syncCommand,
   check: checkCommand,
 };
 

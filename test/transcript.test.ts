@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpHome } from "./helpers.ts";
-import { feedbackFromResultText, rejectionFeedback } from "../cli/lib/transcript.ts";
+import { TRANSCRIPT_TAIL_BYTES, feedbackFromResultText, rejectionFeedback } from "../cli/lib/transcript.ts";
 
 test("feedbackFromResultText handles the three rejection phrasings", () => {
   assert.equal(feedbackFromResultText("The user doesn't want to proceed. To tell you how to proceed, the user said:\nfoo bar\n\nNote: The user's next message may contain a correction"), "foo bar");
@@ -24,4 +24,16 @@ test("rejectionFeedback prefers userFeedback, falls back to result text, and nev
   assert.equal(rejectionFeedback("/nonexistent", "a"), null);
   assert.equal(rejectionFeedback(undefined, "a"), null);
   assert.equal(rejectionFeedback(file, null), null);
+});
+
+test("rejectionFeedback reads only the tail of a large transcript", () => {
+  const home = tmpHome();
+  const file = join(home, "big.jsonl");
+  const early = JSON.stringify({ userFeedback: "old", message: { content: [{ type: "tool_result", tool_use_id: "early", content: "" }] } });
+  const late = JSON.stringify({ userFeedback: "new", message: { content: [{ type: "tool_result", tool_use_id: "late", content: "" }] } });
+  const filler = `${JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "x".repeat(1000) }] } })}\n`;
+  const fillerCount = Math.ceil(TRANSCRIPT_TAIL_BYTES / filler.length) + 10;
+  writeFileSync(file, `${early}\n${filler.repeat(fillerCount)}${late}\n`);
+  assert.equal(rejectionFeedback(file, "late"), "new");
+  assert.equal(rejectionFeedback(file, "early"), null);
 });

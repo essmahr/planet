@@ -1,4 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, fstatSync, openSync, readSync } from "node:fs";
+
+/** Only the end of the transcript is read; the wanted record is always among the latest events. */
+export const TRANSCRIPT_TAIL_BYTES = 2 * 1024 * 1024;
 
 /**
  * Best-effort read of the user's rejection message for an ExitPlanMode call from the
@@ -13,7 +16,7 @@ export function rejectionFeedback(transcriptPath: string | undefined, toolUseId:
   if (!transcriptPath || !toolUseId || !existsSync(transcriptPath)) return null;
   let lines: string[];
   try {
-    lines = readFileSync(transcriptPath, "utf8").split("\n");
+    lines = readTail(transcriptPath, TRANSCRIPT_TAIL_BYTES).split("\n");
   } catch {
     return null;
   }
@@ -67,4 +70,17 @@ export function feedbackFromResultText(text: string): string | null {
     return message || null;
   }
   return null;
+}
+
+function readTail(path: string, maxBytes: number): string {
+  const fd = openSync(path, "r");
+  try {
+    const size = fstatSync(fd).size;
+    const length = Math.min(size, maxBytes);
+    const buffer = Buffer.alloc(length);
+    readSync(fd, buffer, 0, length, size - length);
+    return buffer.toString("utf8");
+  } finally {
+    closeSync(fd);
+  }
 }

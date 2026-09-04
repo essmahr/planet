@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { NOW, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
-import { createEpic, readEpic } from "../cli/lib/epic.ts";
+import { createEpic, readEpic, writeEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases, readPhase, setPhaseStatus } from "../cli/lib/phase.ts";
 import { syncEpic } from "../cli/lib/sync.ts";
@@ -50,6 +50,14 @@ test("syncEpic skips fresh epics unless forced, and skips terminal epics", async
   const aged = await syncEpic(home, "e", gh, "2026-09-03T15:08:00.000Z");
   assert.equal(aged.skipped, false);
   assert.equal(gh.calls.length, 3);
+
+  createEpic(home, { slug: "done", title: "Done", repo: "o/r" }, NOW);
+  const doneEpic = readEpic(home, "done");
+  doneEpic.status = "shipped";
+  writeEpic(home, doneEpic);
+  const terminal = await syncEpic(home, "done", gh, NOW, { force: true });
+  assert.equal(terminal.skipped, true);
+  assert.equal(gh.calls.length, 3, "terminal epics are skipped before any gh call");
 });
 
 test("syncEpic reports stale when gh is unavailable and writes nothing", async () => {
@@ -60,13 +68,30 @@ test("syncEpic reports stale when gh is unavailable and writes nothing", async (
   assert.equal(readEpic(home, "e").synced_at, null);
 });
 
-test("closed prs are recorded without changing the phase; epic ships when all phases are reviewed", async () => {
+test("closed prs are recorded without changing the phase", async () => {
   const home = setup();
   const gh = fakeGh({ [PR1]: { url: PR1, state: "closed", merged_at: null }, [PR2]: { url: PR2, state: "merged", merged_at: NOW } });
   await syncEpic(home, "e", gh, NOW);
   const phase = readPhase(home, "e", 1);
   assert.equal(phase.meta.status, "in-progress");
   assert.equal(phase.meta.prs[0].state, "closed");
+});
+
+test("epic ships when every phase is reviewed", async () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "s", title: "S", repo: "o/r" }, NOW);
+  newPhases(home, "s", [{ slug: "a", title: "A" }]);
+  linkPrs(home, "s", 1, [PR1], NOW);
+  const gh = fakeGh({ [PR1]: { url: PR1, state: "merged", merged_at: NOW } });
+  await syncEpic(home, "s", gh, NOW);
+  assert.equal(readPhase(home, "s", 1).meta.status, "shipped");
+
+  setPhaseStatus(home, "s", 1, "reviewed");
+  const result = await syncEpic(home, "s", gh, LATER, { force: true });
+  const epic = readEpic(home, "s");
+  assert.equal(epic.status, "shipped");
+  assert.equal(epic.shipped_at, LATER);
+  assert.ok(result.changes.includes("epic: shipped"));
 });
 
 test("sync command commits once and names changed epics", async () => {
@@ -78,6 +103,4 @@ test("sync command commits once and names changed epics", async () => {
   const quiet = await run(["sync", "e", "--force"], ctx(home, { gh }));
   assert.equal(quiet.stdout, "e: no changes\n");
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "sync: e", "no commit without changes");
-  setPhaseStatus(home, "e", 1, "reviewed");
-  void LATER;
 });

@@ -93,6 +93,15 @@ test("PostToolUse approval with inline edits stores the edited plan", () => {
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: approve proposal 1 with edits");
 });
 
+test("an unrecognized PostToolUse result leaves the proposal pending and logs it", () => {
+  const home = setup();
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN } }), ctx(home));
+  const actions = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN }, tool_response: { plan: "x", isAgent: false } }), ctx(home));
+  assert.deepEqual(actions, ["proposal 1 left pending: unrecognized result"]);
+  assert.equal(readProposal(home, "e", 1).meta.outcome, "pending");
+  assert.match(readFileSync(paths.hookLog(home), "utf8"), /unrecognized ExitPlanMode result/);
+});
+
 test("rejections through PostToolUse text, PostToolUseFailure, and PermissionDenied", () => {
   const home = setup();
   handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t3", tool_input: { plan: PLAN } }), ctx(home));

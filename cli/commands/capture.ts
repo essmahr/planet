@@ -35,6 +35,7 @@ export function responseText(value: unknown): string {
 
 export const APPROVED_RE = /^User has approved your plan/m;
 export const APPROVED_PLAN_HEADING = "## Approved Plan:\n";
+export const REJECTED_RE = /User chose to stay in plan mode|doesn't want to proceed|rejected the plan|was rejected/i;
 
 export function approvedPlanText(response: string, fallback: string): string {
   const at = response.indexOf(APPROVED_PLAN_HEADING);
@@ -74,7 +75,7 @@ function onPlanProposed(input: HookInput, marker: SessionMarker, ctx: Ctx): stri
   return [`proposal ${proposal.meta.id} created`];
 }
 
-function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: string): string[] {
+function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: string, forceReject: boolean): string[] {
   if (input.agent_id) return ["subagent plan ignored"];
   const byId = input.tool_use_id ? findProposalByToolUse(ctx.home, marker.epic, input.tool_use_id) : null;
   const proposal = byId ?? latestPending(ctx.home, marker.epic, input.session_id);
@@ -85,6 +86,11 @@ function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: s
     const suffix = approved.meta.edited ? " with edits" : "";
     commit(ctx.home, `${marker.epic}: approve proposal ${proposal.meta.id}${suffix}`);
     return [`proposal ${proposal.meta.id} approved${approved.meta.edited ? " (edited)" : ""}`];
+  }
+  if (!forceReject && !REJECTED_RE.test(text)) {
+    const id = proposal.meta.id;
+    appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} unrecognized ExitPlanMode result for proposal ${id}: ${text.slice(0, 500)}\n`);
+    return [`proposal ${id} left pending: unrecognized result`];
   }
   markRejected(ctx.home, marker.epic, proposal.meta.id, text);
   commit(ctx.home, `${marker.epic}: reject proposal ${proposal.meta.id}`);
@@ -116,13 +122,13 @@ export function handleHook(raw: string, ctx: Ctx): string[] {
     case "PreToolUse":
       return input.tool_name === "ExitPlanMode" ? onPlanProposed(input, marker, ctx) : ["ignored"];
     case "PostToolUse":
-      if (input.tool_name === "ExitPlanMode") return onPlanResult(input, marker, ctx, responseText(input.tool_response));
+      if (input.tool_name === "ExitPlanMode") return onPlanResult(input, marker, ctx, responseText(input.tool_response), false);
       if (input.tool_name === "Bash") return onBash(input, marker, ctx);
       return ["ignored"];
     case "PostToolUseFailure":
     case "PermissionDenied":
       if (input.tool_name !== "ExitPlanMode") return ["ignored"];
-      return onPlanResult(input, marker, ctx, responseText(input.tool_error) || "rejected without a message");
+      return onPlanResult(input, marker, ctx, responseText(input.tool_error) || "rejected without a message", true);
     default:
       return ["ignored"];
   }

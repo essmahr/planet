@@ -204,3 +204,9 @@ test("a pending proposal is rejected with a placeholder when the transcript has 
   handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q2", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home));
   assert.match(readProposal(home, "e", 1).meta.feedback ?? "", /message not captured/);
 });
+
+test("system-injected prompts are not captured", () => {
+  const home = setup();
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "<task-notification>\n<task-id>x</task-id>" }), ctx(home)), ["system prompt ignored"]);
+  assert.ok(!existsSync(paths.prompts(home, "e")));
+});

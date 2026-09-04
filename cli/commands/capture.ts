@@ -59,9 +59,13 @@ export function structuredPlan(response: unknown): string | null {
 
 const REJECTION_NOT_CAPTURED = "rejected before the next plan was proposed; message not captured";
 
+/** Claude Code delivers its own notifications through UserPromptSubmit too; they are not Scott's words. */
+const SYSTEM_PROMPT_RE = /^\s*<(task-notification|system-reminder|ide_opened_file|ide_selection)\b/;
+
 function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const text = input.user_input ?? input.prompt ?? "";
   if (!text) return ["empty prompt"];
+  if (SYSTEM_PROMPT_RE.test(text)) return ["system prompt ignored"];
   const line = {
     ts: ctx.now(),
     session: input.session_id,

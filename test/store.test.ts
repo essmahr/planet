@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpHome } from "./helpers.ts";
-import { planetHome, git, commit, paths } from "../cli/lib/store.ts";
+import { planetHome, git, commit, ensureStore, paths } from "../cli/lib/store.ts";
 
 test("planetHome prefers PLANET_HOME", () => {
   assert.equal(planetHome({ PLANET_HOME: "/x/store" }), "/x/store");
@@ -16,6 +16,29 @@ test("ensureStore creates the layout and a git repo once", () => {
   assert.ok(existsSync(join(home, "sessions")));
   assert.ok(existsSync(join(home, ".git")));
   assert.equal(git(home, ["rev-parse", "--is-inside-work-tree"]).trim(), "true");
+});
+
+test("ensureStore writes a .gitignore covering hook.log and .DS_Store", () => {
+  const home = tmpHome();
+  const gitignore = join(home, ".gitignore");
+  assert.ok(existsSync(gitignore));
+  const contents = readFileSync(gitignore, "utf8");
+  assert.match(contents, /^hook\.log$/m);
+  assert.match(contents, /^\.DS_Store$/m);
+});
+
+test("hook.log is ignored: writing it alone leaves nothing to commit", () => {
+  const home = tmpHome();
+  writeFileSync(join(home, "hook.log"), "boom\n");
+  assert.equal(commit(home, "x"), false);
+});
+
+test("ensureStore does not overwrite a modified .gitignore", () => {
+  const home = tmpHome();
+  const gitignore = join(home, ".gitignore");
+  writeFileSync(gitignore, "custom\n");
+  ensureStore(home);
+  assert.equal(readFileSync(gitignore, "utf8"), "custom\n");
 });
 
 test("commit stages and commits only when dirty", () => {

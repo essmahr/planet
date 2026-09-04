@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -27,7 +27,14 @@ export const paths = {
 export function git(home: string, args: string[]): string {
   return execFileSync(
     "git",
-    ["-C", home, "-c", "user.name=planet", "-c", "user.email=planet@local", ...args],
+    [
+      "-C", home,
+      "-c", "user.name=planet",
+      "-c", "user.email=planet@local",
+      "-c", "commit.gpgsign=false",
+      "-c", "core.hooksPath=/dev/null",
+      ...args,
+    ],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
 }
@@ -36,6 +43,11 @@ export function ensureStore(home: string): void {
   mkdirSync(paths.epics(home), { recursive: true });
   mkdirSync(paths.sessions(home), { recursive: true });
   if (!existsSync(join(home, ".git"))) git(home, ["init", "-q"]);
+  const gitignore = join(home, ".gitignore");
+  if (!existsSync(gitignore)) {
+    writeFileSync(gitignore, "hook.log\n.DS_Store\n");
+    commit(home, "init store");
+  }
 }
 
 export function commit(home: string, message: string): boolean {

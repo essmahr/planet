@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NOW, tmpHome } from "./helpers.ts";
@@ -79,4 +79,17 @@ test("planet-hook exits 0 and logs when no node exists", () => {
   assert.equal(r.status, 0);
   assert.equal(r.stdout, "");
   assert.match(readFileSync(paths.hookLog(home), "utf8"), /node not found/);
+});
+
+test("bin/planet picks the numerically newest nvm node, not the lexically last", () => {
+  const dir = mkdtempSync(join(tmpdir(), "planet-nvm-"));
+  const older = join(dir, "versions", "node", "v24.9.0", "bin");
+  const newer = join(dir, "versions", "node", "v24.10.0", "bin");
+  mkdirSync(older, { recursive: true });
+  mkdirSync(newer, { recursive: true });
+  writeFileSync(join(older, "node"), "#!/bin/sh\necho wrong node >&2\nexit 3\n", { mode: 0o755 });
+  symlinkSync(process.execPath, join(newer, "node"));
+  const r = spawnSync("bin/planet", ["--help"], { encoding: "utf8", env: { ...process.env, PATH: NO_NODE_PATH, PLANET_NODE: "", NVM_DIR: dir } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /usage: planet/);
 });

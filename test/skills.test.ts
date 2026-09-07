@@ -7,8 +7,8 @@ import { parseFrontmatter } from "../cli/lib/frontmatter.ts";
 
 const SKILLS_DIR = "skills";
 const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake"];
-const HIDDEN = new Set(["planet-proposal", "planet-intake"]);
-const WORD_BUDGET: Record<string, number> = { go: 800, "planet-proposal": 300, "planet-intake": 1500 };
+const HIDDEN = new Set(["planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan"]);
+const WORD_BUDGET: Record<string, number> = { go: 1000, "planet-proposal": 300, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500 };
 const DESCRIPTION_CAP = 1536;
 
 function skillDirs(): string[] {

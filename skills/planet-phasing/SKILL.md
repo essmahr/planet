@@ -10,7 +10,7 @@ metadata:
 
 # Planet: phasing
 
-Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: re-cut from phase N: <why>` when phase-plan sent a phase back. Precondition: the last approved step is scoping and no phases exist, or a re-cut reason. Output: `plan.md` v3 with a Phases section through the gate, then draft phases in the store.
+Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when the router sends the work back, such as `re-cut from phase N: <why>`. Precondition: no phases exist and the last approved step is scoping or phasing, or a `reason:` line. Output: `plan.md` v3 with a Phases section through the gate, then draft phases in the store.
 
 ## Critical rules
 
@@ -30,7 +30,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: re-cut from p
 
 ## Steps
 
-1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a re-cut reason, read it first; phases below N stay as they are and the section is redrawn from N onward.
+1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
 2. **Cut** by the principles. Consult `references/cut-patterns.md` when the work resembles one of its shapes.
 3. **Draft** the Phases section in the format of `references/phases-section.md`, appended to `plan.md` as v3 with everything above it unchanged. On a re-cut, entries below N are copied verbatim.
 4. **Gate.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend in place and gate again.
@@ -44,7 +44,7 @@ Approach: alias first, then move SVGs, then rewrite imports. Cut: 1 add the path
 
 ## Troubleshooting
 
-- Phases already exist and no re-cut reason was passed: say so and return; the user can pass `re-cut from phase 1` to redo everything.
+- Phases already exist and no `reason:` line was passed: say so and return; the user can pass `re-cut from phase 1` to redo everything.
 - `planet phase drop` refuses a phase: it is no longer a draft. Stop and report; re-cutting a planned or in-progress phase is a scoping decision.
 - `planet phase new` reports a duplicate slug: an existing phase has it. Rename in the section and re-gate the section only if the change is visible to the user; otherwise fix the slug and rerun.
 - The gate reports the hooks did not run: stop and return that message.

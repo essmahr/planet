@@ -10,11 +10,11 @@ metadata:
 
 # Planet: phase-plan
 
-Input from the router: `epic: <slug>`, `dir: <path>`, and the phase: the lowest-id draft unless the request named one. Output: the phase body through the gate to `phase:<N>`, status `planned`. Phase-plan decides how, inside one phase. Scoping decided what and why; phasing decided the cut.
+Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Output: the phase body through the gate to `phase:<N>`, status `planned`. Phase-plan decides how, inside one phase. Scoping decided what and why; phasing decided the cut.
 
 ## Critical rules
 
-- Read `plan.md`'s Approach, Sequencing notes, PR budget, and this phase's entry; the previous phase's body when there is one, and its retro when it shipped. Nothing else from the store.
+- Read `plan.md`'s Approach, Sequencing notes, PR budget, and this phase's entry; `research/codebase.md` and any `research/phase-<N>.md`; the previous phase's body when there is one, and its retro when it shipped. Nothing else from the store.
 - Measure before drafting. An oversized phase gets a proposed cut and a hand-up, never a plan document.
 - Ask only when the code surfaces a choice `plan.md` does not settle and the answer changes the PR's shape. A question that shows the approach or the cut was wrong goes back up.
 - The phase body is written only by `planet proposal approve`.
@@ -24,7 +24,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and the phase: the lowest-
 1. **Read** as the rules say. `planet epic show <epic> --json` gives the phase's id, slug, kind, and path.
 2. **Sweep.** If `research/codebase.md` does not cover the files this phase touches, dispatch one general-purpose subagent with `references/sweep-brief.md`. It writes `research/phase-<N>.md` and returns five lines including a rough file count. Read the five lines, not the file.
 3. **Clarify.** Ask, one at a time, only per the rule above. Typical: two existing patterns and the plan names neither; a shared type must change and the choice is shim now or touch every consumer; a test pins behavior the phase means to change. If an answer or a finding shows the cut was wrong, return `re-cut from phase <N>: <why>`; if it shows the approach was wrong, return `back to scoping: <why>`.
-4. **Size check.** Estimate commits and changed files from the sweep and the entry. Budget: the `PR budget:` line in `plan.md`, else about 20 files or about 8 commits. Under: continue. Over: say what grew, propose a cut in one message, and on agreement return `re-cut from phase <N>: <the agreed cut>`. Write no plan document for an oversized phase.
+4. **Size check.** Estimate commits and changed files from the sweep and the entry. Budget: the `PR budget:` line in `plan.md`, else about 20 files or about 8 commits. Under: continue. Over, unless this phase's entry in `plan.md` says why the budget does not apply: say what grew, propose a cut in one message, and on agreement return `re-cut from phase <N>: <the agreed cut>`. Write no plan document for an oversized phase. When the entry exempts it, note the reason under Size and continue.
 5. **Draft** in context from `references/phase-template.md`. Commit sequence follows the user's git conventions: moves and renames first, refactors before behavior, tests with the behavior they cover, one line each. Size states the two numbers and the basis. For a manual phase use Steps and Done means.
 6. **Gate.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: phase:<N>`. On rejection, amend in place and gate again.
 7. **Set.** `planet phase set <epic> <N> --status planned`, adding `--linear <ID>` when Closes names a ticket the phase's frontmatter lacks.
@@ -36,7 +36,7 @@ Phase 2, `move-files`, pr kind. `research/codebase.md` covers the directory, so 
 
 ## Troubleshooting
 
-- The named phase is not a draft: say its status and stop; a planned phase is re-planned only when the user names it and confirms.
+- The phase the router named is not a draft: say its status and stop; a planned phase is re-planned only when the user names it and confirms.
 - No draft exists: return `nothing to plan` to the router.
 - The subagent fails: draft from the entry and `research/codebase.md`, and say so in Context.
 - `planet phase set` refuses: the phase changed under you; refresh with `planet epic show` and report.

@@ -383,7 +383,11 @@ the exact values; this spec sets the rules.
   subagents share, so a subagent exiting plan mode would corrupt proposal
   snapshots.
 
-### Router: `/planet [text]`
+### Router: `/planet:go [text]`
+
+Amended by `2026-09-07-planet-skills-design.md`: the router is explicit-only
+(`disable-model-invocation: true`) and tags are written by `planet proposal tag`.
+
 
 1. No text: run `planet status --json`, print the table, list shipped phases
    without a retro, ask what Scott wants. Stop if the table was the point.
@@ -474,11 +478,9 @@ Input: the proposal text and its destination, `plan` or `phase:<n>`. Steps:
   case exits 0.
 - **Schema.** One validator over every CLI-owned file, run on each read and by
   `planet check`.
-- **Skills, triggering.** For the router: should-trigger cases including
-  paraphrases such as "what am I working on" and "continue the GQL thing", and
-  should-not-trigger cases such as unrelated coding requests. For every hidden
-  skill: should-not-trigger cases only, run by asking Claude when it would use
-  the skill.
+- **Skills, triggering.** All should-not-trigger: the router is explicit-only
+  and the step skills are hidden, so no Planet skill may load from conversation
+  alone. Verified by planning something in a session without `/planet:go`.
 - **Skills, behavior.** Superpowers writing-skills approach: run the scenario
   without the skill, record what goes wrong, write the skill against those
   failures. Then compare with and without the skill on the same task: questions

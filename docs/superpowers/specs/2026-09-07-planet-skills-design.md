@@ -11,7 +11,7 @@ Scoping, phasing, phase-plan, retro, and feedback-review are follow-on 3.
 | Question | Decision |
 |---|---|
 | Router command | `/planet:go`. Plugin skills are namespaced `plugin:skill`, so the router folder is `skills/go/`. |
-| Who starts Planet | Only Scott. `go` has `disable-model-invocation: true`. No Planet skill auto-triggers on conversation. |
+| Who starts Planet | Only the user. `go` has `disable-model-invocation: true`. No Planet skill auto-triggers on conversation. |
 | Scope of this follow-on | Router, gate, and intake, so the gate is proven by its real caller. |
 | New epic creation | Confirm first: one line with slug, title, repo, ticket. Slug is permanent. |
 | How the router gets status | Injected at skill load with a `!`planet status --json`` line. Zero tool turns for the glance case. |
@@ -39,12 +39,15 @@ characters, Claude Code's cap.
 Every skill sets `allowed-tools: Bash(planet *)` so CLI calls run without
 permission prompts during the skill's turn.
 
+Skill text never names the user. It says "the user" or addresses them as
+"you".
+
 ### `skills/go/SKILL.md`, invoked as `/planet:go`
 
 ```yaml
 ---
 name: go
-description: Scott's Planet planning workflow. Shows the status table of active epics, opens an epic by name, Linear ticket, or description, creates a new epic from a ticket, and runs the next planning step. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase". Not for implementing code or for one-off plans, which use plain plan mode.
+description: Planet planning workflow for epics that span several PRs. Shows the status table of active epics, opens an epic by name, Linear ticket, or description, creates a new epic from a ticket, and runs the next planning step. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase". Not for implementing code or for one-off plans, which use plain plan mode.
 argument-hint: [epic, ticket, or what to work on]
 disable-model-invocation: true
 allowed-tools: Bash(planet *) Bash(gh repo view *)
@@ -87,7 +90,7 @@ Steps:
 7. `planet session step intake`, then invoke `planet:planet-intake` with the
    slug, the epic directory path, and any prior-art PRs. When it returns, go to
    step 5.
-8. When Scott says he is done: `planet session end`. The SessionEnd hook covers
+8. When the user says they are done: `planet session end`. The SessionEnd hook covers
    a closed window.
 
 ### `skills/planet-proposal/SKILL.md`
@@ -116,8 +119,8 @@ research and no reasoning.
    `planet proposal approve <epic> latest --to <destination>`. For each
    rejection in this gate cycle, `planet proposal tag <epic> latest-1 <tag>`,
    `latest-2`, and so on, one tag per rejection from the fixed list, chosen from
-   Scott's words. Return "approved".
-4. Rejected: the tool result carries Scott's words, as a typed message or as
+   the user's words. Return "approved".
+4. Rejected: the tool result carries the user's words, as a typed message or as
    `[Re: "quote"] comment` lines, and plan mode continues. Count it, return the
    message to the caller. The caller amends the plan file in place, never
    regenerates it, and invokes the gate again. The hook records the rejection
@@ -151,7 +154,7 @@ approach or phases.
 1. Gather.
    - Linear: for each ID on the epic, fetch the issue and its comments through
      the Linear MCP; save each verbatim to `research/linear-<ID>.md`. No ID:
-     the text Scott typed is the brief.
+     the text the user typed is the brief.
    - GitHub: fetch each named PR with `gh pr view --json` into
      `research/prs.md`. Then decide whether one `gh pr list --search` in the
      epic repo is worth running: yes when nothing was named and the ticket

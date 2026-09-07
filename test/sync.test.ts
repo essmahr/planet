@@ -104,7 +104,7 @@ test("epic ships when every phase is reviewed", async () => {
   await syncEpic(home, "s", gh, NOW);
   assert.equal(readPhase(home, "s", 1).meta.status, "shipped");
 
-  setPhaseStatus(home, "s", 1, "reviewed");
+  setPhaseStatus(home, "s", 1, "reviewed", NOW);
   const result = await syncEpic(home, "s", gh, LATER, { force: true });
   const epic = readEpic(home, "s");
   assert.equal(epic.status, "shipped");

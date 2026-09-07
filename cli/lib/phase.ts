@@ -90,14 +90,14 @@ const MANUAL_TRANSITIONS: Record<"planned" | "reviewed" | "shipped", readonly Ph
   shipped: ["draft", "planned", "in-progress"],
 };
 
-export function setPhaseStatus(home: string, epic: string, id: number, status: "planned" | "reviewed" | "shipped", now?: string): Phase {
+export function setPhaseStatus(home: string, epic: string, id: number, status: "planned" | "reviewed" | "shipped", now: string): Phase {
   const phase = readPhase(home, epic, id);
   if (!MANUAL_TRANSITIONS[status].includes(phase.meta.status)) {
     throw new Error(`cannot set phase ${id} to ${status} from ${phase.meta.status}`);
   }
   if (status === "shipped") {
     if (phase.meta.kind !== "manual" || phase.meta.prs.length > 0) throw new Error("only a manual phase with no linked prs can be shipped by hand");
-    phase.meta.shipped_at = now ?? new Date().toISOString();
+    phase.meta.shipped_at = now;
   }
   phase.meta.status = status;
   writePhase(phase);

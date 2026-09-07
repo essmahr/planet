@@ -78,6 +78,7 @@ async function phaseDrop(args: string[], ctx: Ctx): Promise<CommandResult> {
   const dropped = dropPhase(ctx.home, epic, id);
   const epicDoc = readEpic(ctx.home, epic);
   epicDoc.updated = ctx.now();
+  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
   writeEpic(ctx.home, epicDoc);
   commit(ctx.home, `${epic}: drop phase ${id}`);
   return { json: dropped.meta, text: `dropped phase ${id} ${dropped.meta.slug}` };

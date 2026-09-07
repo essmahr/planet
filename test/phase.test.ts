@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
-import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody } from "../cli/lib/phase.ts";
+import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
 import { recomputeEpicStatus } from "../cli/lib/lifecycle.ts";
 import type { PhaseMeta } from "../cli/schema/types.ts";
 
@@ -37,8 +37,8 @@ test("writeBody keeps frontmatter and ensures a trailing newline", () => {
 test("setPhaseStatus enforces manual transitions", () => {
   const home = epicHome();
   newPhases(home, "e", [{ slug: "codegen", title: "Codegen" }]);
-  assert.equal(setPhaseStatus(home, "e", 1, "planned").meta.status, "planned");
-  assert.throws(() => setPhaseStatus(home, "e", 1, "reviewed"), /cannot set phase 1 to reviewed from planned/);
+  assert.equal(setPhaseStatus(home, "e", 1, "planned", NOW).meta.status, "planned");
+  assert.throws(() => setPhaseStatus(home, "e", 1, "reviewed", NOW), /cannot set phase 1 to reviewed from planned/);
   assert.throws(() => readPhase(home, "e", 9), /no phase 9/);
 });
 
@@ -80,10 +80,20 @@ test("manual phases ship by hand; pr phases and phases with prs do not", () => {
   assert.throws(() => setPhaseStatus(home, "e", 2, "shipped", NOW), /only a manual phase with no linked prs can be shipped by hand/);
 });
 
+// linkPrs refuses manual phases, so the linked PR goes into the file by hand.
+test("a manual phase with a linked PR does not ship by hand", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual" }]);
+  const phase = readPhase(home, "e", 1);
+  phase.meta.prs.push({ url: "https://github.com/o/r/pull/9", state: "open", merged_at: null });
+  writePhase(phase);
+  assert.throws(() => setPhaseStatus(home, "e", 1, "shipped", NOW), /only a manual phase with no linked prs can be shipped by hand/);
+});
+
 test("dropPhase removes a draft and refuses anything else", () => {
   const home = epicHome();
   newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
-  setPhaseStatus(home, "e", 1, "planned");
+  setPhaseStatus(home, "e", 1, "planned", NOW);
   const dropped = dropPhase(home, "e", 2);
   assert.equal(dropped.meta.slug, "b");
   assert.deepEqual(listPhases(home, "e").map((p) => p.meta.id), [1]);

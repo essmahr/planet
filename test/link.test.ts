@@ -40,6 +40,13 @@ test("linkPrs rejects urls outside the epic repo or not PR urls", () => {
   assert.equal(readEpic(home, "e").status, "planning");
 });
 
+test("linkPrs refuses a manual phase", () => {
+  const home = setup();
+  newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual" }]);
+  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW), /cannot link a PR to manual phase 2/);
+  assert.deepEqual(readPhase(home, "e", 2).meta.prs, []);
+});
+
 test("unlinkPr removes the PR and returns an in-progress phase with no PRs to planned", () => {
   const home = setup();
   linkPrs(home, "e", 1, [PR1], NOW);

@@ -14,6 +14,7 @@ export interface LinkResult {
 export function linkPrs(home: string, epicSlug: string, phaseId: number, urls: string[], now: string): LinkResult {
   const epic = readEpic(home, epicSlug);
   const phase = readPhase(home, epicSlug, phaseId);
+  if (phase.meta.kind === "manual") throw new Error(`cannot link a PR to manual phase ${phaseId}`);
   const added: string[] = [];
   for (const raw of urls) {
     const m = PR_URL_RE.exec(raw);

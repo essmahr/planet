@@ -174,9 +174,12 @@ test("phase new --manual, set --status shipped, and drop", async () => {
   const ok = await run(["phase", "set", "e", "1", "--status", "shipped", "--json"], ctx(home));
   assert.equal(ok.code, 0);
   assert.equal(readPhase(home, "e", 1).meta.shipped_at, NOW);
+  await run(["phase", "set", "e", "1", "--status", "reviewed"], ctx(home));
+  await run(["epic", "set", "e", "--status", "active"], ctx(home));
   const drop = await run(["phase", "drop", "e", "2"], ctx(home));
   assert.equal(drop.code, 0);
+  assert.equal(readEpic(home, "e").status, "shipped", "dropping the last unfinished phase recomputes the epic");
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: drop phase 2");
   const noDrop = await run(["phase", "drop", "e", "1"], ctx(home));
-  assert.match(noDrop.stderr, /cannot drop phase 1: status is shipped/);
+  assert.match(noDrop.stderr, /cannot drop phase 1: status is reviewed/);
 });

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { COMMANDS } from "../cli/planet.ts";
 import { parseFrontmatter } from "../cli/lib/frontmatter.ts";
 
 const SKILLS_DIR = "skills";
@@ -52,6 +53,12 @@ for (const name of skillDirs()) {
     if (budget !== undefined) assert.ok(words(body) <= budget, `body has ${words(body)} words, budget ${budget}`);
     for (const heading of ["## Critical rules", "## Steps", "## Troubleshooting"]) {
       assert.ok(body.includes(heading), `${heading} section present`);
+    }
+    for (const [, verb] of body.matchAll(/planet ([a-z-]+)/g)) {
+      assert.ok(verb in COMMANDS, `'planet ${verb}' names a real command`);
+    }
+    for (const [, refFile] of body.matchAll(/references\/([a-z0-9-]+\.md)/g)) {
+      assert.ok(existsSync(join(SKILLS_DIR, name, "references", refFile)), `references/${refFile} exists`);
     }
   });
 }

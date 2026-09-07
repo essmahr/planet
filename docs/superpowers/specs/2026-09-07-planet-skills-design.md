@@ -32,7 +32,7 @@ with the command and its expected output, a troubleshooting section, detail in
 `references/`, scripts over prose, read only what the step needs, subagents
 share memory through the store and never call ExitPlanMode or Planet writes.
 
-Size budgets: `go` under 800 words, `planet-proposal` under 300, `planet-intake`
+Size budgets: `go` under 800 words (raised to 1,000 by follow-on 3), `planet-proposal` under 300, `planet-intake`
 under 1,500. The combined `description` and `when_to_use` stays under 1,536
 characters, Claude Code's cap.
 

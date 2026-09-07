@@ -219,7 +219,8 @@ Applied by the CLI only.
   ahead of time.
 - Phase `planned`: detailed plan approved. Set by `planet phase set`.
 - Phase `in-progress`: set by `planet link` on the first PR.
-- Phase `shipped`: set by `planet sync` when every linked PR is merged.
+- Phase `shipped`: set by `planet sync` when every linked PR is merged, or by
+  `planet phase set` for a `manual` phase with no PRs (follow-on 3).
   `shipped_at` is that moment. A PR closed without merge is recorded as
   `closed` and flagged in status. The phase status does not change.
 - Phase `reviewed`: set by `planet phase set` after the retro is written.

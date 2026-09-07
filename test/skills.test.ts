@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { parseFrontmatter } from "../cli/lib/frontmatter.ts";
 
 const SKILLS_DIR = "skills";
-const REQUIRED_SKILLS: string[] = ["go"];
+const REQUIRED_SKILLS: string[] = ["go", "planet-proposal"];
 const HIDDEN = new Set(["planet-proposal", "planet-intake"]);
 const WORD_BUDGET: Record<string, number> = { go: 800, "planet-proposal": 300, "planet-intake": 1500 };
 const DESCRIPTION_CAP = 1536;

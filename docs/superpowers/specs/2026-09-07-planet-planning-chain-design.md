@@ -34,7 +34,7 @@ router dispatches that step with the reason attached.
 
 ## Skills
 
-Conventions from the two earlier specs apply. Budgets: router 1,000 words (raised
+Conventions from the two earlier specs apply. Budgets: router 1,100 words (raised
 from 800), each new skill 1,500. Each skill has Critical rules, Steps,
 Troubleshooting, hidden from the slash menu, description opening "Only invoked
 by the Planet router", `allowed-tools` with `Bash(planet *)`.
@@ -195,7 +195,7 @@ in the request. Output: the phase body through the gate to `phase:N`, status
 
 ## Amendments to earlier specs
 
-- Router budget 800 → 1,000 words.
+- Router budget 800 → 1,100 words.
 - Phase frontmatter gains `kind`; `phase set --status shipped` gains the manual
   case; `phase drop` added. The design spec's Lifecycle rules read: phase
   `shipped` is set by sync for `pr` phases and by `phase set` for `manual`.

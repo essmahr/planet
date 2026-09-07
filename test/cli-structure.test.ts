@@ -95,6 +95,7 @@ test("propose and proposal approve --to", async () => {
   createProposal(home, "e", { step: "scoping", phase: null, session: SESSION, toolUse: null, planFile: null, body: "# Scope\n" }, NOW);
   const plan = await run(["proposal", "approve", "e", "2", "--to", "plan"], ctx(home));
   assert.equal(plan.code, 0);
+  assert.match(plan.stdout, /\(2 words\)\n$/);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Scope\n");
   const bad = await run(["proposal", "approve", "e", "2", "--to", "nowhere"], ctx(home));
   assert.match(bad.stderr, /--to must be plan or phase:<n>/);

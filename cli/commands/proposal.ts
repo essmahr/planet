@@ -39,7 +39,8 @@ async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult>
   writeEpic(ctx.home, epicDoc);
   const where = dest.kind === "plan" ? "plan" : `phase ${dest.id}`;
   commit(ctx.home, `${epic}: approve proposal ${id} to ${where}`);
-  return { json: { proposal: result.proposal.meta, wrote: result.wrote }, text: `wrote ${result.wrote}` };
+  const words = readFileSync(result.wrote, "utf8").split(/\s+/).filter(Boolean).length;
+  return { json: { proposal: result.proposal.meta, wrote: result.wrote, words }, text: `wrote ${result.wrote} (${words} words)` };
 }
 
 async function proposalTag(args: string[], ctx: Ctx): Promise<CommandResult> {

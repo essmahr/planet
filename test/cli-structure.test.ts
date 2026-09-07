@@ -6,8 +6,10 @@ import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { readEpic } from "../cli/lib/epic.ts";
 import { readPhase } from "../cli/lib/phase.ts";
 import { createProposal, readProposal } from "../cli/lib/proposal.ts";
+import { parseTags } from "../cli/lib/report.ts";
 import { readMarker } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
+import { FEEDBACK_TAGS } from "../cli/schema/types.ts";
 
 const PR = "https://github.com/o/r/pull/5";
 
@@ -123,4 +125,27 @@ test("check validates prompts.jsonl lines and skips dotfiles in sessions", async
   assert.equal(errors.length, 1);
   assert.match(errors[0].file, /prompts\.jsonl:2$/);
   assert.match(errors[0].message, /kind must be one of/);
+});
+
+test("proposal approve accepts latest; proposal tag validates and commits", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));
+  const file = join(home, "draft.md");
+  writeFileSync(file, "# Draft\n");
+  await run(["propose", "e", "phase-plan", "--file", file, "--phase", "1"], ctx(home));
+  await run(["propose", "e", "phase-plan", "--file", file, "--phase", "1"], ctx(home));
+  const approved = await run(["proposal", "approve", "e", "latest", "--to", "phase:1"], ctx(home));
+  assert.equal(approved.code, 0);
+  assert.equal(readProposal(home, "e", 2).meta.outcome, "approved");
+  assert.equal(readProposal(home, "e", 1).meta.outcome, "pending");
+
+  const tagged = await run(["proposal", "tag", "e", "latest-1", "scope-cut", "--json"], ctx(home));
+  assert.equal(tagged.code, 0);
+  assert.deepEqual(tagged.json, { proposal: 1, tag: "scope-cut", line: "- proposal 1 · scope-cut" });
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: tag proposal 1 scope-cut");
+  assert.deepEqual(parseTags(readFileSync(paths.notes(home, "e"), "utf8")), { "scope-cut": 1 });
+
+  const bad = await run(["proposal", "tag", "e", "latest", "meh"], ctx(home));
+  assert.equal(bad.code, 1);
+  assert.equal(bad.stderr, `planet: tag must be one of ${FEEDBACK_TAGS.join(", ")}\n`);
 });

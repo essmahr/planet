@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Proposal, ProposalMeta, Step } from "../schema/types.ts";
+import type { Proposal, ProposalMeta, Step, Tag } from "../schema/types.ts";
 import { validateProposalMeta } from "../schema/validate.ts";
 import { NotFound } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
@@ -137,4 +137,30 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
   }
   const phase = writeBody(home, epic, dest.id, body);
   return { proposal, wrote: phase.path };
+}
+
+const LATEST_RE = /^latest(?:-(\d+))?$/;
+
+/** Turns "3", "latest", or "latest-2" into a proposal id, checking that it exists. */
+export function resolveProposalId(home: string, epic: string, text: string): number {
+  if (/^\d+$/.test(text)) {
+    const id = Number(text);
+    readProposal(home, epic, id);
+    return id;
+  }
+  const m = LATEST_RE.exec(text);
+  if (!m) throw new Error("proposal id must be a number, latest, or latest-N");
+  const latest = latestProposalId(home, epic);
+  if (latest === null) throw new Error(`no proposals in epic '${epic}'`);
+  const id = latest - Number(m[1] ?? 0);
+  readProposal(home, epic, id);
+  return id;
+}
+
+export function tagProposal(home: string, epic: string, id: number, tag: Tag): string {
+  readProposal(home, epic, id);
+  const line = `- proposal ${id} · ${tag}`;
+  mkdirSync(paths.feedback(home, epic), { recursive: true });
+  appendFileSync(paths.notes(home, epic), `${line}\n`);
+  return line;
 }

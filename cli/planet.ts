@@ -44,7 +44,8 @@ commands:
   unlink <epic> <phase> <pr-url>
   session start|step|end
   propose <epic> <step> --file <path>
-  proposal approve <epic> <id> --to plan|phase:<n>
+  proposal approve <epic> <id|latest|latest-N> --to plan|phase:<n>
+  proposal tag <epic> <id|latest|latest-N> <tag>
   sync [epic] [--force]
   pr files <epic> <phase>
   feedback report [epic]

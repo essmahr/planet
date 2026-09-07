@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { NOW, SESSION, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
-import { approveTo, createProposal, editedPath, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal } from "../cli/lib/proposal.ts";
+import { approveTo, createProposal, editedPath, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal, resolveProposalId, tagProposal } from "../cli/lib/proposal.ts";
 import { paths } from "../cli/lib/store.ts";
 
 const input = { step: "phasing" as const, phase: null, session: SESSION, toolUse: "toolu_1", planFile: "/plans/x.md", body: "# Phases\n\n1. A\n2. B\n" };
@@ -101,4 +101,27 @@ test("approveTo refuses to flip a rejected proposal without --from", () => {
   assert.equal(r.proposal.meta.outcome, "approved");
   assert.equal(r.proposal.meta.edited, true);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Retry\n");
+});
+
+test("resolveProposalId accepts numbers, latest, and latest-N", () => {
+  const home = setup();
+  for (let i = 0; i < 3; i += 1) createProposal(home, "e", input, NOW);
+  assert.equal(resolveProposalId(home, "e", "2"), 2);
+  assert.equal(resolveProposalId(home, "e", "latest"), 3);
+  assert.equal(resolveProposalId(home, "e", "latest-1"), 2);
+  assert.equal(resolveProposalId(home, "e", "latest-2"), 1);
+  assert.throws(() => resolveProposalId(home, "e", "latest-3"), /no proposal 0/);
+  assert.throws(() => resolveProposalId(home, "e", "newest"), /proposal id must be a number, latest, or latest-N/);
+  const empty = tmpHome();
+  createEpic(empty, { slug: "x", title: "X", repo: "o/r" }, NOW);
+  assert.throws(() => resolveProposalId(empty, "x", "latest"), /no proposals/);
+});
+
+test("tagProposal appends a notes line in the report's format", () => {
+  const home = setup();
+  createProposal(home, "e", input, NOW);
+  assert.equal(tagProposal(home, "e", 1, "reorder"), "- proposal 1 · reorder");
+  tagProposal(home, "e", 1, "style");
+  assert.equal(readFileSync(paths.notes(home, "e"), "utf8"), "- proposal 1 · reorder\n- proposal 1 · style\n");
+  assert.throws(() => tagProposal(home, "e", 9, "style"), /no proposal 9/);
 });

@@ -149,3 +149,13 @@ test("proposal approve accepts latest; proposal tag validates and commits", asyn
   assert.equal(bad.code, 1);
   assert.equal(bad.stderr, `planet: tag must be one of ${FEEDBACK_TAGS.join(", ")}\n`);
 });
+
+test("proposal approve refuses latest from another session, but a plain id bypasses the check", async () => {
+  const home = await setup();
+  createProposal(home, "e", { step: "scoping", phase: null, session: "other", toolUse: null, planFile: null, body: "# Scope\n" }, NOW);
+  const refused = await run(["proposal", "approve", "e", "latest", "--to", "plan"], ctx(home));
+  assert.equal(refused.code, 1);
+  assert.match(refused.stderr, /from another session/);
+  const approved = await run(["proposal", "approve", "e", "1", "--to", "plan"], ctx(home));
+  assert.equal(approved.code, 0);
+});

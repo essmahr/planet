@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needString, optString, parse } from "../lib/args.ts";
 import { readEpic, writeEpic } from "../lib/epic.ts";
-import { approveTo, createProposal, parseDestination, resolveProposalId, tagProposal } from "../lib/proposal.ts";
+import { approveTo, createProposal, parseDestination, readProposal, resolveProposalId, tagProposal } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 import { FEEDBACK_TAGS } from "../schema/types.ts";
@@ -26,7 +26,11 @@ export const proposeCommand: Command = async (args, ctx) => {
 async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { to: { type: "string" }, from: { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
-  const id = resolveProposalId(ctx.home, epic, need(positionals, 1, "proposal id"));
+  const idArg = need(positionals, 1, "proposal id");
+  const id = resolveProposalId(ctx.home, epic, idArg);
+  if (!/^\d+$/.test(idArg) && ctx.env.CLAUDE_CODE_SESSION_ID && readProposal(ctx.home, epic, id).meta.session !== ctx.env.CLAUDE_CODE_SESSION_ID) {
+    throw new Error(`proposal ${id} is from another session; pass the id explicitly`);
+  }
   const dest = parseDestination(needString(values, "to"));
   const from = optString(values, "from");
   const result = approveTo(ctx.home, epic, id, dest, from === undefined ? undefined : readFileSync(from, "utf8"));

@@ -10,7 +10,7 @@ metadata:
 
 # Planet: scoping
 
-Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: <text>` when a later step sent the work back. Precondition: `plan.md` exists and the last approved step is intake. Output: `plan.md` v2 through the gate. Scoping decides what and why. Phasing decides the cut. Phase-plan decides how.
+Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: <text>` when a later step sent the work back. Precondition: `plan.md` exists and the last approved step is intake, or a `reason:` line was passed. Output: `plan.md` v2 through the gate. Scoping decides what and why. Phasing decides the cut. Phase-plan decides how.
 
 ## Critical rules
 

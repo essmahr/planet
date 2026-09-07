@@ -42,4 +42,4 @@ One line, only when the default does not fit: `PR budget: <files> files or
 (from v1, plus any "(decided during review)" lines)
 ```
 
-Under 800 words. No phases, no file-level plan.
+Under 800 words, not counting a carried `## Phases` section. No new phases, no file-level plan.

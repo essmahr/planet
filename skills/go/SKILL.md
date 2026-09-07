@@ -48,7 +48,8 @@ Request `continue the GQL thing`. `planet open` returns `match: "gql-migration"`
 ## Troubleshooting
 
 - The injected status JSON has `stale: true` or `synced_at: null`: `gh` was unavailable. Continue; state is what the store holds.
-- The status block above is empty or shows an error instead of JSON: the injected command failed at load. Run `planet status --json` yourself and continue.
+- The status block holds `[]`: a real answer, no active epics. Do not run `planet status` again.
+- The status block is missing, blank, or not JSON: the injected command failed at load. Run `planet status --json` yourself and continue.
 - `planet open` errors with `no session id`: the Bash tool lacks `CLAUDE_CODE_SESSION_ID`. Report it and stop.
 - `planet epic new` errors with `already exists`: the slug is taken. Run `planet open <slug> --json` instead.
 - The request names a step that exists but the state does not match, for example `retro` with nothing shipped: say so and stop.

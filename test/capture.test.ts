@@ -223,3 +223,11 @@ test("SessionEnd removes the session marker and commits", () => {
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: end session");
   assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "after end" }), ctx(home)), ["no marker"]);
 });
+
+test("capture with empty stdin is a quiet no-op", async () => {
+  const home = setup();
+  const r = await run(["capture"], ctx(home, { stdin: () => "" }));
+  assert.equal(r.code, 0);
+  assert.match(r.stdout, /nothing to do/);
+  assert.ok(!existsSync(paths.hookLog(home)));
+});

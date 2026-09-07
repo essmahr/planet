@@ -185,7 +185,9 @@ export function handleHook(raw: string, ctx: Ctx): string[] {
 
 export const captureCommand: Command = async (_args, ctx) => {
   try {
-    const actions = handleHook(ctx.stdin(), ctx);
+    const raw = ctx.stdin();
+    if (raw.trim() === "") return { json: { actions: ["no input"] }, text: "capture reads a Claude Code hook payload on stdin; nothing to do" };
+    const actions = handleHook(raw, ctx);
     return { json: { actions }, text: "" };
   } catch (err) {
     const message = err instanceof Error ? err.stack ?? err.message : String(err);

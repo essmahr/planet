@@ -8,6 +8,20 @@ hooks that capture proposals, feedback, and PR links.
 
 Node 24, `gh` authenticated, git.
 
+## Use
+
+    /planet:go                      status table of active epics
+    /planet:go continue the gql epic
+    /planet:go CRM-123              start an epic from a ticket
+
+The router opens an epic and runs the next planning step. Intake is the only
+step built so far; scoping, phasing, phase-plan, and retro follow. Planning
+documents are approved through native plan mode; the hooks record what was
+proposed, approved, edited, and rejected.
+
+Plan mode without `/planet:go` is untouched: nothing is recorded unless a
+session was opened with the router.
+
 ## Develop
 
     claude --plugin-dir /path/to/planet

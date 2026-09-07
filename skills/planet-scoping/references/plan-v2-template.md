@@ -3,6 +3,8 @@
 Approving to `plan` replaces the whole file, so the draft carries v1's Problem
 and Context unchanged, then adds the sections below. Remove v1's "Open
 questions for scoping": their answers live in Goal, Approach, and Constraints.
+If the current `plan.md` has a `## Phases` section, carry it verbatim at the end
+of v2; phasing redraws it.
 
 ```
 # <Epic title>

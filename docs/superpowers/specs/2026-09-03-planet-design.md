@@ -269,12 +269,17 @@ confirmation line when not in JSON mode.
 
 - `planet epic new <slug> --title <t> --repo <owner/name> [--linear ID...]`
 - `planet epic set <slug> [--status paused|abandoned|active] [--linear ...] [--title ...]`
-- `planet phase new <epic> <slug> --title <t> [--linear ID...]`, repeatable
-  as `--phase <slug>:<title>` pairs so phasing creates every draft in one call
-  and one commit. Assigns the next ids, status `draft`, empty bodies.
+- `planet phase new <epic> <slug> --title <t> [--linear ID...] [--manual]`,
+  repeatable as `--phase <slug>:<title>` pairs so phasing creates every draft in
+  one call and one commit. Assigns the next ids, status `draft`, empty bodies.
+  `--manual` marks a phase with no PR and applies to the single form only.
 - `planet phase write <epic> <id> --body-file <path>`. Replaces the body, keeps frontmatter.
-- `planet phase set <epic> <id> --status planned|reviewed [--linear ...]`.
-- `planet link <epic> <id> <pr-url>...`. Validates the URL against the epic's repo.
+- `planet phase set <epic> <id> --status planned|reviewed|shipped [--linear ...]`.
+  `shipped` is for a manual phase with no linked PRs; every other phase ships
+  through sync.
+- `planet phase drop <epic> <id>`. Deletes a phase, drafts only.
+- `planet link <epic> <id> <pr-url>...`. Validates the URL against the epic's
+  repo and refuses a manual phase.
 - `planet unlink <epic> <id> <pr-url>`.
 
 ### Write, process

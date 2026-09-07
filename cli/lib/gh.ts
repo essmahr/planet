@@ -28,18 +28,24 @@ export class GhUnavailable extends Error {
   }
 }
 
+/** Turns a failed `gh` invocation into either a GhUnavailable (missing binary, timeout, auth/network trouble) or a plain Error carrying the command's stderr. */
+export function classifyGhError(err: unknown): Error {
+  const e = err as NodeJS.ErrnoException & { stderr?: string; killed?: boolean; signal?: string | null };
+  const stderr = (e.stderr ?? "").trim();
+  if (e.code === "ENOENT") return new GhUnavailable("gh is not installed");
+  if (e.killed === true || e.signal === "SIGTERM") return new GhUnavailable("gh timed out");
+  if (/not logged in|authentication|could not resolve host|network is unreachable|connection refused/i.test(stderr)) {
+    return new GhUnavailable(stderr.split("\n")[0]);
+  }
+  return new Error(stderr || e.message);
+}
+
 async function gh(args: string[]): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+    const { stdout } = await execFileAsync("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 10_000 });
     return stdout;
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & { stderr?: string };
-    const stderr = (e.stderr ?? "").trim();
-    if (e.code === "ENOENT") throw new GhUnavailable("gh is not installed");
-    if (/not logged in|authentication|could not resolve host|network is unreachable|connection refused/i.test(stderr)) {
-      throw new GhUnavailable(stderr.split("\n")[0]);
-    }
-    throw new Error(stderr || e.message);
+    throw classifyGhError(err);
   }
 }
 

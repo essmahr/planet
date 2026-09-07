@@ -78,3 +78,12 @@ test("open with zero or many matches sets nothing", async () => {
   assert.equal(none.code, 0);
   assert.equal(none.stdout, "no epic matches 'zzz'\n");
 });
+
+test("status marks a manual current phase", async () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "m", title: "M", repo: "o/r" }, NOW);
+  newPhases(home, "m", [{ slug: "review", title: "Design review", kind: "manual" }]);
+  const r = await run(["status", "--no-sync", "--json"], ctx(home));
+  const rows = r.json as StatusRow[];
+  assert.equal(rows.find((x) => x.slug === "m")?.current, "1 review (manual)");
+});

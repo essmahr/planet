@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ctx, run, tmpHome } from "./helpers.ts";
+import { ctx, run, tmpHome, SESSION, NOW } from "./helpers.ts";
 import { readEpic } from "../cli/lib/epic.ts";
+import { createProposal, markApproved, markRejected } from "../cli/lib/proposal.ts";
 import { git } from "../cli/lib/store.ts";
 import type { EpicView } from "../cli/lib/view.ts";
 
@@ -72,4 +73,22 @@ test("epic resolve returns candidates", async () => {
   assert.equal(many.stdout, "gql-cleanup\ngql-migration\n");
   const none = await run(["epic", "resolve", "zzz"], ctx(home));
   assert.equal(none.stdout, "no epic matches 'zzz'\n");
+});
+
+test("epic show reports the last approved step", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
+  const view = async () => (await run(["epic", "show", "e", "--json"], ctx(home))).json as EpicView;
+  assert.equal((await view()).last_approved_step, null);
+  const base = { phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" };
+  createProposal(home, "e", { ...base, step: "intake" }, NOW);
+  assert.equal((await view()).last_approved_step, null, "pending does not count");
+  markApproved(home, "e", 1, "x");
+  assert.equal((await view()).last_approved_step, "intake");
+  createProposal(home, "e", { ...base, step: "scoping" }, NOW);
+  markRejected(home, "e", 2, "no");
+  assert.equal((await view()).last_approved_step, "intake", "a later rejection does not advance it");
+  createProposal(home, "e", { ...base, step: "scoping" }, NOW);
+  markApproved(home, "e", 3, "x");
+  assert.equal((await view()).last_approved_step, "scoping");
 });

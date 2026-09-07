@@ -34,7 +34,7 @@ export function buildRows(home: string, stale: Set<string>): StatusRow[] {
       status: epic.status,
       shipped: metas.filter((m) => m.status === "shipped" || m.status === "reviewed").length,
       total: metas.length,
-      current: current ? `${current.id} ${current.slug}` : null,
+      current: current ? `${current.id} ${current.slug}${current.kind === "manual" ? " (manual)" : ""}` : null,
       open_prs: prs.filter((pr) => pr.state === "open").length,
       closed_prs: prs.filter((pr) => pr.state === "closed").length,
       unreviewed: metas.filter((m) => m.status === "shipped").length,

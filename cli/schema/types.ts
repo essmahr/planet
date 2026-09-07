@@ -3,12 +3,14 @@ export type PhaseStatus = "draft" | "planned" | "in-progress" | "shipped" | "rev
 export type PrState = "open" | "merged" | "closed";
 export type Step = "intake" | "scoping" | "phasing" | "phase-plan" | "retro" | "feedback-review";
 export type Outcome = "pending" | "approved" | "rejected";
+export type PhaseKind = "pr" | "manual";
 
 export const EPIC_STATUSES: readonly EpicStatus[] = ["planning", "active", "paused", "shipped", "abandoned"];
 export const PHASE_STATUSES: readonly PhaseStatus[] = ["draft", "planned", "in-progress", "shipped", "reviewed"];
 export const PR_STATES: readonly PrState[] = ["open", "merged", "closed"];
 export const STEPS: readonly Step[] = ["intake", "scoping", "phasing", "phase-plan", "retro", "feedback-review"];
 export const OUTCOMES: readonly Outcome[] = ["pending", "approved", "rejected"];
+export const PHASE_KINDS: readonly PhaseKind[] = ["pr", "manual"];
 
 export interface PrRef {
   url: string;
@@ -34,6 +36,7 @@ export interface PhaseMeta {
   slug: string;
   title: string;
   status: PhaseStatus;
+  kind: PhaseKind;
   linear: string[];
   prs: PrRef[];
   shipped_at: string | null;

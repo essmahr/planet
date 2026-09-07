@@ -49,7 +49,7 @@ test("resolveEpics: exact slug, then substring, then linear id", () => {
   const a = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r", linear: ["CRM-1"] }, NOW);
   const b = createEpic(home, { slug: "gql-cleanup", title: "Remove REST", repo: "o/r" }, NOW);
   const phasesOf = (slug: string): PhaseMeta[] => slug === "gql-cleanup"
-    ? [{ id: 1, slug: "p", title: "P", status: "draft", linear: ["CRM-99"], prs: [], shipped_at: null }]
+    ? [{ id: 1, slug: "p", title: "P", status: "draft", linear: ["CRM-99"], prs: [], shipped_at: null, kind: "pr" }]
     : [];
   assert.deepEqual(resolveEpics([a, b], "gql-cleanup", phasesOf).map((e) => e.slug), ["gql-cleanup"]);
   assert.deepEqual(resolveEpics([a, b], "GQL", phasesOf).map((e) => e.slug), ["gql-migration", "gql-cleanup"]);

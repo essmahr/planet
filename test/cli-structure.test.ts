@@ -44,7 +44,7 @@ test("phase write and set", async () => {
   assert.equal((await run(["phase", "set", "e", "1", "--status", "planned"], ctx(home))).code, 0);
   assert.equal(readPhase(home, "e", 1).meta.status, "planned");
   const bad = await run(["phase", "set", "e", "1", "--status", "shipped"], ctx(home));
-  assert.match(bad.stderr, /--status must be planned or reviewed/);
+  assert.match(bad.stderr, /only a manual phase with no linked prs can be shipped by hand/);
 });
 
 test("link and unlink", async () => {
@@ -159,4 +159,24 @@ test("proposal approve refuses latest from another session, but a plain id bypas
   assert.match(refused.stderr, /from another session/);
   const approved = await run(["proposal", "approve", "e", "1", "--to", "plan"], ctx(home));
   assert.equal(approved.code, 0);
+});
+
+test("phase new --manual, set --status shipped, and drop", async () => {
+  const home = await setup();
+  assert.equal((await run(["phase", "new", "e", "review", "--title", "Design review", "--manual"], ctx(home))).code, 0);
+  assert.equal(readPhase(home, "e", 1).meta.kind, "manual");
+  const bad = await run(["phase", "new", "e", "--phase", "a:A", "--manual"], ctx(home));
+  assert.match(bad.stderr, /--manual applies to the single form only/);
+  await run(["phase", "new", "e", "code", "--title", "Code"], ctx(home));
+  const refused = await run(["phase", "set", "e", "2", "--status", "shipped"], ctx(home));
+  assert.equal(refused.code, 1);
+  assert.match(refused.stderr, /only a manual phase/);
+  const ok = await run(["phase", "set", "e", "1", "--status", "shipped", "--json"], ctx(home));
+  assert.equal(ok.code, 0);
+  assert.equal(readPhase(home, "e", 1).meta.shipped_at, NOW);
+  const drop = await run(["phase", "drop", "e", "2"], ctx(home));
+  assert.equal(drop.code, 0);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: drop phase 2");
+  const noDrop = await run(["phase", "drop", "e", "1"], ctx(home));
+  assert.match(noDrop.stderr, /cannot drop phase 1: status is shipped/);
 });

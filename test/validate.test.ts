@@ -48,3 +48,10 @@ test("assertSlug", () => {
   assertSlug("ok-slug-2", "slug");
   assert.throws(() => assertSlug("Bad_Slug", "slug"), /kebab-case/);
 });
+
+test("validatePhaseMeta defaults kind to pr and rejects unknown kinds", () => {
+  const base = { id: 1, slug: "a", title: "A", status: "draft", linear: [], prs: [], shipped_at: null };
+  assert.equal(validatePhaseMeta(base, "f").kind, "pr");
+  assert.equal(validatePhaseMeta({ ...base, kind: "manual" }, "f").kind, "manual");
+  assert.throws(() => validatePhaseMeta({ ...base, kind: "review" }, "f"), /kind must be one of pr, manual/);
+});

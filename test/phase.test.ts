@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
-import { currentPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody } from "../cli/lib/phase.ts";
+import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody } from "../cli/lib/phase.ts";
 import { recomputeEpicStatus } from "../cli/lib/lifecycle.ts";
 import type { PhaseMeta } from "../cli/schema/types.ts";
 
@@ -43,7 +43,7 @@ test("setPhaseStatus enforces manual transitions", () => {
 });
 
 test("currentPhase prefers in-progress, then planned, then draft", () => {
-  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null });
+  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr" });
   assert.equal(currentPhase([mk(1, "reviewed"), mk(2, "draft"), mk(3, "planned")])?.id, 3);
   assert.equal(currentPhase([mk(1, "planned"), mk(2, "in-progress")])?.id, 2);
   assert.equal(currentPhase([mk(1, "reviewed")]), null);
@@ -53,7 +53,7 @@ test("recomputeEpicStatus derives active and shipped", () => {
   const home = epicHome();
   const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null };
-  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null };
+  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr" };
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), true);
   assert.equal(epic.status, "active");
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), false);
@@ -67,4 +67,27 @@ test("newPhases validates all inputs before writing any", () => {
   const home = epicHome();
   assert.throws(() => newPhases(home, "e", [{ slug: "ok", title: "Ok" }, { slug: "Bad Slug", title: "Bad" }]), /kebab-case/);
   assert.deepEqual(listPhases(home, "e"), []);
+});
+
+test("manual phases ship by hand; pr phases and phases with prs do not", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "review", title: "Design review", kind: "manual" }, { slug: "code", title: "Code" }]);
+  assert.equal(readPhase(home, "e", 1).meta.kind, "manual");
+  assert.equal(readPhase(home, "e", 2).meta.kind, "pr");
+  const shipped = setPhaseStatus(home, "e", 1, "shipped", "2026-09-08T10:00:00Z");
+  assert.equal(shipped.meta.status, "shipped");
+  assert.equal(shipped.meta.shipped_at, "2026-09-08T10:00:00Z");
+  assert.throws(() => setPhaseStatus(home, "e", 2, "shipped", NOW), /only a manual phase with no linked prs can be shipped by hand/);
+});
+
+test("dropPhase removes a draft and refuses anything else", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
+  setPhaseStatus(home, "e", 1, "planned");
+  const dropped = dropPhase(home, "e", 2);
+  assert.equal(dropped.meta.slug, "b");
+  assert.deepEqual(listPhases(home, "e").map((p) => p.meta.id), [1]);
+  assert.throws(() => dropPhase(home, "e", 1), /cannot drop phase 1: status is planned/);
+  const [c] = newPhases(home, "e", [{ slug: "c", title: "C" }]);
+  assert.equal(c.meta.id, 2, "ids continue from the highest remaining");
 });

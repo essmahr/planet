@@ -1,5 +1,5 @@
 import type { Epic, PhaseMeta, PrRef, ProposalMeta, SessionMarker } from "./types.ts";
-import { EPIC_STATUSES, OUTCOMES, PHASE_STATUSES, PR_STATES, STEPS } from "./types.ts";
+import { EPIC_STATUSES, OUTCOMES, PHASE_KINDS, PHASE_STATUSES, PR_STATES, STEPS } from "./types.ts";
 
 export class ValidationError extends Error {
   file: string;
@@ -107,6 +107,7 @@ export function validatePhaseMeta(v: unknown, file: string): PhaseMeta {
     slug,
     title: str(o, "title", file),
     status: oneOf(o, "status", file, PHASE_STATUSES),
+    kind: o.kind === undefined ? "pr" : oneOf(o, "kind", file, PHASE_KINDS),
     linear: strList(o, "linear", file),
     prs: prs.map((p) => validatePr(p, file)),
     shipped_at: nullableStr(o, "shipped_at", file),

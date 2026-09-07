@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Phase, PhaseMeta, PhaseStatus } from "../schema/types.ts";
+import type { Phase, PhaseKind, PhaseMeta, PhaseStatus } from "../schema/types.ts";
 import { assertSlug, validatePhaseMeta } from "../schema/validate.ts";
 import { NotFound } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
@@ -10,6 +10,7 @@ export interface NewPhaseInput {
   slug: string;
   title: string;
   linear?: string[];
+  kind?: PhaseKind;
 }
 
 export function phaseFileName(id: number, slug: string): string {
@@ -59,7 +60,16 @@ export function newPhases(home: string, epic: string, inputs: NewPhaseInput[]): 
   mkdirSync(dir, { recursive: true });
   const created: Phase[] = [];
   for (const input of inputs) {
-    const meta: PhaseMeta = { id: nextId++, slug: input.slug, title: input.title, status: "draft", linear: input.linear ?? [], prs: [], shipped_at: null };
+    const meta: PhaseMeta = {
+      id: nextId++,
+      slug: input.slug,
+      title: input.title,
+      status: "draft",
+      kind: input.kind ?? "pr",
+      linear: input.linear ?? [],
+      prs: [],
+      shipped_at: null,
+    };
     const phase: Phase = { meta, body: "", path: join(dir, phaseFileName(meta.id, meta.slug)) };
     writePhase(phase);
     created.push(phase);
@@ -74,18 +84,30 @@ export function writeBody(home: string, epic: string, id: number, body: string):
   return phase;
 }
 
-const MANUAL_TRANSITIONS: Record<"planned" | "reviewed", readonly PhaseStatus[]> = {
+const MANUAL_TRANSITIONS: Record<"planned" | "reviewed" | "shipped", readonly PhaseStatus[]> = {
   planned: ["draft", "planned"],
   reviewed: ["shipped"],
+  shipped: ["draft", "planned", "in-progress"],
 };
 
-export function setPhaseStatus(home: string, epic: string, id: number, status: "planned" | "reviewed"): Phase {
+export function setPhaseStatus(home: string, epic: string, id: number, status: "planned" | "reviewed" | "shipped", now?: string): Phase {
   const phase = readPhase(home, epic, id);
   if (!MANUAL_TRANSITIONS[status].includes(phase.meta.status)) {
     throw new Error(`cannot set phase ${id} to ${status} from ${phase.meta.status}`);
   }
+  if (status === "shipped") {
+    if (phase.meta.kind !== "manual" || phase.meta.prs.length > 0) throw new Error("only a manual phase with no linked prs can be shipped by hand");
+    phase.meta.shipped_at = now ?? new Date().toISOString();
+  }
   phase.meta.status = status;
   writePhase(phase);
+  return phase;
+}
+
+export function dropPhase(home: string, epic: string, id: number): Phase {
+  const phase = readPhase(home, epic, id);
+  if (phase.meta.status !== "draft") throw new Error(`cannot drop phase ${id}: status is ${phase.meta.status}`);
+  unlinkSync(phase.path);
   return phase;
 }
 

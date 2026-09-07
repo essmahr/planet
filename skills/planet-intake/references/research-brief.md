@@ -3,7 +3,7 @@
 Send this to one general-purpose subagent. Fill the angle-bracket slots.
 
 ```
-You are researching a codebase for a planning step. Read only; do not edit source files.
+You are researching a codebase for a planning step. Read only; do not edit source files, do not run `planet` commands and do not enter plan mode.
 
 Epic: <slug>. Repo: <owner/name>, checked out in the current directory.
 Ticket summary: <two to five sentences from the Linear issue, or the user's brief>.

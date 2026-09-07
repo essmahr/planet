@@ -86,8 +86,11 @@ through the gate, then draft phases in the store.
    ticket it closes if one maps. Gate to `plan`. On rejection amend and
    re-gate. The approved section is the source of truth for what the phases
    are.
-4. After approval, one `planet phase new <epic> --phase slug:title ...` call in
-   id order, with `--kind manual` where the section says so. Bodies stay empty.
+4. After approval, one `planet phase new <epic> <slug> --title "<title>"` call
+   per phase in id order, `--manual` on the phases the section marks manual,
+   chained with `&&` in a single Bash command so it costs one tool turn. Bodies
+   stay empty. If the chain stops partway, drop the drafts it created and rerun
+   it; drafts are disposable.
 5. Return `phasing done, N phases drafted, next step phase-plan`.
 
 Re-cut: with `re-cut from phase N`, run `planet phase drop` on every draft
@@ -152,9 +155,9 @@ in the request. Output: the phase body through the gate to `phase:N`, status
 
 - `epic show` adds `last_approved_step: Step | null`, the step of the highest
   approved proposal.
-- Phase frontmatter gains `kind: pr | manual`, default `pr`. `phase new` accepts
-  `--kind manual`; in the batch form a pair may read `slug:title:manual`.
-  Status shows the kind.
+- Phase frontmatter gains `kind: pr | manual`, default `pr`. The single form of
+  `phase new` accepts a `--manual` flag; the batch form stays pr-only and
+  phasing does not use it. Status shows the kind.
 - `phase set --status shipped` is allowed only for a `manual` phase with no
   linked PRs, and sets `shipped_at`.
 - `phase drop <epic> <id>` deletes a `draft` phase and refuses anything else.

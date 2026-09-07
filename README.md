@@ -14,10 +14,11 @@ Node 24, `gh` authenticated, git.
     /planet:go continue the gql epic
     /planet:go CRM-123              start an epic from a ticket
 
-The router opens an epic and runs the next planning step. Intake is the only
-step built so far; scoping, phasing, phase-plan, and retro follow. Planning
-documents are approved through native plan mode; the hooks record what was
-proposed, approved, edited, and rejected.
+The router opens an epic and runs the next planning step: intake, scoping,
+phasing, then phase-plan for each phase. After a phase is planned it offers to
+start implementation in the session, plan the next phase, or stop. Retro
+follows. Planning documents are approved through native plan mode; the hooks
+record what was proposed, approved, edited, and rejected.
 
 Plan mode without `/planet:go` is untouched: nothing is recorded unless a
 session was opened with the router.

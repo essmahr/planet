@@ -12,9 +12,8 @@ mechanically.
 ## Tracer bullet then widen, for a feature
 1. A thin end-to-end slice behind a feature flag: one path through every layer.
 2. Widen by user-visible capability, one per phase, all behind the flag.
-3. Design review before the UI phases it gates: manual.
-4. Rollout: internal, then beta, then everyone: manual.
-5. Remove the flag.
+3. Rollout by flag: internal, then beta, then everyone: manual.
+4. Remove the flag.
 
 ## Spike then build, when the approach is uncertain
 1. A throwaway spike that answers the question: manual, with the answer written to research/.

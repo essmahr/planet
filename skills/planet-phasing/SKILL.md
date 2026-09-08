@@ -26,14 +26,14 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 - Order by dependency, then by uncertainty: the phase most likely to change the plan goes first.
 - Each phase fits the budget by a rough count, about 20 files or 8 commits unless `plan.md` has a `PR budget:` line, or its entry says why the budget does not apply.
 - Anything user-visible ships dark until a deliberate rollout phase.
-- Work that produces no PR is still a phase, marked manual: design review, rollout, investigation, tickets to write.
+- A manual phase is engineering work with no PR: a migration run, a flag flip, a backfill, a spike whose findings land in `research/`. Announcements, reviews, and waiting on people are never phases; they go in Sequencing notes or inside a phase's plan.
 
 ## Steps
 
 1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
 2. **Cut** by the principles. Consult `references/cut-patterns.md` when the work resembles one of its shapes.
 3. **Draft** the Phases section in the format of `references/phases-section.md`, appended to `plan.md` as v3 with everything above it unchanged. On a re-cut, entries below N are copied verbatim.
-4. **Gate.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend in place and gate again.
+4. **Gate.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend in place and gate again; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, return `phasing aborted: <message>`.
 5. **Create.** On a re-cut, first run `planet phase drop <epic> <id>` for every draft with id N or higher. Then run one `planet phase new <epic> <slug> --title "<title>"` per entry in section order, skipping entries below N on a re-cut since they already exist, adding `--manual` where the entry says manual and `--linear <ID>` where it names a ticket, all chained with `&&` in one Bash command. If the chain stops partway, drop the drafts it created, fix the failing entry, and rerun.
 6. **Verify** with `planet epic show <epic> --json` that `phases` lists the entries in order with the right kinds.
 7. **Return** `phasing done, N phases drafted, next step phase-plan`.

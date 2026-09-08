@@ -1,6 +1,7 @@
 # Codebase research brief
 
-Send this to one general-purpose subagent. Fill the angle-bracket slots.
+Send this to one general-purpose subagent, model sonnet. Fill the angle-bracket
+slots and change nothing else.
 
 ```
 You are researching a codebase for a planning step. Read only; do not edit source files, do not run `planet` commands and do not enter plan mode.

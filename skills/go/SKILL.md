@@ -42,14 +42,15 @@ Request: $ARGUMENTS
    - `... done, next step <name>`: run `planet epic show <slug> --json`, which is read-only and returns the same view as the payload's `epic` field, then go to step 5 with it.
    - `phase N planned`: go to step 8.
    - `re-cut from phase N: <why>` or `back to scoping: <why>`: go to step 9.
+   - `<step> aborted: <why>`: say nothing was written and plan mode may still be on; stop.
    Never dispatch the same step twice without an approval in between; if a step returns without one, stop and say why.
-8. **After a phase is planned.** Ask with AskUserQuestion, three options: `Implement phase N here`, `Plan the next phase`, `Stop`. Implement: run `planet session start <slug> --phase N`, print the phase file path from the view, and stop; planning is over for this session. Plan next: run `planet epic show <slug> --json` and go to step 5. Stop: say `/planet:go <slug>` plans more and `/planet:go <slug> implement N` starts implementation, then run `planet session end`.
+8. **After a phase is planned.** Ask with AskUserQuestion, three options: `Implement phase N here`, `Plan the next phase`, `Stop`. Implement: run `planet session start <slug> --phase N`, print the phase file path from the view, say `read the phase file and start; gh pr create links the PR to phase N`, and stop; planning is over for this session. Plan next: run `planet epic show <slug> --json` and go to step 5. Stop: say `/planet:go <slug>` plans more and `/planet:go <slug> implement N` starts implementation, then run `planet session end`.
 9. **Hand-ups.** `re-cut from phase N: <why>`: dispatch phasing with `reason: re-cut from phase N: <why>`. `back to scoping: <why>`: dispatch scoping with `reason: back to scoping: <why>`. Either runs step 6 when it applies, then step 7 once; a second hand-up in the same run stops with the reason shown.
 10. **Done.** When the user says they are done, run `planet session end`.
 
 ## Example
 
-Request `continue the GQL thing`. `planet open` returns `match: "gql-migration"`; say `opened gql-migration`. The view has `last_approved_step: "scoping"` and no phases, so the step is phasing. `gh repo view` is not needed for phasing. Run `planet session step phasing`, invoke `planet:planet-phasing` with the slug and dir. It returns `phasing done, 4 phases drafted, next step phase-plan`. Refresh the view; phase 1 is a draft, so run the repo check, then dispatch phase-plan. It returns `phase 1 planned`. Ask: implement here, plan next, or stop.
+Request `continue the GQL thing`. `planet open` returns `match: "gql-migration"`; say `opened gql-migration`. The view has `last_approved_step: "scoping"` and no phases, so the step is phasing. Run `planet session step phasing`, invoke `planet:planet-phasing` with the slug and dir. It returns `phasing done, 4 phases drafted, next step phase-plan`. Refresh the view; phase 1 is a draft, so run the repo check, then dispatch phase-plan. It returns `phase 1 planned`. Ask: implement here, plan next, or stop.
 
 ## Troubleshooting
 
@@ -60,4 +61,3 @@ Request `continue the GQL thing`. `planet open` returns `match: "gql-migration"`
 - `planet epic new` errors `already exists`: the slug is taken; run `planet open <slug> --json` instead.
 - A named step exists but state doesn't match, e.g. `retro` with nothing shipped: say so, stop.
 - `last_approved_step` is null but `paths.plan` exists: the plan was written outside the gate. Treat it as intake done.
-- A step returns without a `done`, `planned`, or hand-up line: report its last message and stop.

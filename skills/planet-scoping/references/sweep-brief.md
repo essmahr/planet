@@ -1,7 +1,8 @@
 # Codebase sweep brief
 
-Send this to one general-purpose subagent only when picking an approach needs
-codebase facts the research does not hold. Fill the angle-bracket slots.
+Send this to one general-purpose subagent, model sonnet, only when picking an
+approach needs codebase facts the research does not hold. Fill the
+angle-bracket slots and change nothing else.
 
 ```
 You are answering questions for a planning step. Read only; do not edit source

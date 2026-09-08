@@ -1,7 +1,8 @@
 # Phase sweep brief
 
-Send this to one general-purpose subagent when the phase touches code that
-research/codebase.md does not already cover. Fill the angle-bracket slots.
+Send this to one general-purpose subagent, model sonnet, when the phase touches
+code that research/codebase.md does not already cover. Fill the angle-bracket
+slots and change nothing else; extra instructions make the sweep slower.
 
 ```
 You are researching one phase of a plan. Read only; do not edit source files,

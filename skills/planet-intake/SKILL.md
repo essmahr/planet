@@ -17,7 +17,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `sources:` block, on
 - Research files are written to `<dir>/research/`; nothing else under the epic directory is written by hand. `plan.md` is written only by `planet proposal approve`.
 - Fetch each source exactly as `references/sources.md` says, no more. A project's children are listed, not fetched.
 - Codebase exploration goes to one subagent. Do not read source files in this thread beyond what a clarifying question needs.
-- Clarifying questions: only what blocks a problem statement, at most three, one at a time, in chat, before entering plan mode. Never ask which tickets to keep or drop.
+- Clarifying questions: only what blocks a problem statement, at most three, one at a time, in chat, before entering plan mode. Never ask the user to sort a ticket list into keep and drop; a related ticket is asked about only when step 4's rule applies.
 - The draft is composed in context. The gate writes it.
 
 ## Steps

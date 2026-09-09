@@ -9,9 +9,8 @@ What is wrong or missing, for whom, and how it shows up. Two to five sentences.
 ## Context
 One line per research file: its path and what it settles. No figures or lists
 from the file; the file holds the detail and is the one place it is corrected.
-- Sources: research/sources.md, <N> sources; with exactly one source, name its
-  file here instead (Ticket: <ID> (research/linear-<ID>.md), or PRs: <urls>
-  (research/prs.md), or Brief: research/brief.md)
+- Sources: research/sources.md, <N> sources; with exactly one source, name it
+  here instead as `<Kind>: <ref> (<file>)`, e.g. Ticket: CRM-123 (research/linear-CRM-123.md)
 - Codebase: research/codebase.md, one sentence on what it found
 
 ## Constraints

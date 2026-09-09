@@ -14,8 +14,9 @@ exactly this; do not read more than the kind asks for.
 | text | copy | `research/brief.md`, verbatim under a dated heading |
 
 A child of a project or parent is fetched as an `issue` only when it is named
-as the work, at intake or later. More than 40 children: list titles only and
-say so at the top of `tickets.md`.
+as the work, at intake or later. An `issue` whose fetch shows children is also
+a `parent`: list them in `tickets.md` and record both kinds in `sources.md`.
+More than 40 children: list titles only and say so at the top of `tickets.md`.
 
 ## research/tickets.md
 

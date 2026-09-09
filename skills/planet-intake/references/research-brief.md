@@ -7,8 +7,8 @@ slots and change nothing else.
 You are researching a codebase for a planning step. Read only; do not edit source files, do not run `planet` commands and do not enter plan mode.
 
 Epic: <slug>. Repo: <owner/name>, checked out in the current directory.
-Ticket summary: <two to five sentences from the Linear issue, or the user's brief>.
-Prior art: <PR urls or none>.
+Work summary: <two to five sentences on what the primary sources ask for>.
+Research so far: <paths of the research files written, or none>.
 
 Answer, with file paths:
 1. Which modules own the behavior the ticket touches, and what each does today.

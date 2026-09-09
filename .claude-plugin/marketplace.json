@@ -1,0 +1,11 @@
+{
+  "name": "planet-local",
+  "owner": { "name": "Scott Mahr" },
+  "plugins": [
+    {
+      "name": "planet",
+      "source": ".",
+      "description": "Epic planning across PRs: intake, scoping, phasing, phase plans through plan mode, PR sync"
+    }
+  ]
+}

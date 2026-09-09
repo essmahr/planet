@@ -14,7 +14,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: <text>` when 
 
 ## Critical rules
 
-- Read `plan.md` and the research files its Context links. Nothing else from the store.
+- Read `plan.md` and the files Context links, directly or through `research/sources.md`. Nothing else from the store.
 - One question per message, multiple choice when the options are known. Stop when goal, non-goals, and success criteria are settled.
 - The user picks the approach in chat. The gate carries the finished document, never a menu of approaches.
 - `plan.md` is written only by `planet proposal approve`. Approving to `plan` replaces the file, so the draft carries v1's sections.
@@ -22,13 +22,15 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: <text>` when 
 
 ## Steps
 
-1. **Read.** `plan.md`, then each `research/` file its Context links, and `research/tickets.md` when it exists. If `reason:` was passed, read it first; it says what a later step could not resolve.
+1. **Read.** `plan.md`, then each `research/` file its Context links, following `research/sources.md` to the files it lists, and `research/tickets.md` when it exists. If `reason:` was passed, read it first; it says what a later step could not resolve.
 2. **Shape.** Ask what kind of work this is: a feature, a migration or refactor, an escalation, decomposing a PRD into tickets, or something else. `references/shapes.md` has example questions per shape. Borrow; do not run down a list. Skip this step when a `reason:` line was passed and the shape is already in `plan.md`.
 3. **Converse.** One question at a time: what done looks like, what is out, including related tickets that `plan.md` Open questions left undecided, what would make the user reject the result. For a feature also: whether a design exists and where, the flag and who sees it first, what rollout looks like, what metric says it worked. A clear ticket may need only two questions. Never re-ask what `plan.md` answers.
 4. **Approaches.** In one message, propose two or three approaches, each in three to five lines with trade-offs, the recommendation first with why. Wait for the pick. If the pick hinges on a codebase fact the research lacks, dispatch one general-purpose subagent on model sonnet with `references/sweep-brief.md` as written, read its five lines, and continue.
-5. **Draft.** Compose `plan.md` v2 in context from `references/plan-v2-template.md`: v1's Problem and Context kept, a design link added to Context when there is one, then Goal, Non-goals, Success criteria, Approach with alternatives under Considered, Sequencing notes, a PR budget line only when the default does not fit, Constraints. An existing `## Phases` section is carried verbatim at the end. Under 800 words, not counting that section.
+5. **Draft.** Compose `plan.md` v2 in context from `references/plan-v2-template.md`: v1's Problem and Context kept, a design link added to Context when there is one, then Goal, Non-goals, Success criteria, Approach with alternatives under Considered, Sequencing notes, a PR budget line only when the default does not fit, Constraints. Goal and Non-goals name ticket IDs when tickets were decided. An existing `## Phases` section is carried verbatim at the end. Under 800 words, not counting that section.
 6. **Gate.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend the draft in place; a decision in the message becomes a Constraint marked "(decided during review)". Gate again. On `aborted: <message>`, return `scoping aborted: <message>`.
 7. **Return** `scoping done, next step phasing`.
+
+A source the user adds mid-conversation is fetched and filed as intake's sources reference describes, appended to `research/sources.md`, and given a Context line at the next gate.
 
 ## Example
 

@@ -16,10 +16,10 @@ of v2; phasing redraws it.
 (from v1; add `- Design: <link>` when a design exists)
 
 ## Goal
-What done looks like, in the user's words where possible. Two to four sentences.
+What done looks like, in the user's words where possible. Two to four sentences. (name ticket IDs when tickets were decided)
 
 ## Non-goals
-Bullets. What is out, including things the user said no to.
+Bullets. What is out, including things the user said no to. (name ticket IDs when tickets were decided)
 
 ## Success criteria
 Bullets. Observable checks: a metric, a grep, a behavior, a review passed.

@@ -15,7 +15,10 @@ Node 24, `gh` authenticated, git.
     /planet:go CRM-123              start an epic from a ticket
 
 The router opens an epic and runs the next planning step: intake, scoping,
-phasing, then phase-plan for each phase. After a phase is planned it offers to
+phasing, then phase-plan for each phase. An epic can start from any mix of
+Linear issues, projects, PRs, documents, URLs, or plain text; the research
+directory holds one file per source, with `sources.md` as the index. After a
+phase is planned it offers to
 start implementation in the session, plan the next phase, or stop. Retro
 follows. Planning documents are approved through native plan mode; the hooks
 record what was proposed, approved, edited, and rejected.

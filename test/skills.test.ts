@@ -49,6 +49,7 @@ for (const name of skillDirs()) {
       assert.match(body, /\$ARGUMENTS/, "request text is read from arguments");
     }
     assert.doesNotMatch(body, /\bScott\b/, "skill text never names the user");
+    assert.doesNotMatch(body, /prior art/i, "sources replaced the prior-art line");
     const budget = WORD_BUDGET[name];
     if (budget !== undefined) assert.ok(words(body) <= budget, `body has ${words(body)} words, budget ${budget}`);
     for (const heading of ["## Critical rules", "## Steps", "## Troubleshooting"]) {

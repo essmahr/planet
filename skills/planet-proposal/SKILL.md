@@ -14,16 +14,16 @@ Input from the calling step: `epic` slug (or `review` for a feedback review), `t
 
 ## Critical rules
 
-- While in plan mode, write only the plan file. No `planet` commands until the gate resolves.
+- In plan mode, write only the plan file; no `planet` commands until the gate resolves.
 - On rejection, amend the plan file in place. Never regenerate it or swap in another document; a rejection that says the phase or the cut is wrong goes back to the caller unamended.
 - Never compute proposal ids. Use `latest` and `latest-N`.
 
 ## Steps
 
-1. Call EnterPlanMode if not in plan mode. Write the draft, unchanged, to the plan file Claude Code names when plan mode starts; edit that file when re-entering after a rejection.
+1. Call EnterPlanMode unless in plan mode. Write the draft, unchanged, to the plan file Claude Code names when plan mode starts; edit that file when re-entering after a rejection.
 2. Call ExitPlanMode.
-3. **Approved.** ExitPlanMode's result is the only signal. Once it reports approval, plan mode has ended and the CLI works. Run `planet proposal approve <epic> latest --to <to>`. For each rejection, most recent first, run `planet proposal tag <epic> latest-1 <tag>`, then `latest-2`. Tag from the user's words: scope-cut, scope-add, reorder, wrong-assumption, too-granular, too-coarse, style, skill (the user says the skill or Planet should behave differently in general, not this plan), other. Return `approved` to the caller.
-4. **Rejected.** It carries the user's message, typed or as `[Re: "quote"] comment` lines; plan mode continues. Count them here. If the message says stop, abort, or keep the current plan, return `aborted: <message>`; nothing is written, and plan mode stays on until the user leaves it. Otherwise return the message; the caller amends the draft and gates again. The hooks record the rejection.
+3. **Approved.** ExitPlanMode's result is the only signal. Once it reports approval, plan mode has ended and the CLI works. Run `planet proposal approve <epic> latest --to <to>`. One `planet proposal tag <epic> latest-K <tag>` per rejection, K counting back from the most recent. Tag from the user's words: scope-cut, scope-add, reorder, wrong-assumption, too-granular, too-coarse, style, skill (the user says the skill or Planet should behave differently in general, not this plan), other. Return `approved` to the caller.
+4. **Rejected.** The result carries the user's message, typed or as `[Re: "quote"] comment` lines; plan mode continues. Count the rejections here. If the message says stop, abort, or keep the current plan, return `aborted: <message>`; nothing is written; plan mode stays on until the user leaves it. Otherwise return the message; the caller amends the draft and gates again. The hooks record the rejection.
 
 ## Troubleshooting
 

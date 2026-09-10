@@ -26,7 +26,7 @@ should change the plugin rather than just this epic.
 | How deep | Structured inputs from one CLI call; a diff is read only for the implemented-to-head range and for a planned file that did not change or a changed file that was not planned. |
 | What retro produces | One file, `retros/NN-<slug>.md`, written through the CLI, then status `reviewed`. No edits to later phases; the next phase-plan reads the retro. A cut the retro finds wrong is a `re-cut from phase N` hand-up. |
 | Who weighs | Retro names at most three candidate lessons, each pointing at a skill, and asks one multi-select: which should steer the plugin. Answers are recorded as `steer: yes|no`. Rejections tagged `skill` mark pushback about Planet rather than this plan. |
-| Recurrence | Feedback-review drafts an edit only for a steer-yes lesson or `skill` rejection that recurs in two phases or two epics, or that the user names. The rest is an appendix with counts. |
+| Recurrence | Feedback-review drafts an edit only for a steer-yes lesson or `skill` rejection that recurs in two phases (a lesson's `phase`, a rejection's `phase`, null counting as its own) or two epics, or that the user names. The rest is an appendix with counts. |
 | How edits land | A findings document through plan mode; on approval, one commit per skill on a branch in the plugin repo, harness run, stop at the branch. The applied record is stored so the next review starts after it. |
 | Refix tracking | None. The implemented sha and the prompts cover it. |
 | Prompts in later sessions | The marker persists in the implementing session. A new session on a phase starts with `/planet:go <slug> work on N`, which sets the marker and stops. |
@@ -43,8 +43,8 @@ should change the plugin rather than just this epic.
   `implemented_sha`, `head_sha`, `lessons` (list of `{text, skill, steer}`),
   `written`. Body per the retro template. Written by `planet retro write`.
 - `reviews/<YYYY-MM-DD>.md` at the store root: the findings document
-  feedback-review applied, with the commit shas. Written by `planet proposal
-  approve --to review`.
+  feedback-review applied; the branch's git log holds the commit shas.
+  Written by `planet proposal approve --to review`.
 - `prompts.jsonl` `kind` is `implementation` when the marker step is
   `implement`, else `planning` (today it keys on `phase`, which the phase-plan
   fix below would break).
@@ -183,8 +183,7 @@ Steps:
 
 Template `references/findings-template.md`: `## Recurring` (one subsection
 per group: quotes, count, file:line, replacement, budget), `## Appendix`
-(singletons, plan-local, not Planet's to fix), `## Applied` (filled by the
-skill after commits, before the record is written). Under 1,000 words.
+(singletons, plan-local, not Planet's to fix). Under 1,000 words.
 
 The hooks record proposals only for a marked session, and a review has no
 epic. `planet session review` writes a marker `{review: true}`; the capture

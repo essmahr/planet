@@ -4,7 +4,7 @@
 # Feedback review <date>
 
 Since: <last review date or the beginning>. Sources: <N> steer-yes lessons,
-<N> skill-tagged rejections, <N> retros, <N> epics.
+<N> skill-tagged rejections, <N> retros (distinct epic and phase pairs in lessons), <N> epics.
 
 ## Recurring
 

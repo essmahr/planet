@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needString, optString, parse } from "../lib/args.ts";
 import { readEpic, writeEpic } from "../lib/epic.ts";
+import type { Destination } from "../lib/proposal.ts";
 import { approveTo, createProposal, markRejected, parseDestination, readProposal, resolveProposalId, tagProposal } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { REVIEW, commit } from "../lib/store.ts";
@@ -30,6 +31,12 @@ export const proposeCommand: Command = async (args, ctx) => {
   return { json: proposal.meta, text: `proposal ${proposal.meta.id}` };
 };
 
+function destinationLabel(dest: Destination): string {
+  if (dest.kind === "plan") return "plan";
+  if (dest.kind === "review") return "review";
+  return `phase ${dest.id}`;
+}
+
 async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { to: { type: "string" }, from: { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
@@ -44,9 +51,8 @@ async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult>
     epicDoc.updated = ctx.now();
     writeEpic(ctx.home, epicDoc);
   }
-  const where = dest.kind === "plan" ? "plan" : dest.kind === "review" ? "review" : `phase ${dest.id}`;
-  const commitMessage = epic === REVIEW ? `review: approve proposal ${id} to review` : `${epic}: approve proposal ${id} to ${where}`;
-  commit(ctx.home, commitMessage);
+  const where = destinationLabel(dest);
+  commit(ctx.home, `${epic}: approve proposal ${id} to ${where}`);
   const words = readFileSync(result.wrote, "utf8").split(/\s+/).filter(Boolean).length;
   return { json: { proposal: result.proposal.meta, wrote: result.wrote, words }, text: `wrote ${result.wrote} (${words} words)` };
 }

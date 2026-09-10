@@ -4,9 +4,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { handleHook } from "../cli/commands/capture.ts";
+import { createEpic } from "../cli/lib/epic.ts";
 import { REVIEW, paths } from "../cli/lib/store.ts";
 import { readMarker } from "../cli/lib/session.ts";
-import { listProposals } from "../cli/lib/proposal.ts";
+import { createProposal, listProposals, readProposal } from "../cli/lib/proposal.ts";
 
 function hook(event: string, extra: Record<string, unknown>): string {
   return JSON.stringify({ hook_event_name: event, session_id: SESSION, transcript_path: "/t", ...extra });
@@ -46,4 +47,20 @@ test("planet session review marks the session and hooks capture under reviews/",
   assert.equal(readMarker(home, SESSION), null);
   const status = await run(["status", "--no-sync", "--json"], ctx(home));
   assert.deepEqual(status.json, []);
+});
+
+test("proposal approve guards review destinations before mutating the proposal", async () => {
+  const home = tmpHome();
+  await run(["session", "review", "--json"], ctx(home));
+  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: "# Findings\n" } }), ctx(home));
+  const bad = await run(["proposal", "approve", REVIEW, "latest", "--to", "plan"], ctx(home));
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /only approve --to review/);
+  assert.equal(readProposal(home, REVIEW, 1).meta.outcome, "pending");
+
+  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createProposal(home, "e", { step: "phasing", phase: null, session: SESSION, toolUse: null, planFile: null, body: "# Phases\n" }, NOW);
+  const wrong = await run(["proposal", "approve", "e", "1", "--to", "review"], ctx(home));
+  assert.equal(wrong.code, 1);
+  assert.match(wrong.stderr, /only for the review pseudo-epic/);
 });

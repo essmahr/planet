@@ -132,6 +132,8 @@ function nextReviewFile(home: string, now: string): string {
 }
 
 export function approveTo(home: string, epic: string, id: number, dest: Destination, fromText: string | undefined, now: string): { proposal: Proposal; wrote: string } {
+  if (epic === REVIEW && dest.kind !== "review") throw new Error("review proposals only approve --to review");
+  if (dest.kind === "review" && epic !== REVIEW) throw new Error("--to review is only for the review pseudo-epic");
   let proposal = readProposal(home, epic, id);
   if (proposal.meta.outcome === "rejected" && fromText === undefined) {
     throw new Error(`proposal ${id} was rejected; pass --from to approve different text`);
@@ -145,7 +147,6 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
     return { proposal, wrote: file };
   }
   if (dest.kind === "review") {
-    if (epic !== REVIEW) throw new Error("--to review is only for the review pseudo-epic");
     mkdirSync(paths.reviews(home), { recursive: true });
     const file = nextReviewFile(home, now);
     writeFileSync(file, body);

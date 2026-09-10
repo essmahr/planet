@@ -24,10 +24,13 @@ async function sessionStart(args: string[], ctx: Ctx): Promise<CommandResult> {
 }
 
 async function sessionStep(args: string[], ctx: Ctx): Promise<CommandResult> {
-  const { positionals, values } = parse(args, { session: { type: "string" } });
+  const { positionals, values } = parse(args, { phase: { type: "string" }, session: { type: "string" } });
   const step = parseStep(need(positionals, 0, "step name"));
   const id = sessionIdFrom(ctx.env, optString(values, "session"));
-  const marker = setSessionStep(ctx.home, id, step);
+  const phaseText = optString(values, "phase");
+  const phase = phaseText === undefined ? undefined : Number(phaseText);
+  if (phase !== undefined && !Number.isInteger(phase)) throw new Error("--phase must be an integer");
+  const marker = setSessionStep(ctx.home, id, step, phase);
   commit(ctx.home, `${marker.epic}: session step ${step}`);
   return { json: { session: id, marker }, text: `step ${step}` };
 }

@@ -40,10 +40,14 @@ export function startSession(home: string, id: string, epicSlug: string, opts: S
   return marker;
 }
 
-export function setSessionStep(home: string, id: string, step: Step): SessionMarker {
+export function setSessionStep(home: string, id: string, step: Step, phase?: number | null): SessionMarker {
   const marker = readMarker(home, id);
   if (!marker) throw new Error("no active planet session; run planet session start first");
   marker.step = step;
+  if (phase !== undefined) {
+    if (phase !== null) readPhase(home, marker.epic, phase);
+    marker.phase = phase;
+  }
   writeMarker(home, id, marker);
   return marker;
 }

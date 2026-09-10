@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needString, optString, parse } from "../lib/args.ts";
 import { readEpic, writeEpic } from "../lib/epic.ts";
-import { approveTo, createProposal, parseDestination, readProposal, resolveProposalId, tagProposal } from "../lib/proposal.ts";
+import { approveTo, createProposal, markRejected, parseDestination, readProposal, resolveProposalId, tagProposal } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 import { FEEDBACK_TAGS } from "../schema/types.ts";
@@ -43,6 +43,18 @@ async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult>
   return { json: { proposal: result.proposal.meta, wrote: result.wrote, words }, text: `wrote ${result.wrote} (${words} words)` };
 }
 
+async function proposalReject(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { feedback: { type: "string" } });
+  const epic = need(positionals, 0, "epic slug");
+  const idArg = need(positionals, 1, "proposal id");
+  const id = resolveProposalId(ctx.home, epic, idArg);
+  const current = readProposal(ctx.home, epic, id);
+  if (current.meta.outcome !== "pending") throw new Error(`proposal ${id} already ${current.meta.outcome}`);
+  const proposal = markRejected(ctx.home, epic, id, optString(values, "feedback") ?? "rejected by hand");
+  commit(ctx.home, `${epic}: reject proposal ${id}`);
+  return { json: proposal.meta, text: `proposal ${id} rejected` };
+}
+
 async function proposalTag(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals } = parse(args, {});
   const epic = need(positionals, 0, "epic slug");
@@ -57,6 +69,7 @@ async function proposalTag(args: string[], ctx: Ctx): Promise<CommandResult> {
 export const proposalCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   if (sub === "approve") return proposalApprove(rest, ctx);
+  if (sub === "reject") return proposalReject(rest, ctx);
   if (sub === "tag") return proposalTag(rest, ctx);
-  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n> | planet proposal tag <epic> <id> <tag>");
+  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n> | planet proposal reject <epic> <id> [--feedback <text>] | planet proposal tag <epic> <id> <tag>");
 };

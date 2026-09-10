@@ -76,7 +76,7 @@ function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const line = {
     ts: ctx.now(),
     session: input.session_id,
-    kind: marker.phase === null ? "planning" : "implementation",
+    kind: marker.step === "implement" ? "implementation" : "planning",
     phase: marker.phase,
     proposal: latestProposalId(ctx.home, marker.epic),
     text,

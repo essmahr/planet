@@ -72,6 +72,9 @@ test("session start, step, end use the env session id or --session", async () =>
   assert.equal(readMarker(home, SESSION)?.step, "retro");
   assert.equal((await run(["session", "step", "implement"], ctx(home))).code, 0);
   assert.equal(readMarker(home, SESSION)?.step, "implement");
+  const withPhase = await run(["session", "step", "phase-plan", "--phase", "1", "--json"], ctx(home));
+  assert.equal(withPhase.code, 0);
+  assert.deepEqual(readMarker(home, SESSION), { epic: "e", phase: 1, step: "phase-plan", started: NOW });
   const other = await run(["session", "start", "e", "--session", "sess-2"], ctx(home, { env: {} }));
   assert.equal(other.code, 0);
   assert.ok(readMarker(home, "sess-2"));

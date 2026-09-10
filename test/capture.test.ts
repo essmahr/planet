@@ -7,7 +7,7 @@ import { handleHook, responseText, approvedPlanText, userText } from "../cli/com
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
 import { editedPath, readProposal } from "../cli/lib/proposal.ts";
-import { readMarker, startSession } from "../cli/lib/session.ts";
+import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
 
 const PLAN = "# Phase 1\n\nDo A then B.\n";
@@ -58,10 +58,14 @@ test("UserPromptSubmit appends a prompt line with the latest proposal id", () =>
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: capture prompt");
 });
 
-test("kind is implementation when the marker has a phase", () => {
+test("kind follows the session step, not the phase", () => {
   const home = setup(1);
+  handleHook(hook("UserPromptSubmit", { user_input: "still planning" }), ctx(home));
+  setSessionStep(home, SESSION, "implement");
   handleHook(hook("UserPromptSubmit", { user_input: "build it" }), ctx(home));
-  assert.equal(JSON.parse(readFileSync(paths.prompts(home, "e"), "utf8")).kind, "implementation");
+  const lines = readFileSync(paths.prompts(home, "e"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(lines[0].kind, "planning");
+  assert.equal(lines[1].kind, "implementation");
 });
 
 test("PreToolUse snapshots the plan; PostToolUse approval without edits", () => {

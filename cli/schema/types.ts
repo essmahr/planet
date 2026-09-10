@@ -74,6 +74,6 @@ export interface SessionMarker {
   started: string;
 }
 
-export type Tag = "scope-cut" | "scope-add" | "reorder" | "wrong-assumption" | "too-granular" | "too-coarse" | "style" | "other";
+export type Tag = "scope-cut" | "scope-add" | "reorder" | "wrong-assumption" | "too-granular" | "too-coarse" | "style" | "skill" | "other";
 
-export const FEEDBACK_TAGS: readonly Tag[] = ["scope-cut", "scope-add", "reorder", "wrong-assumption", "too-granular", "too-coarse", "style", "other"];
+export const FEEDBACK_TAGS: readonly Tag[] = ["scope-cut", "scope-add", "reorder", "wrong-assumption", "too-granular", "too-coarse", "style", "skill", "other"];

@@ -7,19 +7,31 @@ export function planetHome(env: NodeJS.ProcessEnv = process.env): string {
   return env.PLANET_HOME ?? join(homedir(), ".planet");
 }
 
+export const REVIEW = "review";
+
+function epicRoot(home: string, slug: string): string {
+  return slug === REVIEW ? join(home, "reviews") : join(home, "epics", slug);
+}
+
+function feedbackDir(home: string, slug: string): string {
+  return slug === REVIEW ? join(home, "reviews") : join(home, "epics", slug, "feedback");
+}
+
 export const paths = {
   epics: (home: string) => join(home, "epics"),
   epic: (home: string, slug: string) => join(home, "epics", slug),
   epicFile: (home: string, slug: string) => join(home, "epics", slug, "epic.yaml"),
   plan: (home: string, slug: string) => join(home, "epics", slug, "plan.md"),
   phases: (home: string, slug: string) => join(home, "epics", slug, "phases"),
-  proposals: (home: string, slug: string) => join(home, "epics", slug, "proposals"),
-  feedback: (home: string, slug: string) => join(home, "epics", slug, "feedback"),
-  prompts: (home: string, slug: string) => join(home, "epics", slug, "feedback", "prompts.jsonl"),
-  notes: (home: string, slug: string) => join(home, "epics", slug, "feedback", "notes.md"),
+  proposals: (home: string, slug: string) => join(epicRoot(home, slug), "proposals"),
+  feedback: feedbackDir,
+  prompts: (home: string, slug: string) => join(feedbackDir(home, slug), "prompts.jsonl"),
+  notes: (home: string, slug: string) => join(feedbackDir(home, slug), "notes.md"),
   events: (home: string, slug: string) => join(home, "epics", slug, "feedback", "events.jsonl"),
   retros: (home: string, slug: string) => join(home, "epics", slug, "retros"),
   research: (home: string, slug: string) => join(home, "epics", slug, "research"),
+  reviews: (home: string) => join(home, "reviews"),
+  reviewFile: (home: string, date: string, n: number) => join(home, "reviews", n === 1 ? `${date}.md` : `${date}-${n}.md`),
   sessions: (home: string) => join(home, "sessions"),
   session: (home: string, id: string) => join(home, "sessions", id),
   hookLog: (home: string) => join(home, "hook.log"),

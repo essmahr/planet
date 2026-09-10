@@ -42,9 +42,9 @@ commands:
   phase new|write|set|drop|event
   link <epic> <phase> <pr-url>...
   unlink <epic> <phase> <pr-url>
-  session start|step [--phase <n>]|end
+  session start|step [--phase <n>]|review|end
   propose <epic> <step> --file <path>
-  proposal approve <epic> <id|latest|latest-N> --to plan|phase:<n>
+  proposal approve <epic> <id|latest|latest-N> --to plan|phase:<n>|review
   proposal reject <epic> <id|latest|latest-N> [--feedback <text>]
   proposal tag <epic> <id|latest|latest-N> <tag>
   sync [epic] [--force]

@@ -4,7 +4,7 @@ import { need, needString, optString, parse } from "../lib/args.ts";
 import { readEpic, writeEpic } from "../lib/epic.ts";
 import { approveTo, createProposal, markRejected, parseDestination, readProposal, resolveProposalId, tagProposal } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
-import { commit } from "../lib/store.ts";
+import { REVIEW, commit } from "../lib/store.ts";
 import { FEEDBACK_TAGS } from "../schema/types.ts";
 import type { Proposal, Tag } from "../schema/types.ts";
 import { parseStep } from "./session.ts";
@@ -38,12 +38,15 @@ async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult>
   assertOwnSession(ctx, idArg, readProposal(ctx.home, epic, id));
   const dest = parseDestination(needString(values, "to"));
   const from = optString(values, "from");
-  const result = approveTo(ctx.home, epic, id, dest, from === undefined ? undefined : readFileSync(from, "utf8"));
-  const epicDoc = readEpic(ctx.home, epic);
-  epicDoc.updated = ctx.now();
-  writeEpic(ctx.home, epicDoc);
-  const where = dest.kind === "plan" ? "plan" : `phase ${dest.id}`;
-  commit(ctx.home, `${epic}: approve proposal ${id} to ${where}`);
+  const result = approveTo(ctx.home, epic, id, dest, from === undefined ? undefined : readFileSync(from, "utf8"), ctx.now());
+  if (epic !== REVIEW) {
+    const epicDoc = readEpic(ctx.home, epic);
+    epicDoc.updated = ctx.now();
+    writeEpic(ctx.home, epicDoc);
+  }
+  const where = dest.kind === "plan" ? "plan" : dest.kind === "review" ? "review" : `phase ${dest.id}`;
+  const commitMessage = epic === REVIEW ? `review: approve proposal ${id} to review` : `${epic}: approve proposal ${id} to ${where}`;
+  commit(ctx.home, commitMessage);
   const words = readFileSync(result.wrote, "utf8").split(/\s+/).filter(Boolean).length;
   return { json: { proposal: result.proposal.meta, wrote: result.wrote, words }, text: `wrote ${result.wrote} (${words} words)` };
 }
@@ -77,5 +80,5 @@ export const proposalCommand: Command = async (args, ctx) => {
   if (sub === "approve") return proposalApprove(rest, ctx);
   if (sub === "reject") return proposalReject(rest, ctx);
   if (sub === "tag") return proposalTag(rest, ctx);
-  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n> | planet proposal reject <epic> <id> [--feedback <text>] | planet proposal tag <epic> <id> <tag>");
+  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n>|review | planet proposal reject <epic> <id> [--feedback <text>] | planet proposal tag <epic> <id> <tag>");
 };

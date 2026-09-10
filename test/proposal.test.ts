@@ -71,23 +71,23 @@ test("markRejected stores the message verbatim", () => {
 test("parseDestination and approveTo", () => {
   assert.deepEqual(parseDestination("plan"), { kind: "plan" });
   assert.deepEqual(parseDestination("phase:3"), { kind: "phase", id: 3 });
-  assert.throws(() => parseDestination("phase:x"), /--to must be plan or phase:<n>/);
+  assert.throws(() => parseDestination("phase:x"), /--to must be plan, phase:<n>, or review/);
 
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
   markApproved(home, "e", p.meta.id, "# Edited\n");
-  const r = approveTo(home, "e", p.meta.id, { kind: "plan" });
+  const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, undefined, NOW);
   assert.equal(r.wrote, paths.plan(home, "e"));
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Edited\n");
 
   const q = createProposal(home, "e", { ...input, step: "phase-plan", phase: 1 }, NOW);
-  const r2 = approveTo(home, "e", q.meta.id, { kind: "phase", id: 1 });
+  const r2 = approveTo(home, "e", q.meta.id, { kind: "phase", id: 1 }, undefined, NOW);
   assert.equal(r2.proposal.meta.outcome, "approved", "pending proposal is approved by approveTo");
   assert.equal(readPhase(home, "e", 1).body, input.body);
   assert.match(r2.wrote, /01-a\.md$/);
 
   const s = createProposal(home, "e", input, NOW);
-  approveTo(home, "e", s.meta.id, { kind: "plan" }, "# From file\n");
+  approveTo(home, "e", s.meta.id, { kind: "plan" }, "# From file\n", NOW);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# From file\n");
   assert.equal(readProposal(home, "e", s.meta.id).meta.edited, true);
 });
@@ -96,8 +96,8 @@ test("approveTo refuses to flip a rejected proposal without --from", () => {
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
   markRejected(home, "e", p.meta.id, "no good");
-  assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "plan" }), /was rejected/);
-  const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, "# Retry\n");
+  assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "plan" }, undefined, NOW), /was rejected/);
+  const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, "# Retry\n", NOW);
   assert.equal(r.proposal.meta.outcome, "approved");
   assert.equal(r.proposal.meta.edited, true);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Retry\n");

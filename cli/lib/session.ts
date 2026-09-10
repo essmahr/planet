@@ -3,7 +3,7 @@ import type { SessionMarker, Step } from "../schema/types.ts";
 import { validateMarker } from "../schema/validate.ts";
 import { readEpic, writeEpic } from "./epic.ts";
 import { readPhase } from "./phase.ts";
-import { paths } from "./store.ts";
+import { REVIEW, paths } from "./store.ts";
 
 export function sessionIdFrom(env: NodeJS.ProcessEnv, override?: string): string {
   const id = override ?? env.CLAUDE_CODE_SESSION_ID;
@@ -37,6 +37,12 @@ export function startSession(home: string, id: string, epicSlug: string, opts: S
     epic.updated = now;
     writeEpic(home, epic);
   }
+  return marker;
+}
+
+export function startReviewSession(home: string, id: string, now: string): SessionMarker {
+  const marker: SessionMarker = { epic: REVIEW, phase: null, step: "feedback-review", started: now };
+  writeMarker(home, id, marker);
   return marker;
 }
 

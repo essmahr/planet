@@ -5,7 +5,7 @@ import { validateProposalMeta } from "../schema/validate.ts";
 import { NotFound } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
 import { writeBody } from "./phase.ts";
-import { paths } from "./store.ts";
+import { REVIEW, paths } from "./store.ts";
 
 export function proposalFileName(id: number, step: string): string {
   return `${String(id).padStart(3, "0")}-${step}.md`;
@@ -113,16 +113,25 @@ export function approvedText(proposal: Proposal): string {
   return existsSync(edited) ? readFileSync(edited, "utf8") : proposal.body;
 }
 
-export type Destination = { kind: "plan" } | { kind: "phase"; id: number };
+export type Destination = { kind: "plan" } | { kind: "phase"; id: number } | { kind: "review" };
 
 export function parseDestination(text: string): Destination {
   if (text === "plan") return { kind: "plan" };
+  if (text === "review") return { kind: "review" };
   const m = /^phase:(\d+)$/.exec(text);
-  if (!m) throw new Error("--to must be plan or phase:<n>");
+  if (!m) throw new Error("--to must be plan, phase:<n>, or review");
   return { kind: "phase", id: Number(m[1]) };
 }
 
-export function approveTo(home: string, epic: string, id: number, dest: Destination, fromText?: string): { proposal: Proposal; wrote: string } {
+function nextReviewFile(home: string, now: string): string {
+  const date = now.slice(0, 10);
+  for (let n = 1; ; n += 1) {
+    const file = paths.reviewFile(home, date, n);
+    if (!existsSync(file)) return file;
+  }
+}
+
+export function approveTo(home: string, epic: string, id: number, dest: Destination, fromText: string | undefined, now: string): { proposal: Proposal; wrote: string } {
   let proposal = readProposal(home, epic, id);
   if (proposal.meta.outcome === "rejected" && fromText === undefined) {
     throw new Error(`proposal ${id} was rejected; pass --from to approve different text`);
@@ -132,6 +141,13 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
   const body = text.endsWith("\n") ? text : `${text}\n`;
   if (dest.kind === "plan") {
     const file = paths.plan(home, epic);
+    writeFileSync(file, body);
+    return { proposal, wrote: file };
+  }
+  if (dest.kind === "review") {
+    if (epic !== REVIEW) throw new Error("--to review is only for the review pseudo-epic");
+    mkdirSync(paths.reviews(home), { recursive: true });
+    const file = nextReviewFile(home, now);
     writeFileSync(file, body);
     return { proposal, wrote: file };
   }

@@ -1,7 +1,8 @@
+import { mkdirSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, optString, parse } from "../lib/args.ts";
-import { endSession, readMarker, sessionIdFrom, setSessionStep, startSession } from "../lib/session.ts";
-import { commit } from "../lib/store.ts";
+import { endSession, readMarker, sessionIdFrom, setSessionStep, startReviewSession, startSession } from "../lib/session.ts";
+import { commit, paths } from "../lib/store.ts";
 import type { Step } from "../schema/types.ts";
 import { STEPS } from "../schema/types.ts";
 
@@ -35,6 +36,15 @@ async function sessionStep(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: { session: id, marker }, text: `step ${step}` };
 }
 
+async function sessionReview(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { values } = parse(args, { session: { type: "string" } });
+  const id = sessionIdFrom(ctx.env, optString(values, "session"));
+  const marker = startReviewSession(ctx.home, id, ctx.now());
+  mkdirSync(paths.reviews(ctx.home), { recursive: true });
+  commit(ctx.home, "review: start session");
+  return { json: { session: id, marker }, text: `review session ${id}` };
+}
+
 async function sessionEnd(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { values } = parse(args, { session: { type: "string" } });
   const id = sessionIdFrom(ctx.env, optString(values, "session"));
@@ -49,7 +59,8 @@ export const sessionCommand: Command = async (args, ctx) => {
   switch (sub) {
     case "start": return sessionStart(rest, ctx);
     case "step": return sessionStep(rest, ctx);
+    case "review": return sessionReview(rest, ctx);
     case "end": return sessionEnd(rest, ctx);
-    default: throw new Error("usage: planet session start|step|end");
+    default: throw new Error("usage: planet session start|step [--phase <n>]|review|end");
   }
 };

@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { parse, stringify } from "yaml";
 import type { Epic, PhaseMeta } from "../schema/types.ts";
 import { REPO_RE, ValidationError, assertSlug, validateEpic } from "../schema/validate.ts";
-import { paths } from "./store.ts";
+import { REVIEW, paths } from "./store.ts";
 
 export class NotFound extends Error {
   constructor(message: string) {
@@ -29,6 +29,7 @@ export function writeEpic(home: string, epic: Epic): void {
 }
 
 export function createEpic(home: string, input: NewEpicInput, now: string): Epic {
+  if (input.slug === REVIEW) throw new Error(`'${REVIEW}' is reserved for feedback reviews`);
   assertSlug(input.slug, "epic slug");
   if (!REPO_RE.test(input.repo)) throw new ValidationError("epic", "repo must be owner/name");
   if (existsSync(paths.epic(home, input.slug))) throw new Error(`epic '${input.slug}' already exists`);

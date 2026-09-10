@@ -17,6 +17,7 @@ export const paths = {
   feedback: (home: string, slug: string) => join(home, "epics", slug, "feedback"),
   prompts: (home: string, slug: string) => join(home, "epics", slug, "feedback", "prompts.jsonl"),
   notes: (home: string, slug: string) => join(home, "epics", slug, "feedback", "notes.md"),
+  events: (home: string, slug: string) => join(home, "epics", slug, "feedback", "events.jsonl"),
   retros: (home: string, slug: string) => join(home, "epics", slug, "retros"),
   research: (home: string, slug: string) => join(home, "epics", slug, "research"),
   sessions: (home: string) => join(home, "sessions"),

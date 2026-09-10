@@ -2,9 +2,12 @@ import { readFileSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { flag, need, needInt, needString, optList, optString, parse } from "../lib/args.ts";
 import { readEpic, writeEpic } from "../lib/epic.ts";
+import { EVENT_KINDS, appendEvent } from "../lib/events.ts";
+import type { EventKind } from "../lib/events.ts";
 import { recomputeEpicStatus } from "../lib/lifecycle.ts";
-import { dropPhase, listPhases, newPhases, setPhaseLinear, setPhaseStatus, writeBody } from "../lib/phase.ts";
+import { dropPhase, listPhases, newPhases, readPhase, setPhaseLinear, setPhaseStatus, writeBody } from "../lib/phase.ts";
 import type { NewPhaseInput } from "../lib/phase.ts";
+import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 
 async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
@@ -84,6 +87,19 @@ async function phaseDrop(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: dropped.meta, text: `dropped phase ${id} ${dropped.meta.slug}` };
 }
 
+async function phaseEvent(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { sha: { type: "string" }, session: { type: "string" } });
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  const kind = need(positionals, 2, "event kind");
+  if (!(EVENT_KINDS as readonly string[]).includes(kind)) throw new Error(`kind must be one of ${EVENT_KINDS.join(", ")}`);
+  readPhase(ctx.home, epic, id);
+  const session = sessionIdFrom(ctx.env, optString(values, "session"));
+  const event = appendEvent(ctx.home, epic, { phase: id, kind: kind as EventKind, text: positionals[3] ?? null, sha: optString(values, "sha") ?? null, session }, ctx.now());
+  commit(ctx.home, `${epic}: phase ${id} ${kind}`);
+  return { json: event, text: `phase ${id} ${kind}` };
+}
+
 export const phaseCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   switch (sub) {
@@ -91,6 +107,7 @@ export const phaseCommand: Command = async (args, ctx) => {
     case "write": return phaseWrite(rest, ctx);
     case "set": return phaseSet(rest, ctx);
     case "drop": return phaseDrop(rest, ctx);
-    default: throw new Error("usage: planet phase new|write|set|drop");
+    case "event": return phaseEvent(rest, ctx);
+    default: throw new Error("usage: planet phase new|write|set|drop|event");
   }
 };

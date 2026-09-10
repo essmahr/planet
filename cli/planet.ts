@@ -39,7 +39,7 @@ commands:
   status [--all] [--no-sync] [--force]
   open <text> [--step <name>]
   epic new|set|show|resolve
-  phase new|write|set|drop
+  phase new|write|set|drop|event
   link <epic> <phase> <pr-url>...
   unlink <epic> <phase> <pr-url>
   session start|step|end

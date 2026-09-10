@@ -32,7 +32,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 
 ## Blockers
 
-Stop and say which commit, what the code shows instead, and what would unblock it. Leave the branch and its commits in place. Run `planet phase event <slug> <N> blocked "<why>"`. Return `phase <N> blocked at commit <k>: <why>`.
+Stop and say which commit, what the code shows instead, and what would unblock it. Leave the branch and its commits in place. Run `planet phase event <slug> <N> blocked "<why>"` (single quotes if the why contains a double quote). Return `phase <N> blocked at commit <k>: <why>`.
 
 ## Example
 

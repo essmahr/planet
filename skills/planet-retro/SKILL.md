@@ -28,7 +28,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 4. **Review and CI.** From the inputs' `prs`: group review comments by theme with their file; list failed checks and the commit that fixed each, from `git log`.
 5. **Plan versus shipped.** Compare the phase document's Files (or Changes) and commit subjects against `files.files` and `git log --format=%s` on the PR range. One paragraph, each difference classed plan wrong, discovered, or scope changed. A cut that was wrong is a hand-up: return `re-cut from phase <N>: <why>` and write nothing.
 6. **Lessons.** Up to three. Each: one sentence, the skill it points at, the evidence line. Ask one multi-select question, which of these should steer the plugin; the rest are `steer: false`. Say the retro's five-line summary in the same message.
-7. **Write.** Compose from `references/retro-template.md` into a file in the scratch directory; `planet retro write <slug> <N> --file <path> --head <head_sha>`; `planet phase set <slug> <N> --status reviewed`.
+7. **Write.** Compose from `references/retro-template.md` into a file in the scratch directory; `planet retro write <slug> <N> --file <path>` plus `--head <head_sha>` (omit for a manual phase or when there is no PR); `planet phase set <slug> <N> --status reviewed`.
 8. **Return** `retro done for phase <N>`.
 
 Manual phase: skip steps 3 to 5; ask one question, did Done means hold and what took longer or differed; write it under `## Outcome`.
@@ -39,8 +39,8 @@ Phase 2, `move-subdirs`, one merged PR. Inputs: one `blocked` event at commit 3 
 
 ## Troubleshooting
 
-- `planet retro inputs` fails on `gh`: write the retro from events, prompts, and the local branch; say review and CI were not read.
+- `planet retro inputs` fails on `gh`, or the bundle says `gh_unavailable`: write the retro from events, prompts, and the local branch; say review and CI were not read.
 - No PR linked to a `pr` phase: say so; Plan versus shipped uses the local branch if it exists, else says unmeasured.
-- The implemented sha is not in the local repo: `git fetch` the PR branch (`gh pr view <url> --json headRefName`), then retry the diff once.
+- The implemented sha or head sha is not in the local repo: `git fetch origin pull/<n>/head` for the PR number, then retry the diff once.
 - `planet retro write` rejects the frontmatter: fix the lesson entries; each needs text, skill, steer.
 - `planet phase set` refuses: the phase is not `shipped`; report its status and stop.

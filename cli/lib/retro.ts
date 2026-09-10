@@ -1,7 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { PhaseMeta } from "../schema/types.ts";
-import type { PlanetEvent } from "./events.ts";
 import { listEvents } from "./events.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
 import { readPhase } from "./phase.ts";
@@ -52,11 +50,6 @@ export function parseLessons(v: unknown): RetroLesson[] {
   });
 }
 
-function latestSha(events: PlanetEvent[], kind: "implemented"): string | null {
-  const hits = events.filter((e) => e.kind === kind && e.sha);
-  return hits.length ? hits[hits.length - 1].sha : null;
-}
-
 /** Writes a retro from a drafted file: the draft's frontmatter must carry `phase` matching `id` and valid `lessons`; everything else is filled from the store. */
 export function writeRetro(home: string, epic: string, id: number, draft: string, now: string, headSha: string | null): Retro {
   const phase = readPhase(home, epic, id);
@@ -64,18 +57,20 @@ export function writeRetro(home: string, epic: string, id: number, draft: string
   const o = asRecord(data, "retro frontmatter");
   if (Number(o.phase) !== id) throw new Error(`retro frontmatter phase must be ${id}`);
   const lessons = parseLessons(o.lessons);
+  const implemented = listEvents(home, epic, id).filter((e) => e.kind === "implemented" && e.sha);
   const meta: RetroMeta = {
     phase: id,
     prs: phase.meta.prs.map((p) => p.url),
-    implemented_sha: latestSha(listEvents(home, epic, id), "implemented"),
-    head_sha: headSha,
+    implemented_sha: implemented.length ? implemented[implemented.length - 1].sha : null,
+    head_sha: headSha ?? (typeof o.head_sha === "string" ? o.head_sha : null),
     lessons,
     written: now,
   };
   mkdirSync(paths.retros(home, epic), { recursive: true });
   const path = paths.retroFile(home, epic, id, phase.meta.slug);
-  writeFileSync(path, serializeFrontmatter({ ...meta }, body));
-  return { meta, body, path };
+  const normalizedBody = body.endsWith("\n") ? body : `${body}\n`;
+  writeFileSync(path, serializeFrontmatter({ ...meta }, normalizedBody));
+  return { meta, body: normalizedBody, path };
 }
 
 export function listRetros(home: string, epic: string): Retro[] {
@@ -98,8 +93,4 @@ export function listRetros(home: string, epic: string): Retro[] {
       };
       return { meta, body, path };
     });
-}
-
-export function phaseMetaFor(home: string, epic: string, id: number): PhaseMeta {
-  return readPhase(home, epic, id).meta;
 }

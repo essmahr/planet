@@ -54,6 +54,7 @@ test("retro write validates frontmatter, writes the file, appends the reviewed e
   const rb = await run(["retro", "write", "e", "1", "--file", bad], ctx(home));
   assert.equal(rb.code, 1);
   assert.match(rb.stderr, /skill must be one of/);
+  const statusBefore = readPhase(home, "e", 1).meta.status;
   const r = await run(["retro", "write", "e", "1", "--file", draft, "--json"], ctx(home));
   assert.equal(r.code, 0);
   const file = join(paths.retros(home, "e"), retroFileName(1, "a"));
@@ -67,5 +68,19 @@ test("retro write validates frontmatter, writes the file, appends the reviewed e
   assert.equal(retros[0].meta.lessons.length, 2);
   assert.equal(retros[0].meta.lessons[0].steer, true);
   assert.deepEqual(listEvents(home, "e", 1).map((e) => e.kind), ["reviewed"]);
-  assert.equal(readPhase(home, "e", 1).meta.status, "in-progress");
+  assert.equal(readPhase(home, "e", 1).meta.status, statusBefore);
+});
+
+test("retro write falls back to the draft's frontmatter head_sha when --head is omitted", async () => {
+  const home = setup();
+  const draft = join(tmpdir(), `retro-headsha-${Date.now()}.md`);
+  writeFileSync(draft, "---\nphase: 1\nhead_sha: fromdraft\nlessons: []\n---\nbody\n");
+
+  const r1 = await run(["retro", "write", "e", "1", "--file", draft, "--json"], ctx(home));
+  assert.equal(r1.code, 0);
+  assert.equal((r1.json as { meta: { head_sha: string } }).meta.head_sha, "fromdraft");
+
+  const r2 = await run(["retro", "write", "e", "1", "--file", draft, "--head", "cli1", "--json"], ctx(home));
+  assert.equal(r2.code, 0);
+  assert.equal((r2.json as { meta: { head_sha: string } }).meta.head_sha, "cli1");
 });

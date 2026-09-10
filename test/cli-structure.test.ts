@@ -70,6 +70,8 @@ test("session start, step, end use the env session id or --session", async () =>
   assert.match(badStep.stderr, /step must be one of/);
   assert.equal((await run(["session", "step", "retro"], ctx(home))).code, 0);
   assert.equal(readMarker(home, SESSION)?.step, "retro");
+  assert.equal((await run(["session", "step", "implement"], ctx(home))).code, 0);
+  assert.equal(readMarker(home, SESSION)?.step, "implement");
   const other = await run(["session", "start", "e", "--session", "sess-2"], ctx(home, { env: {} }));
   assert.equal(other.code, 0);
   assert.ok(readMarker(home, "sess-2"));

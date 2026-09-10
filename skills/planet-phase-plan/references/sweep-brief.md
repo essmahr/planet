@@ -16,6 +16,8 @@ Answer with file paths:
 2. Tests that pin the current behavior of those files.
 3. Patterns neighbouring code follows that the change should match.
 4. Anything in the scope paragraph that the code contradicts.
+5. The names and signatures of the functions, types, props, and hooks the
+   phase will change or call, so the plan can name them.
 
 Write to <dir>/research/phase-<N>.md under 500 words. Reply with the file path
 and at most five lines a planner must know, including a rough count of files

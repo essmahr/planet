@@ -14,8 +14,9 @@ and stops. The user expects Implement to implement. Handing off to a
 superpowers execution skill would make superpowers a hard dependency, and the
 phase document is not shaped for execution anyway: Changes is grouped by file,
 Commit sequence by order, with no link between them; commits are subject lines
-with no files or checks; Verification is whole-PR only; the PR's title and body
-are implied ("listed in the PR body") but specified nowhere.
+with no files or checks, so names, signatures, and syntax are first seen in the
+diff instead of in the plan where they are cheap to change; Verification is
+whole-PR only.
 
 ## Decisions
 
@@ -27,7 +28,8 @@ are implied ("listed in the PR body") but specified nowhere.
 | Who implements | The session model, inline, in the user's conversation. No subagent, no model choice. Context management stays with the user. |
 | Branch | From the Linear issue's branch name when the phase closes a ticket and the MCP returns one; otherwise ask once. Never the default branch. |
 | Outcome | Always a PR opened with `gh pr create`; the existing hook links it to the phase and marks it in-progress. |
-| Blockers | A commit that cannot be done as written stops the skill with a report. Re-planning goes through `/planet:go`; the skill never improvises around the plan. |
+| Deviations | Small ones that keep a commit's intent (a name, a signature, an extra line the code demanded) are made and listed in the PR body. A commit whose intent cannot be met stops the skill with a report; re-planning goes through `/planet:go`. |
+| PR body | Written when the work is done, from the phase document plus what actually happened. The phase document does not pre-write it. |
 
 ## Phase document v2
 
@@ -47,23 +49,24 @@ was tricky.
 
 ## Commits
 ### 1. <commit subject, imperative, lowercase>
-Files: <paths this commit touches>
-Change: what this commit does; nested bullets for nuance. Moves and renames
-first, refactors before behavior, tests with the behavior they cover.
+Files: <paths this commit touches, created, moved, or deleted>
+Change: what this commit does, in enough detail to review before it is
+written. Name every new or renamed function, type, prop, hook, and file. Give
+signatures, and short code blocks for anything a reviewer would want to see
+first: a new function body under ten lines, a type, a test's key assertion,
+the text of any comment or docblock. Nested bullets for nuance. Moves and
+renames first, refactors before behavior, tests with the behavior they cover.
 Check: <one command or observation that passes after this commit>
-Test first: <the spec that fails before this commit>. Only for a commit that
-changes behavior; omit for moves, renames, and refactors.
+Test first: <the spec file and test name that fails before this commit, with
+its key assertion>. Only for a commit that changes behavior; omit for moves,
+renames, and refactors.
 
 ### 2. ...
 
 ## Verification
 Whole-PR checks a reviewer runs. Flag name first when there is one. Numbered
-steps for a flow; one sentence for a spot check.
-
-## PR
-Title: <PR title, imperative, no ticket prefix unless the repo convention adds one>
-Body: <what the body must say beyond the summary: deleted tests listed by
-name, flag state, follow-ups; "nothing beyond the summary" when empty>
+steps for a flow; one sentence for a spot check. Anything the PR body must
+carry for review (deleted tests by name, flag state) is listed here.
 
 ## Size
 About <files> files, <commits> commits. Basis: <one line>.
@@ -75,16 +78,19 @@ Bullets, naming the phase that owns each item when known.
 <Linear ID> | none
 ```
 
-Changes as a section is gone; its content lives under the commit that does it.
+Changes as a section is gone; its content lives under the commit that does it,
+with the names, signatures, and snippets that used to appear first in the diff.
 The trailing "Before starting, run `planet session start`" line is gone; the
 implement skill runs it. A manual phase keeps Steps and Done means in place of
-Commits, Verification, and PR, as today.
+Commits and Verification, as today.
 
 Phase-plan step 5 changes to match: draft Commits from the sweep and the
-entry, each with Files, Change, Check, and Test first where behavior changes;
-the PR section names the title and what the body must carry. Budget for the
-phase-plan body stays 1,500 words. Phase documents grow, roughly 1.5 times;
-the gate shows them as today.
+entry, each with Files, Change, Check, and Test first where behavior changes,
+naming and sketching the code so the user reviews names, signatures, comments,
+and syntax in plan mode rather than in the diff. The sweep brief gains one
+question so the names and signatures of the code being changed are on hand.
+Budget for the phase-plan body stays 1,500 words. Phase documents grow, two
+to three times; the gate shows them as today.
 
 ## `planet-implement`
 
@@ -99,8 +105,9 @@ to the phase, and the return line.
 Critical rules:
 
 - The phase document is the plan. Follow Commits in order; do not reorder,
-  merge, or add commits. A commit that cannot be done as written stops the
-  skill (see Blockers).
+  merge, or add commits. Small deviations that keep a commit's intent are
+  fine and are noted for the PR body; a commit whose intent cannot be met
+  stops the skill (see Blockers).
 - Behavior changes start with the failing test named under Test first: write
   or adjust it, run it, see it fail, then implement. Moves, renames, and
   refactors skip this.
@@ -128,9 +135,12 @@ Steps:
 5. **Verify.** Run every Verification step. A failure is fixed only when the
    fix belongs to one of the commits already made; amend or add a fix-up
    commit and say which commit it belongs to. Otherwise stop per Blockers.
-6. **PR.** `git push -u origin <branch>`, then `gh pr create` with the PR
-   section's title and a body that carries the summary plus what the PR
-   section requires. The hook links the PR to the phase.
+6. **PR.** `git push -u origin <branch>`, then `gh pr create`. Title from the
+   phase title. Body written now, from what happened: a summary from Context
+   and Decisions, the commit list, every deviation from the plan with its
+   reason, and what Verification asked the body to carry. Follow the repo's PR
+   template and the user's PR conventions when they exist. The hook links the
+   PR to the phase.
 7. **Return** `phase <N> implemented, <PR url>`.
 
 Blockers: stop, and say which commit, what the code shows instead, and what
@@ -178,6 +188,7 @@ trimming the Example. The budget is not raised.
 ## Testing
 
 Harness: `planet-implement` in `REQUIRED_SKILLS` and `HIDDEN`, budget 700;
+phase-plan's reference names checked as today;
 `references/borrowed.md` exists; no skill body says "prior art"; `STEPS`
 gains `implement` with a test on `planet session step implement`. Live: on the
 lead-page epic, run `/planet:go <slug> phase-plan 1`, approve the new plan in

@@ -14,8 +14,9 @@ test("planet proposal reject marks a pending proposal rejected with feedback", a
   assert.equal(after.meta.outcome, "rejected");
   assert.equal(after.meta.feedback, "keep the current plan");
   const again = await run(["proposal", "reject", "e", "latest"], ctx(home));
-  assert.equal(again.code, 1);
-  assert.match(again.stderr, /already rejected/);
+  assert.equal(again.code, 0);
+  assert.match(again.stdout, /proposal 1 already rejected/);
+  assert.equal(readProposal(home, "e", p.meta.id).meta.feedback, "keep the current plan");
 });
 
 test("planet proposal reject refuses latest from another session, but a plain id bypasses the check", async () => {

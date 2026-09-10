@@ -64,6 +64,7 @@ async function proposalReject(args: string[], ctx: Ctx): Promise<CommandResult> 
   const id = resolveProposalId(ctx.home, epic, idArg);
   const current = readProposal(ctx.home, epic, id);
   assertOwnSession(ctx, idArg, current);
+  if (current.meta.outcome === "rejected") return { json: current.meta, text: `proposal ${id} already rejected` };
   if (current.meta.outcome !== "pending") throw new Error(`proposal ${id} already ${current.meta.outcome}`);
   const proposal = markRejected(ctx.home, epic, id, optString(values, "feedback") ?? "rejected by hand");
   commit(ctx.home, `${epic}: reject proposal ${id}`);

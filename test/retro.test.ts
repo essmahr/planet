@@ -43,6 +43,19 @@ test("retro inputs bundles events, prs, files, and prompts after the implemented
   assert.deepEqual(j.prompts, [{ ts: "2026-09-03T17:00:00.000Z", text: "rename useFoo to useBar" }]);
   assert.deepEqual((j.prs as PrFeedback[])[0].head_sha, "head777");
   assert.equal(((j.files as { files: unknown[] }).files).length, 1);
+  assert.equal(j.gh_unavailable, false);
+});
+
+test("retro inputs reports gh_unavailable with empty pr data when gh is offline", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "impl123", session: SESSION }, LATER);
+  const r = await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh: fakeGh({}, {}, true) }));
+  assert.equal(r.code, 0);
+  const j = r.json as Record<string, unknown>;
+  assert.equal(j.gh_unavailable, true);
+  assert.deepEqual(j.prs, []);
+  assert.deepEqual(j.files, { source: "all", prs: [], files: [] });
+  assert.equal(j.implemented_sha, "impl123");
 });
 
 test("retro write validates frontmatter, writes the file, appends the reviewed event", async () => {

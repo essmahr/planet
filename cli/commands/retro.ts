@@ -3,6 +3,7 @@ import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, needString, optString, parse } from "../lib/args.ts";
 import { appendEvent, listEvents } from "../lib/events.ts";
 import type { PrFeedback, PrFile } from "../lib/gh.ts";
+import { GhUnavailable } from "../lib/gh.ts";
 import { readPhase } from "../lib/phase.ts";
 import { writeRetro } from "../lib/retro.ts";
 import { sessionIdFrom } from "../lib/session.ts";
@@ -19,16 +20,29 @@ export interface RetroInputs {
   implemented_at: string | null;
   prs: PrFeedback[];
   files: { source: "merged" | "all"; prs: string[]; files: PrFile[] };
+  gh_unavailable: boolean;
   prompts: { ts: string; text: string }[];
+}
+
+type GhPart = Pick<RetroInputs, "prs" | "files" | "gh_unavailable">;
+
+/** PR feedback and changed files for the phase, or empty ones when `gh` cannot answer. */
+async function ghPart(ctx: Ctx, epic: string, id: number, urls: string[]): Promise<GhPart> {
+  try {
+    const prs: PrFeedback[] = [];
+    for (const url of urls) prs.push(await ctx.gh.prFeedback(url));
+    return { prs, files: await phasePrFiles(ctx, epic, id), gh_unavailable: false };
+  } catch (err) {
+    if (!(err instanceof GhUnavailable)) throw err;
+    return { prs: [], files: { source: "all", prs: [], files: [] }, gh_unavailable: true };
+  }
 }
 
 export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<RetroInputs> {
   const phase = readPhase(ctx.home, epic, id);
   const events = listEvents(ctx.home, epic, id);
   const implemented = [...events].reverse().find((e) => e.kind === "implemented") ?? null;
-  const prs: PrFeedback[] = [];
-  for (const pr of phase.meta.prs) prs.push(await ctx.gh.prFeedback(pr.url));
-  const files = await phasePrFiles(ctx, epic, id);
+  const gh = await ghPart(ctx, epic, id, phase.meta.prs.map((pr) => pr.url));
   const promptsFile = paths.prompts(ctx.home, epic);
   const prompts = existsSync(promptsFile)
     ? readFileSync(promptsFile, "utf8")
@@ -45,8 +59,7 @@ export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<R
     events,
     implemented_sha: implemented?.sha ?? null,
     implemented_at: implemented?.ts ?? null,
-    prs,
-    files,
+    ...gh,
     prompts,
   };
 }

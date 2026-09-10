@@ -84,11 +84,33 @@ interface GraphqlPr {
   mergedAt: string | null;
 }
 
+export type GraphqlContext =
+  | { name: string; conclusion: string | null; detailsUrl: string | null }
+  | { context: string; state: string; targetUrl: string | null };
+
 interface GraphqlFeedback {
   headRefOid: string;
   reviews: { nodes: { author: { login: string } | null; state: string; body: string }[] };
   reviewThreads: { nodes: { isResolved: boolean; comments: { nodes: { author: { login: string } | null; path: string; line: number | null; body: string }[] } }[] };
-  commits: { nodes: { commit: { statusCheckRollup: { contexts: { nodes: ({ name: string; conclusion: string | null; detailsUrl: string | null } | { context: string; state: string; targetUrl: string | null })[] } } | null } }[] };
+  commits: { nodes: { commit: { statusCheckRollup: { contexts: { nodes: GraphqlContext[] } } | null } }[] };
+}
+
+const PASSING_OR_PENDING = new Set(["SUCCESS", "NEUTRAL", "SKIPPED", "PENDING", "EXPECTED", "QUEUED", "IN_PROGRESS"]);
+
+/** Turns a null review author (a deleted or otherwise inaccessible GitHub account) into "unknown". */
+export function reviewAuthor(author: { login: string } | null): string {
+  return author?.login ?? "unknown";
+}
+
+/** Maps the GraphQL check-run/status-context union to PrCheck and keeps only the ones that failed.
+ *
+ * A CheckRun with a null conclusion is still running, so it's mapped to state "PENDING" here and
+ * then excluded below along with StatusContext states that mean pending or passing, not failed.
+ */
+export function failedChecks(contexts: GraphqlContext[]): PrCheck[] {
+  return contexts
+    .map((c) => ("conclusion" in c ? { name: c.name, state: c.conclusion ?? "PENDING", url: c.detailsUrl ?? "" } : { name: c.context, state: c.state, url: c.targetUrl ?? "" }))
+    .filter((c) => !PASSING_OR_PENDING.has(c.state));
 }
 
 export function realGh(): Gh {
@@ -125,13 +147,10 @@ export function realGh(): Gh {
       const raw = JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`])) as { data: { resource: GraphqlFeedback | null } };
       const pr = raw.data.resource;
       if (!pr) throw new Error(`no pull request at ${url}`);
-      const reviews = pr.reviews.nodes.map((r) => ({ author: r.author?.login ?? "unknown", state: r.state, body: r.body }));
-      const comments = pr.reviewThreads.nodes.flatMap((t) => t.comments.nodes.map((c) => ({ author: c.author?.login ?? "unknown", path: c.path, line: c.line, body: c.body, resolved: t.isResolved })));
+      const reviews = pr.reviews.nodes.map((r) => ({ author: reviewAuthor(r.author), state: r.state, body: r.body }));
+      const comments = pr.reviewThreads.nodes.flatMap((t) => t.comments.nodes.map((c) => ({ author: reviewAuthor(c.author), path: c.path, line: c.line, body: c.body, resolved: t.isResolved })));
       const contexts = pr.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [];
-      const failed_checks = contexts
-        .map((c) => ("conclusion" in c ? { name: c.name, state: c.conclusion ?? "PENDING", url: c.detailsUrl ?? "" } : { name: c.context, state: c.state, url: c.targetUrl ?? "" }))
-        .filter((c) => c.state !== "SUCCESS" && c.state !== "NEUTRAL" && c.state !== "SKIPPED");
-      return { url, head_sha: pr.headRefOid, reviews, comments, failed_checks };
+      return { url, head_sha: pr.headRefOid, reviews, comments, failed_checks: failedChecks(contexts) };
     },
   };
 }

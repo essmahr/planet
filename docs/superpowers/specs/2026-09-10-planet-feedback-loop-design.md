@@ -142,9 +142,9 @@ words.
 ## `planet-feedback-review`
 
 Hidden step skill, budget 900. Runs only from the plugin repo: the router
-checks `git rev-parse --show-toplevel` equals the plugin root
-(`CLAUDE_PLUGIN_ROOT`). `allowed-tools`: `Bash(planet *)`, `Bash(git *)`,
-`Bash(npm test)`. Input: `since: <date or none>` from the router (the last
+checks that `.claude-plugin/plugin.json` under `git rev-parse
+--show-toplevel` contains `"name": "planet"`. `allowed-tools`:
+`Bash(planet *)`, `Bash(git *)`, `Bash(npm test)`. Input: `since: <date or none>` from the router (the last
 review's date from the report). Output: a findings document through the
 gate to `review`, edits committed on a branch, return
 `feedback review done, <branch>` or `feedback review done, nothing recurs`.
@@ -197,12 +197,16 @@ feedback-review; `planet session end` clears it as for an epic.
 - Step 5: before the draft row, `any phase shipped with no retro: retro,
   lowest id first`. The old retro stop row is removed.
 - Step 3: `work on N` (set the marker with `planet session start <slug>
-  --phase N`, say so, stop) and `review feedback` (feedback-review; repo
-  check against the plugin root instead of the epic's repo; no epic).
+  --phase N --step implement`, say so, stop) and `review feedback`
+  (feedback-review; the repo check reads `.claude-plugin/plugin.json` under
+  the repo root and wants `"name": "planet"`, not the epic's repo; no epic).
 - Step 7: retro gets `phase: <N>`; on `retro done for phase N` refresh and go
   to step 5; feedback-review gets `since: <date>` and its two return lines
   end the run.
 - Step 7 runs `planet session step phase-plan --phase N` for phase-plan.
+- Step 8 leaves the session open after `phase N implemented`: the marker has
+  to persist for later prompts to be recorded against the phase, and the
+  SessionEnd hook clears it.
 - Budget rises to 1,200 words: two dispatch rows and two request forms are
   new behavior, not verbosity.
 
@@ -215,7 +219,8 @@ feedback-review; `planet session end` clears it as for an epic.
 - `planet-proposal`: tag list gains `skill`, chosen when the rejection says
   the skill or Planet should behave differently in general, not this plan.
   `to: review` documented. After `aborted`, step skills run `planet proposal
-  reject <epic> latest --feedback "<message>"` so no proposal stays pending.
+  reject <epic> latest --feedback "<message>"` so a proposal the hooks did not
+  already mark rejected does not stay pending.
 - `planet-scoping` and its template: "about 1,000 words, at most 1,200, not
   counting a carried Phases section".
 - `planet-phase-plan`: reads the previous phase's retro when it exists

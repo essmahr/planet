@@ -29,6 +29,7 @@ export const paths = {
   notes: (home: string, slug: string) => join(feedbackDir(home, slug), "notes.md"),
   events: (home: string, slug: string) => join(home, "epics", slug, "feedback", "events.jsonl"),
   retros: (home: string, slug: string) => join(home, "epics", slug, "retros"),
+  retroFile: (home: string, slug: string, id: number, phaseSlug: string) => join(home, "epics", slug, "retros", `${String(id).padStart(2, "0")}-${phaseSlug}.md`),
   research: (home: string, slug: string) => join(home, "epics", slug, "research"),
   reviews: (home: string) => join(home, "reviews"),
   reviewFile: (home: string, date: string, n: number) => join(home, "reviews", n === 1 ? `${date}.md` : `${date}-${n}.md`),

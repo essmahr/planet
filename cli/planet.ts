@@ -12,6 +12,7 @@ import { openCommand } from "./commands/open.ts";
 import { phaseCommand } from "./commands/phase.ts";
 import { prCommand } from "./commands/pr.ts";
 import { proposalCommand, proposeCommand } from "./commands/proposal.ts";
+import { retroCommand } from "./commands/retro.ts";
 import { sessionCommand } from "./commands/session.ts";
 import { statusCommand } from "./commands/status.ts";
 import { syncCommand } from "./commands/sync.ts";
@@ -31,6 +32,7 @@ export const COMMANDS: Record<string, Command> = {
   pr: prCommand,
   feedback: feedbackCommand,
   capture: captureCommand,
+  retro: retroCommand,
 };
 
 const USAGE = `usage: planet <command> [args] [--json]
@@ -50,6 +52,8 @@ commands:
   sync [epic] [--force]
   pr files|feedback <epic> <phase>
   feedback report [epic]
+  retro inputs <epic> <phase>
+  retro write <epic> <phase> --file <path> [--head <sha>]
   check
   capture   (hook entry, reads Claude Code json on stdin)
 `;

@@ -14,16 +14,16 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 
 ## Critical rules
 
-- The phase document is the plan. Work Commits in order; never reorder, merge, or add one. A small deviation that keeps a commit's intent (a name, a signature, a line the code demanded) is fine; note it for the PR body. A commit whose intent cannot be met stops the work (Blockers).
+- The phase document is the plan. Work Commits in order; never reorder, merge, or add one. A small deviation that keeps a commit's intent (a name, a signature) is fine; note it for the PR body. A commit whose intent cannot be met stops the work (Blockers).
 - A commit with `Test first` starts with that test: write or adjust it, run it, see it fail, then implement. Moves, renames, and refactors have none.
-- After each commit run its Check and read the output. Before the PR run every Verification step and read the output. Nothing is done until the output says so.
+- Run each commit's Check after making it, and every Verification step before the PR; read the output. Nothing is done until the output says so.
 - Store writes only through `planet`. Never edit `plan.md` or the phase file; re-planning goes through the router.
 - Never commit to the default branch.
 
 ## Steps
 
-1. **Start.** Run `planet session start <slug> --phase <N> --step implement`. Read the phase file and `plan.md`'s Constraints. Nothing else from the store.
-2. **Review.** Compare each commit's Files and Change with the code as it is. A mismatch, or two commits that conflict, stops here per Blockers before anything changes.
+1. **Start.** Run `planet session start <slug> --phase <N> --step implement`. `planet epic show <slug> --json` gives the phase's path, status, and kind. Read the phase file and `plan.md`'s Constraints. Nothing else from the store.
+2. **Review.** Compare each commit's Files and Change with the code. A mismatch, or two commits that conflict, stops here per Blockers before anything changes.
 3. **Branch.** When Closes names a Linear ID, take `branchName` from the Linear MCP `get_issue` result; otherwise, or when the result has none, ask once for a branch name. From the up-to-date default branch: `git checkout -b <name>`. Resuming: when the branch exists, check it out; its commits (`git log --format=%s <default>..HEAD`) must be a prefix of the Commits subjects, else stop per Blockers; skip to the first subject missing.
 4. **Implement.** For each commit: Test first when present, then the Change, then the Check, then `git add` the Files and `git commit -m "<subject>"` (the heading without its number). One commit per section. Keep a list of deviations.
 5. **Verify.** Run every Verification step. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
@@ -36,11 +36,12 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 
 ## Example
 
-Phase 3, `move-subdirs`, Closes none. Review finds every Files list matches the tree. No Linear ID, so ask for a branch name; the user gives `icons/move-subdirs`. Commit 1 is a move: no Test first; `git mv` the directories, Check `pnpm typecheck` passes, commit. Commit 2 rewrites imports: Test first names `Icon.test.tsx > resolves logos from the new path`; run it, it fails on the old path; rewrite; Check passes; commit. Verification's grep for the old path returns nothing. Push, `gh pr create`, return `phase 3 implemented, https://github.com/o/r/pull/123`.
+Phase 3, `move-subdirs`, Closes none. Review finds every Files list matches the tree. No Linear ID, so ask for a branch name; the user gives `icons/move-subdirs`. Commit 1 is a move: no Test first; `git mv` the directories, Check `pnpm typecheck`, commit. Commit 2 rewrites imports: Test first is `Icon.test.tsx > resolves logos from the new path`; it fails; rewrite; Check passes; commit. Verification's grep returns nothing. Push, `gh pr create`, return the implemented line.
 
 ## Troubleshooting
 
 - The phase is `draft`: it has no plan; return `phase <N> not planned`.
+- The phase is `manual` (Steps and Done means): nothing to implement here; return `phase <N> manual`.
 - `planet session start` reports no epic or no session id: return its message.
 - The PR is open but `planet epic show <slug> --json` shows no PR on the phase: run `planet link <slug> <N> <url>` and say the hook missed it.
 - `gh pr create` fails: the branch is pushed; report the error and the branch name so the user can open the PR, then `planet link` as above.

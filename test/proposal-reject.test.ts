@@ -18,6 +18,17 @@ test("planet proposal reject marks a pending proposal rejected with feedback", a
   assert.match(again.stderr, /already rejected/);
 });
 
+test("planet proposal reject refuses latest from another session, but a plain id bypasses the check", async () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createProposal(home, "e", { step: "scoping", phase: null, session: "other", toolUse: null, planFile: null, body: "x" }, NOW);
+  const refused = await run(["proposal", "reject", "e", "latest"], ctx(home));
+  assert.equal(refused.code, 1);
+  assert.match(refused.stderr, /from another session/);
+  const rejected = await run(["proposal", "reject", "e", "1"], ctx(home));
+  assert.equal(rejected.code, 0);
+});
+
 test("planet proposal tag accepts skill", async () => {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);

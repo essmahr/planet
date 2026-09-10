@@ -6,8 +6,15 @@ import { approveTo, createProposal, markRejected, parseDestination, readProposal
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 import { FEEDBACK_TAGS } from "../schema/types.ts";
-import type { Tag } from "../schema/types.ts";
+import type { Proposal, Tag } from "../schema/types.ts";
 import { parseStep } from "./session.ts";
+
+/** Refuses to act on a proposal resolved by alias (`latest`, `latest-N`) when it belongs to a different session. A plain numeric id bypasses this, since typing the id explicitly is itself the override. */
+function assertOwnSession(ctx: Ctx, idArg: string, proposal: Proposal): void {
+  if (!/^\d+$/.test(idArg) && ctx.env.CLAUDE_CODE_SESSION_ID && proposal.meta.session !== ctx.env.CLAUDE_CODE_SESSION_ID) {
+    throw new Error(`proposal ${proposal.meta.id} is from another session; pass the id explicitly`);
+  }
+}
 
 export const proposeCommand: Command = async (args, ctx) => {
   const { positionals, values } = parse(args, { file: { type: "string" }, phase: { type: "string" }, session: { type: "string" } });
@@ -28,9 +35,7 @@ async function proposalApprove(args: string[], ctx: Ctx): Promise<CommandResult>
   const epic = need(positionals, 0, "epic slug");
   const idArg = need(positionals, 1, "proposal id");
   const id = resolveProposalId(ctx.home, epic, idArg);
-  if (!/^\d+$/.test(idArg) && ctx.env.CLAUDE_CODE_SESSION_ID && readProposal(ctx.home, epic, id).meta.session !== ctx.env.CLAUDE_CODE_SESSION_ID) {
-    throw new Error(`proposal ${id} is from another session; pass the id explicitly`);
-  }
+  assertOwnSession(ctx, idArg, readProposal(ctx.home, epic, id));
   const dest = parseDestination(needString(values, "to"));
   const from = optString(values, "from");
   const result = approveTo(ctx.home, epic, id, dest, from === undefined ? undefined : readFileSync(from, "utf8"));
@@ -49,6 +54,7 @@ async function proposalReject(args: string[], ctx: Ctx): Promise<CommandResult> 
   const idArg = need(positionals, 1, "proposal id");
   const id = resolveProposalId(ctx.home, epic, idArg);
   const current = readProposal(ctx.home, epic, id);
+  assertOwnSession(ctx, idArg, current);
   if (current.meta.outcome !== "pending") throw new Error(`proposal ${id} already ${current.meta.outcome}`);
   const proposal = markRejected(ctx.home, epic, id, optString(values, "feedback") ?? "rejected by hand");
   commit(ctx.home, `${epic}: reject proposal ${id}`);

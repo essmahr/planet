@@ -18,8 +18,7 @@ The router opens an epic and runs the next planning step: intake, scoping,
 phasing, then phase-plan for each phase. After a phase is planned it offers to
 implement it in the session, plan the next phase, or stop. Implement works the
 phase document commit by commit, with a check after each, then opens the PR
-that Planet links to the phase. Retro
-follows. Planning documents are approved through native plan mode; the hooks
+that Planet links to the phase. When a phase ships, retro runs before the next phase plan and records weighed lessons; `/planet:go review feedback` from the plugin repo turns recurring lessons and skill-tagged rejections into approved edits to the skills. Planning documents are approved through native plan mode; the hooks
 record what was proposed, approved, edited, and rejected. An epic can start
 from any mix of Linear issues, projects, PRs, documents, URLs, or plain text;
 the research directory holds one file per source, with `sources.md` as the

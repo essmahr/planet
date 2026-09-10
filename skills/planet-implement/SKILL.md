@@ -28,11 +28,11 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 4. **Implement.** For each commit: Test first when present, then the Change, then the Check, then `git add` the Files and `git commit -m "<subject>"` (the heading without its number). One commit per section. Keep a list of deviations.
 5. **Verify.** Run every Verification step. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
 6. **PR.** `git push -u origin <branch>`, then `gh pr create --title "<phase title>" --body-file <a file in the scratch directory>`. Write the body now, from what happened: a summary from Context and Decisions, the commit list, each deviation with its reason, and what Verification asked the body to carry. Follow the repo's PR template and the user's PR conventions when they exist. The hook links the PR to the phase.
-7. **Return** `phase <N> implemented, <PR url>`.
+7. **Record and return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)`, then return `phase <N> implemented, <PR url>`.
 
 ## Blockers
 
-Stop and say which commit, what the code shows instead, and what would unblock it. Leave the branch and its commits in place. Return `phase <N> blocked at commit <k>: <why>`.
+Stop and say which commit, what the code shows instead, and what would unblock it. Leave the branch and its commits in place. Run `planet phase event <slug> <N> blocked "<why>"`. Return `phase <N> blocked at commit <k>: <why>`.
 
 ## Example
 

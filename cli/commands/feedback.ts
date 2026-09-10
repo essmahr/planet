@@ -16,8 +16,11 @@ export const feedbackCommand: Command = async (args, ctx) => {
   );
   const tags = Object.entries(report.tags).map(([t, n]) => `${t}=${n}`).join(" ") || "none";
   const prompts = Object.entries(report.prompts).map(([k, n]) => `${k}=${n}`).join(" ") || "none";
+  const events = Object.entries(report.events).map(([k, n]) => `${k}=${n}`).join(" ") || "none";
+  const steerCount = report.lessons.filter((l) => l.steer).length;
+  const lastReview = report.reviews.length ? ` (last ${report.reviews[report.reviews.length - 1].date})` : "";
   return {
     json: report,
-    text: `${table}\n\nrejections: ${report.rejections.length}  edits: ${report.edits.length}\ntags: ${tags}\nprompts: ${prompts}`,
+    text: `${table}\n\nrejections: ${report.rejections.length}  edits: ${report.edits.length}\ntags: ${tags}\nprompts: ${prompts}\nlessons: ${steerCount} steer, ${report.lessons.length} total\nskill rejections: ${report.skill_rejections.length}\nevents: ${events}\nreviews: ${report.reviews.length}${lastReview}`,
   };
 };

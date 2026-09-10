@@ -1,9 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Proposal } from "../schema/types.ts";
+import { listEvents } from "./events.ts";
 import { listProposals, editedPath } from "./proposal.ts";
+import { listRetros } from "./retro.ts";
 import { paths } from "./store.ts";
 
 export interface PlanComment {
@@ -82,6 +84,20 @@ export interface Edit {
   diff: string;
 }
 
+export interface LessonRow {
+  epic: string;
+  phase: number;
+  text: string;
+  skill: string;
+  steer: boolean;
+}
+
+export interface ReviewRow {
+  date: string;
+  path: string;
+  groups: string[];
+}
+
 export interface FeedbackReport {
   epics: string[];
   steps: StepStats[];
@@ -89,6 +105,37 @@ export interface FeedbackReport {
   edits: Edit[];
   tags: Record<string, number>;
   prompts: Record<string, number>;
+  lessons: LessonRow[];
+  skill_rejections: Rejection[];
+  events: Record<string, number>;
+  reviews: ReviewRow[];
+}
+
+/** Proposal ids tagged in notes.md, by tag. */
+export function tagsByProposal(notes: string): Map<number, string[]> {
+  const out = new Map<number, string[]>();
+  for (const line of notes.split("\n")) {
+    const m = NOTE_RE.exec(line);
+    if (!m) continue;
+    const id = Number(m[1]);
+    out.set(id, [...(out.get(id) ?? []), m[2]]);
+  }
+  return out;
+}
+
+export function listReviews(home: string): ReviewRow[] {
+  const dir = paths.reviews(home);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /^\d{4}-\d{2}-\d{2}(-\d+)?\.md$/.test(f))
+    .sort()
+    .map((f) => {
+      const path = join(dir, f);
+      const text = readFileSync(path, "utf8");
+      const recurring = text.split(/^## /m).find((s) => s.startsWith("Recurring"));
+      const groups = recurring ? [...recurring.matchAll(/^### (.+)$/gm)].map((m) => m[1].trim()) : [];
+      return { date: f.slice(0, 10), path, groups };
+    });
 }
 
 export function buildReport(home: string, epics: string[]): FeedbackReport {
@@ -97,8 +144,14 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
   const edits: Edit[] = [];
   const tags: Record<string, number> = {};
   const prompts: Record<string, number> = {};
+  const lessons: LessonRow[] = [];
+  const skillRejections: Rejection[] = [];
+  const events: Record<string, number> = {};
 
   for (const epic of epics) {
+    const notes = paths.notes(home, epic);
+    const notesText = existsSync(notes) ? readFileSync(notes, "utf8") : "";
+    const tagsByP = tagsByProposal(notesText);
     for (const p of listProposals(home, epic)) {
       const s = stats.get(p.meta.step) ?? { step: p.meta.step, proposals: 0, approved: 0, rejected: 0, pending: 0, edited: 0, proposals_per_approval: null };
       s.proposals += 1;
@@ -109,14 +162,15 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
       stats.set(p.meta.step, s);
       if (p.meta.outcome === "rejected") {
         const feedback = p.meta.feedback ?? "";
-        rejections.push({ epic, id: p.meta.id, step: p.meta.step, feedback, comments: parseComments(feedback) });
+        const rejection = { epic, id: p.meta.id, step: p.meta.step, feedback, comments: parseComments(feedback) };
+        rejections.push(rejection);
+        if ((tagsByP.get(p.meta.id) ?? []).includes("skill")) skillRejections.push(rejection);
       }
       if (p.meta.edited && existsSync(editedPath(p.path))) {
         edits.push({ epic, id: p.meta.id, step: p.meta.step, diff: diffAgainstBody(p, editedPath(p.path)) });
       }
     }
-    const notes = paths.notes(home, epic);
-    if (existsSync(notes)) for (const [tag, n] of Object.entries(parseTags(readFileSync(notes, "utf8")))) tags[tag] = (tags[tag] ?? 0) + n;
+    if (notesText) for (const [tag, n] of Object.entries(parseTags(notesText))) tags[tag] = (tags[tag] ?? 0) + n;
     const promptsFile = paths.prompts(home, epic);
     if (existsSync(promptsFile)) {
       for (const line of readFileSync(promptsFile, "utf8").split("\n")) {
@@ -125,8 +179,13 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
         prompts[kind] = (prompts[kind] ?? 0) + 1;
       }
     }
+    for (const e of listEvents(home, epic)) events[e.kind] = (events[e.kind] ?? 0) + 1;
+    for (const r of listRetros(home, epic)) {
+      for (const l of r.meta.lessons) lessons.push({ epic, phase: r.meta.phase, text: l.text, skill: l.skill, steer: l.steer });
+    }
   }
   for (const s of stats.values()) s.proposals_per_approval = s.approved ? s.proposals / s.approved : null;
   const steps = [...stats.values()].sort((a, b) => a.step.localeCompare(b.step));
-  return { epics, steps, rejections, edits, tags, prompts };
+  const reviews = listReviews(home);
+  return { epics, steps, rejections, edits, tags, prompts, lessons, skill_rejections: skillRejections, events, reviews };
 }

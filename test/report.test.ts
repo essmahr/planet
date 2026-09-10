@@ -1,13 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { NOW, SESSION, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
+import { appendEvent } from "../cli/lib/events.ts";
 import { createProposal, markApproved, markRejected } from "../cli/lib/proposal.ts";
 import { buildReport, parseComments, parseTags } from "../cli/lib/report.ts";
+import { writeRetro } from "../cli/lib/retro.ts";
 import { paths } from "../cli/lib/store.ts";
 import { syncEpic } from "../cli/lib/sync.ts";
 
@@ -89,6 +91,28 @@ test("pr files sums per path across merged prs", async () => {
   });
   const text = await run(["pr", "files", "e", "1"], ctx(home, { gh }));
   assert.match(text.stdout, /^PATH\s+\+\s+-\n/);
+});
+
+test("buildReport adds lessons, skill rejections, events, and reviews", () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
+  const p1 = createProposal(home, "e", { ...base, step: "phase-plan", body: "x" }, NOW);
+  markRejected(home, "e", p1.meta.id, "always name the spec file");
+  const p2 = createProposal(home, "e", { ...base, step: "phase-plan", body: "y" }, NOW);
+  markRejected(home, "e", p2.meta.id, "drop this phase");
+  writeFileSync(paths.notes(home, "e"), `- proposal ${p1.meta.id} · skill\n- proposal ${p2.meta.id} · scope-cut\n`);
+  appendEvent(home, "e", { phase: 1, kind: "blocked", text: "c2", session: SESSION }, NOW);
+  appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "abc", session: SESSION }, NOW);
+  writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    steer: true\n---\nbody\n", NOW, "head1");
+  mkdirSync(paths.reviews(home), { recursive: true });
+  writeFileSync(paths.reviewFile(home, "2026-09-01", 1), "# Findings\n\n## Recurring\n\n### Name the spec file in phase plans\n\ntext\n\n## Appendix\n");
+  const report = buildReport(home, ["e"]);
+  assert.deepEqual(report.lessons, [{ epic: "e", phase: 1, text: "name the spec file", skill: "planet-phase-plan", steer: true }]);
+  assert.deepEqual(report.skill_rejections.map((r) => r.feedback), ["always name the spec file"]);
+  assert.deepEqual(report.events, { blocked: 1, implemented: 1 });
+  assert.deepEqual(report.reviews, [{ date: "2026-09-01", path: paths.reviewFile(home, "2026-09-01", 1), groups: ["Name the spec file in phase plans"] }]);
 });
 
 test("feedback report command renders a summary", async () => {

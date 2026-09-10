@@ -207,7 +207,7 @@ feedback-review; `planet session end` clears it as for an epic.
 - Step 8 leaves the session open after `phase N implemented`: the marker has
   to persist for later prompts to be recorded against the phase, and the
   SessionEnd hook clears it.
-- Budget rises to 1,200 words: two dispatch rows and two request forms are
+- Budget rises to 1,250 words: two dispatch rows and two request forms are
   new behavior, not verbosity.
 
 ## Other skill changes

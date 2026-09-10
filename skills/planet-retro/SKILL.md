@@ -2,7 +2,7 @@
 name: planet-retro
 description: Only invoked by the Planet router, never on its own. Reviews one shipped phase of a Planet epic against what happened during and after implementation, writes the retro with weighed lessons, and marks the phase reviewed. Do not use outside a Planet session.
 user-invocable: false
-allowed-tools: Bash(planet *), Bash(git diff *), Bash(git log *), Bash(git fetch *), Bash(gh pr view *)
+allowed-tools: Bash(planet *), Bash(git diff *), Bash(git log *), Bash(git fetch *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
   version: 0.1.0

@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "../cli/lib/context.ts";
-import type { Gh, PrFile, PrInfo } from "../cli/lib/gh.ts";
+import type { Gh, PrFeedback, PrFile, PrInfo } from "../cli/lib/gh.ts";
 import { GhUnavailable } from "../cli/lib/gh.ts";
 import { ensureStore } from "../cli/lib/store.ts";
 import { main } from "../cli/planet.ts";
@@ -18,7 +18,7 @@ export function tmpHome(): string {
 
 export type FakeGh = Gh & { calls: string[] };
 
-export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false, failWith?: Error): FakeGh {
+export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false, failWith?: Error, feedback: Record<string, PrFeedback> = {}): FakeGh {
   const calls: string[] = [];
   return {
     calls,
@@ -32,6 +32,13 @@ export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string
       calls.push(`prFiles:${url}`);
       if (unavailable) throw new GhUnavailable("offline");
       return files[url] ?? [];
+    },
+    async prFeedback(url) {
+      calls.push(`prFeedback:${url}`);
+      if (unavailable) throw new GhUnavailable("offline");
+      const f = feedback[url];
+      if (!f) throw new Error(`no feedback stub for ${url}`);
+      return f;
     },
   };
 }

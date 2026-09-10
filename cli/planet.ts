@@ -48,7 +48,7 @@ commands:
   proposal reject <epic> <id|latest|latest-N> [--feedback <text>]
   proposal tag <epic> <id|latest|latest-N> <tag>
   sync [epic] [--force]
-  pr files <epic> <phase>
+  pr files|feedback <epic> <phase>
   feedback report [epic]
   check
   capture   (hook entry, reads Claude Code json on stdin)

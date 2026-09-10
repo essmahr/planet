@@ -73,6 +73,7 @@ export interface Rejection {
   epic: string;
   id: number;
   step: string;
+  phase: number | null;
   feedback: string;
   comments: PlanComment[];
 }
@@ -90,6 +91,7 @@ export interface LessonRow {
   text: string;
   skill: string;
   steer: boolean;
+  path: string;
 }
 
 export interface ReviewRow {
@@ -162,7 +164,7 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
       stats.set(p.meta.step, s);
       if (p.meta.outcome === "rejected") {
         const feedback = p.meta.feedback ?? "";
-        const rejection = { epic, id: p.meta.id, step: p.meta.step, feedback, comments: parseComments(feedback) };
+        const rejection = { epic, id: p.meta.id, step: p.meta.step, phase: p.meta.phase, feedback, comments: parseComments(feedback) };
         rejections.push(rejection);
         if ((tagsByP.get(p.meta.id) ?? []).includes("skill")) skillRejections.push(rejection);
       }
@@ -181,7 +183,7 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
     }
     for (const e of listEvents(home, epic)) events[e.kind] = (events[e.kind] ?? 0) + 1;
     for (const r of listRetros(home, epic)) {
-      for (const l of r.meta.lessons) lessons.push({ epic, phase: r.meta.phase, text: l.text, skill: l.skill, steer: l.steer });
+      for (const l of r.meta.lessons) lessons.push({ epic, phase: r.meta.phase, text: l.text, skill: l.skill, steer: l.steer, path: r.path });
     }
   }
   for (const s of stats.values()) s.proposals_per_approval = s.approved ? s.proposals / s.approved : null;

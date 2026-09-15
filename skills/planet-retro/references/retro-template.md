@@ -1,7 +1,7 @@
 # Retro document
 
 Frontmatter is validated by `planet retro write`: `phase` must match, every
-lesson has `text`, `skill`, and `steer`. Everything else in the frontmatter is
+lesson has `text`, `skill`, and `apply`. Everything else in the frontmatter is
 filled by the CLI.
 
 ```
@@ -10,7 +10,7 @@ phase: <N>
 lessons:
   - text: <one sentence, what a skill should do differently>
     skill: planet-phase-plan | planet-implement | planet-scoping | planet-phasing | planet-intake | not-planet
-    steer: true | false
+    apply: true | false
 ---
 # Retro: phase <N>, <title>
 
@@ -44,7 +44,7 @@ One paragraph: planned files not changed, changed files not planned, commits
 added or dropped, each classed plan wrong, discovered, or scope changed.
 
 ## Lessons
-One line per lesson, matching the frontmatter: text, the skill, steer yes or
+One line per lesson, matching the frontmatter: text, the skill, apply yes or
 no as answered.
 ```
 

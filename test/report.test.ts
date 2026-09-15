@@ -107,11 +107,11 @@ test("buildReport adds lessons, skill rejections, events, and reviews", () => {
   writeFileSync(paths.notes(home, "e"), `- proposal ${p1.meta.id} · skill\n- proposal ${p2.meta.id} · scope-cut\n- proposal ${p3.meta.id} · skill\n`);
   appendEvent(home, "e", { phase: 1, kind: "blocked", text: "c2", session: SESSION }, NOW);
   appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "abc", session: SESSION }, NOW);
-  writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    steer: true\n---\nbody\n", NOW, "head1");
+  writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    apply: true\n---\nbody\n", NOW, "head1");
   mkdirSync(paths.reviews(home), { recursive: true });
   writeFileSync(paths.reviewFile(home, "2026-09-01", 1), "# Findings\n\n## Recurring\n\n### Name the spec file in phase plans\n\ntext\n\n## Appendix\n");
   const report = buildReport(home, ["e"]);
-  assert.deepEqual(report.lessons, [{ epic: "e", phase: 1, text: "name the spec file", skill: "planet-phase-plan", steer: true, path: paths.retroFile(home, "e", 1, "a") }]);
+  assert.deepEqual(report.lessons, [{ epic: "e", phase: 1, text: "name the spec file", skill: "planet-phase-plan", apply: true, path: paths.retroFile(home, "e", 1, "a") }]);
   assert.equal(report.lessons[0].path, paths.retroFile(home, "e", 1, "a"));
   assert.deepEqual(report.skill_rejections.map((r) => r.feedback), ["always name the spec file", "name the spec file here too"]);
   assert.equal(report.skill_rejections[0].phase, null);

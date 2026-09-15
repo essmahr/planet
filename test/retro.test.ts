@@ -61,9 +61,9 @@ test("retro inputs reports gh_unavailable with empty pr data when gh is offline"
 test("retro write validates frontmatter, writes the file, appends the reviewed event", async () => {
   const home = setup();
   const draft = join(tmpdir(), `retro-${Date.now()}.md`);
-  writeFileSync(draft, ["---", "phase: 1", "lessons:", "  - text: name the test file in the plan", "    skill: planet-phase-plan", "    steer: true", "  - text: one-off rename", "    skill: not-planet", "    steer: false", "---", "# Retro: phase 1", "", "## Blocks", "none", ""].join("\n"));
+  writeFileSync(draft, ["---", "phase: 1", "lessons:", "  - text: name the test file in the plan", "    skill: planet-phase-plan", "    apply: true", "  - text: one-off rename", "    skill: not-planet", "    apply: false", "---", "# Retro: phase 1", "", "## Blocks", "none", ""].join("\n"));
   const bad = join(tmpdir(), `retro-bad-${Date.now()}.md`);
-  writeFileSync(bad, "---\nphase: 1\nlessons:\n  - text: x\n    skill: planet-nope\n    steer: true\n---\nbody\n");
+  writeFileSync(bad, "---\nphase: 1\nlessons:\n  - text: x\n    skill: planet-nope\n    apply: true\n---\nbody\n");
   const rb = await run(["retro", "write", "e", "1", "--file", bad], ctx(home));
   assert.equal(rb.code, 1);
   assert.match(rb.stderr, /skill must be one of/);
@@ -79,7 +79,7 @@ test("retro write validates frontmatter, writes the file, appends the reviewed e
   const retros = listRetros(home, "e");
   assert.equal(retros.length, 1);
   assert.equal(retros[0].meta.lessons.length, 2);
-  assert.equal(retros[0].meta.lessons[0].steer, true);
+  assert.equal(retros[0].meta.lessons[0].apply, true);
   assert.deepEqual(listEvents(home, "e", 1).map((e) => e.kind), ["reviewed"]);
   assert.equal(readPhase(home, "e", 1).meta.status, statusBefore);
 });

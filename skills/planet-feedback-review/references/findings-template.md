@@ -3,7 +3,7 @@
 ```
 # Feedback review <date>
 
-Since: <last review date or the beginning>. Sources: <N> steer-yes lessons,
+Since: <last review date or the beginning>. Sources: <N> lessons to apply,
 <N> skill-tagged rejections, <N> retros (distinct epic and phase pairs in lessons), <N> epics.
 
 ## Recurring
@@ -22,7 +22,7 @@ Budget: <words before> to <words after> of <budget>.
 ## Appendix
 
 ### Singletons
-- <text> (<source>): seen once; steer yes but no recurrence yet.
+- <text> (<source>): seen once; marked apply but no recurrence yet.
 
 ### Plan-local
 - <text> (<source>): about that epic, not the skill.

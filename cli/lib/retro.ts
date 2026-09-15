@@ -11,7 +11,7 @@ export type RetroSkill = (typeof RETRO_SKILLS)[number];
 export interface RetroLesson {
   text: string;
   skill: RetroSkill;
-  steer: boolean;
+  apply: boolean;
 }
 
 export interface RetroMeta {
@@ -45,8 +45,8 @@ export function parseLessons(v: unknown): RetroLesson[] {
     const o = asRecord(item, `lessons[${i}]`);
     if (typeof o.text !== "string" || o.text.trim() === "") throw new Error(`lessons[${i}].text must be a non-empty string`);
     if (!(RETRO_SKILLS as readonly string[]).includes(String(o.skill))) throw new Error(`lessons[${i}].skill must be one of ${RETRO_SKILLS.join(", ")}`);
-    if (typeof o.steer !== "boolean") throw new Error(`lessons[${i}].steer must be true or false`);
-    return { text: o.text, skill: o.skill as RetroSkill, steer: o.steer };
+    if (typeof o.apply !== "boolean") throw new Error(`lessons[${i}].apply must be true or false`);
+    return { text: o.text, skill: o.skill as RetroSkill, apply: o.apply };
   });
 }
 

@@ -27,7 +27,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 3. **Refinements.** With an implemented sha and a head sha (the `head_sha` of the last entry in the inputs' `prs`; with several PRs the diff runs to that one): `git diff --stat <implemented_sha>..<head_sha>`, then the diff; categorize; pair each prompt from the window with the category it drove, quoted once. Without an implemented event, write that refinements were not measurable and go on.
 4. **Review and CI.** From the inputs' `prs`: group review comments by theme with their file; list failed checks and the commit that fixed each, from `git log`.
 5. **Plan versus shipped.** Compare the phase document's Files (or Changes) and commit subjects against `files.files` and `git log --format=%s` on the PR range. One paragraph, each difference classed plan wrong, discovered, or scope changed. A cut that was wrong is a hand-up: return `re-cut from phase <N>: <why>` and write nothing.
-6. **Lessons.** Up to three. Each: one sentence, the skill it points at, the evidence line. Ask one multi-select question: which of these should change how Planet works next time? The rest are `steer: false`. Say the retro's five-line summary in the same message.
+6. **Lessons.** Up to three. Each: one sentence, the skill it points at, the evidence line. Ask one multi-select question: which of these should change how Planet works next time? The rest are `apply: false`. Say the retro's five-line summary in the same message.
 7. **Write.** Compose from `references/retro-template.md` into a file in the scratch directory; `planet retro write <slug> <N> --file <path>` plus `--head <head_sha>` (omit for a manual phase or when there is no PR); `planet phase set <slug> <N> --status reviewed`.
 8. **Return** `retro done for phase <N>`.
 
@@ -42,5 +42,5 @@ Phase 2, `move-subdirs`, one merged PR. Inputs: one `blocked` event at commit 3 
 - `planet retro inputs` fails on `gh`, or the bundle says `gh_unavailable`: write the retro from events, prompts, and the local branch; say review and CI were not read.
 - No PR linked to a `pr` phase: say so; Plan versus shipped uses the local branch if it exists, else says unmeasured.
 - The implemented sha or head sha is not in the local repo: `git fetch origin pull/<n>/head` for the PR number, then retry the diff once.
-- `planet retro write` rejects the frontmatter: fix the lesson entries; each needs text, skill, steer.
+- `planet retro write` rejects the frontmatter: fix the lesson entries; each needs text, skill, apply.
 - `planet phase set` refuses: the phase is not `shipped`; report its status and stop.

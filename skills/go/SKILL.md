@@ -14,7 +14,7 @@ metadata:
 ## Critical rules
 
 - Planet owns planning here; skip superpowers brainstorming and writing-plans.
-- Never enter plan mode here; step skills use the proposal gate.
+- Never enter plan mode here; step skills propose through `planet:planet-proposal`.
 - Never read `plan.md` or phase bodies; the step skill reads what's needed.
 - Never guess the epic; zero or several matches means a confirming question.
 - Store writes go only through the `planet` CLI, never by hand under `~/.planet`; step skills write only under `research/`.
@@ -62,4 +62,4 @@ Request: $ARGUMENTS
 - `planet open` errors `no session id`: `CLAUDE_CODE_SESSION_ID` unset; stop.
 - `planet epic new` says `already exists`: run `planet open <slug> --json`.
 - A named step whose state disagrees: say so, stop.
-- `last_approved_step` null but `paths.plan` exists: written outside the gate; treat as intake done.
+- `last_approved_step` null but `paths.plan` exists: written outside `planet-proposal`; treat as intake done.

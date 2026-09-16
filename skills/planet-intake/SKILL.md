@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(gh pr view *), Bash(gh pr list *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the sources include Linear issues, projects, or documents.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Planet: intake
@@ -27,7 +27,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `sources:` block, on
 3. **Codebase.** Dispatch one general-purpose subagent on model sonnet with the brief in `references/research-brief.md` as written, slots filled from the primary sources and the research files written in step 2. It writes `<dir>/research/codebase.md` and returns the path and up to five lines. Read the five lines, not the file.
 4. **Clarify.** If the sources and research leave a gap that blocks stating the problem, such as which surface, which users, or whether a described behavior is a bug or intended, ask one question and wait. Repeat at most twice more. Clear sources get no questions. Which related tickets the epic takes on is such a gap only when the problem cannot be stated without it; otherwise it goes under Open questions for scoping. Approach and preference questions are deferred to scoping; note them for the Open questions section.
 5. **Draft.** Compose `plan.md` v1 in context using `references/plan-template.md`. Context links `research/sources.md` in one line and names what the codebase research settles; with a single source, Context may name that source's file directly. Repeat no figures from research files. 300 to 500 words, never more than 500.
-6. **Propose.** Invoke the skill `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On `approved`, go to step 7. On a rejection message, amend the draft in place to address it: a new source is fetched per step 2, appended to `sources.md`, and gets one Context line; decisions in the message become Constraints marked "(decided during review)". Do not add sections. Then propose again. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `intake aborted: <message>`.
+6. **Propose.** Invoke the skill `planet:planet-proposal` with `epic: <slug>`, `to: plan`, and no `changes:`, since this is the document's first proposal. On `approved`, go to step 7. On a rejection message, amend the draft in place to address it: a new source is fetched per step 2, appended to `sources.md`, and gets one Context line; decisions in the message become Constraints marked "(decided during review)". Do not add sections. Then propose again with `changes:` for the amendment. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `intake aborted: <message>`.
 7. **Return** the line `intake done, next step scoping` to the router.
 
 A source the user adds mid-conversation ("also look at project X") is handled as in step 2 at that moment: fetch, write, append to `sources.md`, and give it a Context line at the next proposal.

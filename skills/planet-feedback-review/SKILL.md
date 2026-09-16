@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(npm test)
 compatibility: Claude Code with the planet plugin loaded, run from the plugin repo itself.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: feedback-review
@@ -25,7 +25,7 @@ Input from the router: `since: <date or none>`. Precondition: the current direct
 1. **Report.** `planet feedback report --json`. Take `lessons` with `apply: true`, `skill_rejections`, and `reviews`. Each lesson row carries `path`; read that retro's Lessons section for the evidence line.
 2. **Group.** Cluster by what they ask for, not by wording. A group recurs when its items span two phases or two epics. Attach every quote with its source. Drop a group whose heading matches one in a past review's `groups`; keep headings stable so this works.
 3. **Draft** from `references/findings-template.md`: one section per recurring group with quotes, count, the skill file and section, current text, replacement text, and the word count effect against the harness budget (the harness enforces budgets; state words added). Then the appendix. No recurring group: skip to step 6 with the second return line.
-4. **Propose.** Invoke `planet:planet-proposal` with `epic: review`, `to: review`. On rejection, amend in place and propose again. On `aborted: <message>`, run `planet proposal reject review latest --feedback "<message>"` and return `feedback-review aborted: <message>`.
+4. **Propose.** Invoke `planet:planet-proposal` with `epic: review`, `to: review`, and no `changes:`, since this is the document's first proposal. On rejection, amend in place and propose again with `changes:` for the amendment. On `aborted: <message>`, run `planet proposal reject review latest --feedback "<message>"` and return `feedback-review aborted: <message>`.
 5. **Apply.** `git checkout main && git pull --ff-only`, then `git checkout -b feedback-review/<date>`. For each skill file in the approved document, apply its replacements, run `npm test`, commit `<skill>: <group heading, lowercased>`. Leave the branch checked out.
 6. **Return** `feedback review done, feedback-review/<date>`, or `feedback review done, nothing recurs`.
 

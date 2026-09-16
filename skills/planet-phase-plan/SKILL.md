@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git log *)
 compatibility: Claude Code with the planet plugin loaded.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: phase-plan
@@ -26,7 +26,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Output: the 
 3. **Clarify.** Ask, one at a time, only per the rule above. Typical: two existing patterns and the plan names neither; a shared type must change and the choice is shim now or touch every consumer; a test pins behavior the phase means to change. If an answer or a finding shows the cut was wrong, return `re-cut from phase <N>: <why>`; if it shows the approach was wrong, return `back to scoping: <why>`.
 4. **Size check.** Estimate commits and changed files from the sweep and the entry. Count in the repo before drafting, never during it, and when the entry's numbers predate a phase that has since shipped, measure again and use your own count. Budget: the `PR budget:` line in `plan.md`, else about 20 files or about 8 commits. Under: continue. Over, unless this phase's entry in `plan.md` says why the budget does not apply: say what grew, propose a cut in one message, and on agreement return `re-cut from phase <N>: <the agreed cut>`. Write no plan document for an oversized phase. When the entry exempts it, note the reason under Size and continue.
 5. **Draft** in context from `references/phase-template.md`. One Commits section per commit, in the user's git order: moves and renames first, refactors before behavior, tests with the behavior they cover. Each names its Files, describes the Change with the names, signatures, and short code blocks a reviewer would want to see before the diff exists, gives one Check, and for a behavior change names the Test first. Every file a Change mentions, mocks and fixtures included, appears in that commit's Files line and in the Size count. Size states the two numbers and the basis. For a manual phase use Steps and Done means. Re-planning a phase whose branch exists: ask for the branch name, and its commit subjects (`git log --format=%s <default>..HEAD`) become sections 1 to k verbatim, marked done; new sections follow.
-6. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: phase:<N>`. On rejection, amend in place and propose again; a rejection that says the phase should not exist or the cut is wrong returns `re-cut from phase <N>: <message>` instead, with nothing written. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phase-plan aborted: <message>`.
+6. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: phase:<N>`. On a re-plan, pass `changes:` naming the commit sections added, split, dropped, or renumbered, with a last bullet for what is untouched; a first plan passes none. On rejection, amend in place and propose again with `changes:` for the amendment; a rejection that says the phase should not exist or the cut is wrong returns `re-cut from phase <N>: <message>` instead, with nothing written. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phase-plan aborted: <message>`.
 7. **Set.** `planet phase set <epic> <N> --status planned`, adding `--linear <ID>` when Closes names a ticket the phase's frontmatter lacks.
 8. **Return** `phase <N> planned`.
 

@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: phasing
@@ -33,7 +33,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
 2. **Cut** by the principles. Consult `references/cut-patterns.md` when the work resembles one of its shapes.
 3. **Draft** the Phases section in the format of `references/phases-section.md`, appended to `plan.md` as v3 with everything above it unchanged. On a re-cut, entries below N are copied verbatim.
-4. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend in place and propose again; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phasing aborted: <message>`.
+4. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On a re-cut, pass `changes:` naming the entries added, split, dropped, or renumbered, with a last bullet for the entries left untouched; a first cut passes none. On rejection, amend in place and propose again with `changes:` for the amendment; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phasing aborted: <message>`.
 5. **Create.** On a re-cut, first run `planet phase drop <epic> <id>` for every draft with id N or higher. Then run one `planet phase new <epic> <slug> --title "<title>"` per entry in section order, skipping entries below N on a re-cut since they already exist, adding `--manual` where the entry says manual and `--linear <ID>` where it names a ticket, all chained with `&&` in one Bash command. If the chain stops partway, drop the drafts it created, fix the failing entry, and rerun.
 6. **Verify** with `planet epic show <epic> --json` that `phases` lists the entries in order with the right kinds.
 7. **Return** `phasing done, N phases drafted, next step phase-plan`.

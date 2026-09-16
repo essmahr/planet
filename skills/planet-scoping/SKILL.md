@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: scoping
@@ -27,7 +27,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and `reason: <text>` when 
 3. **Converse.** One question at a time: what done looks like, what is out, including related tickets that `plan.md` Open questions left undecided, what would make the user reject the result. For a feature also: whether a design exists and where, the flag and who sees it first, what rollout looks like, what metric says it worked. A clear ticket may need only two questions. Never re-ask what `plan.md` answers.
 4. **Approaches.** In one message, propose two or three approaches, each in three to five lines with trade-offs, the recommendation first with why. Wait for the pick. If the pick hinges on a codebase fact the research lacks, dispatch one general-purpose subagent on model sonnet with `references/sweep-brief.md` as written, read its five lines, and continue.
 5. **Draft.** Compose `plan.md` v2 in context from `references/plan-v2-template.md`: v1's Problem and Context kept, a design link added to Context when there is one, then Goal, Non-goals, Success criteria, Approach with alternatives under Considered, Sequencing notes, a PR budget line only when the default does not fit, Constraints. Goal and Non-goals name ticket IDs when tickets were decided. An existing `## Phases` section is carried verbatim at the end. About 1,000 words, at most 1,200, not counting that section.
-6. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. On rejection, amend the draft in place; a decision in the message becomes a Constraint marked "(decided during review)". Propose again. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `scoping aborted: <message>`.
+6. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: plan`. With a `reason:` line, pass `changes:` naming the sections rewritten, with a last bullet for what is untouched; a first scoping passes none. On rejection, amend the draft in place and propose again with `changes:` for the amendment; a decision in the message becomes a Constraint marked "(decided during review)". On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `scoping aborted: <message>`.
 7. **Return** `scoping done, next step phasing`.
 
 A source the user adds mid-conversation is fetched and filed as intake's sources reference describes, appended to `research/sources.md`, and given a Context line at the next proposal.

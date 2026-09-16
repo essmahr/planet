@@ -6,7 +6,7 @@ import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
-import { editedPath, readProposal } from "../cli/lib/proposal.ts";
+import { readProposal } from "../cli/lib/proposal.ts";
 import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
 
@@ -68,7 +68,7 @@ test("kind follows the session step, not the phase", () => {
   assert.equal(lines[1].kind, "implementation");
 });
 
-test("PreToolUse snapshots the plan; PostToolUse approval without edits", () => {
+test("PreToolUse snapshots the plan; PostToolUse approval marks it approved", () => {
   const home = setup();
   const pre = handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home));
   assert.deepEqual(pre, ["proposal 1 created"]);
@@ -83,19 +83,18 @@ test("PreToolUse snapshots the plan; PostToolUse approval without edits", () => 
   assert.deepEqual(post, ["proposal 1 approved"]);
   const approved = readProposal(home, "e", 1);
   assert.equal(approved.meta.outcome, "approved");
-  assert.equal(approved.meta.edited, false);
-  assert.ok(!existsSync(editedPath(approved.path)));
+  assert.ok(!existsSync(paths.hookLog(home)), "matching text logs nothing");
 });
 
-test("PostToolUse approval with inline edits stores the edited plan", () => {
+test("an approved text that differs from the snapshot is logged, and the snapshot is kept", () => {
   const home = setup();
   handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN } }), ctx(home));
-  const edited = "# Phase 1\n\nDo B then A.\n";
-  handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN }, tool_response: approvedResponse(edited) }), ctx(home));
+  handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN }, tool_response: approvedResponse("# Phase 1\n\nDo B then A.\n") }), ctx(home));
   const p = readProposal(home, "e", 1);
-  assert.equal(p.meta.edited, true);
-  assert.equal(readFileSync(editedPath(p.path), "utf8"), edited);
-  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: approve proposal 1 with edits");
+  assert.equal(p.meta.outcome, "approved");
+  assert.equal(p.body, PLAN);
+  assert.match(readFileSync(paths.hookLog(home), "utf8"), /approved text for proposal 1 differs from its snapshot/);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: approve proposal 1");
 });
 
 test("an unrecognized PostToolUse result leaves the proposal pending and logs it", () => {
@@ -175,11 +174,7 @@ test("PostToolUse approval arrives as a structured result carrying the approved 
   handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home));
   const same = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: {}, tool_response: { filePath: "/plans/x.md", isAgent: false, plan: PLAN } }), ctx(home));
   assert.deepEqual(same, ["proposal 1 approved"]);
-  assert.equal(readProposal(home, "e", 1).meta.edited, false);
-  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s2", tool_input: { plan: PLAN } }), ctx(home));
-  const edited = handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s2", tool_input: {}, tool_response: { filePath: "/plans/x.md", isAgent: false, plan: "# Phase 1\n\nDo B then A.\n" } }), ctx(home));
-  assert.deepEqual(edited, ["proposal 2 approved (edited)"]);
-  assert.equal(readFileSync(editedPath(readProposal(home, "e", 2).path), "utf8"), "# Phase 1\n\nDo B then A.\n");
+  assert.equal(readProposal(home, "e", 1).meta.outcome, "approved");
 });
 
 test("a new plan while one is pending rejects the pending one with the transcript's feedback", () => {

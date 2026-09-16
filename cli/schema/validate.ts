@@ -50,13 +50,6 @@ function nullableInt(o: Obj, key: string, file: string): number | null {
   return int(o, key, file);
 }
 
-function bool(o: Obj, key: string, file: string, fallback: boolean): boolean {
-  const v = o[key];
-  if (v === undefined) return fallback;
-  if (typeof v !== "boolean") throw new ValidationError(file, `${key} must be a boolean`);
-  return v;
-}
-
 function strList(o: Obj, key: string, file: string): string[] {
   const v = o[key] ?? [];
   if (!Array.isArray(v) || v.some((x) => typeof x !== "string")) throw new ValidationError(file, `${key} must be a list of strings`);
@@ -126,7 +119,6 @@ export function validateProposalMeta(v: unknown, file: string): ProposalMeta {
     plan_file: nullableStr(o, "plan_file", file),
     created: str(o, "created", file),
     outcome: o.outcome === undefined ? "pending" : oneOf(o, "outcome", file, OUTCOMES),
-    edited: bool(o, "edited", file, false),
     feedback: nullableStr(o, "feedback", file),
   };
 }

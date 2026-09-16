@@ -83,17 +83,17 @@ test("epic show reports the last approved step", async () => {
   const base = { phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" };
   createProposal(home, "e", { ...base, step: "intake" }, NOW);
   assert.equal((await view()).last_approved_step, null, "pending does not count");
-  markApproved(home, "e", 1, "x");
+  markApproved(home, "e", 1);
   assert.equal((await view()).last_approved_step, "intake");
   createProposal(home, "e", { ...base, step: "scoping" }, NOW);
   markRejected(home, "e", 2, "no");
   assert.equal((await view()).last_approved_step, "intake", "a later rejection does not advance it");
   createProposal(home, "e", { ...base, step: "scoping" }, NOW);
-  markApproved(home, "e", 3, "x");
+  markApproved(home, "e", 3);
   assert.equal((await view()).last_approved_step, "scoping");
   for (const step of ["implement", "retro", "unknown"] as const) {
     const p = createProposal(home, "e", { ...base, step }, NOW);
-    markApproved(home, "e", p.meta.id, "x");
+    markApproved(home, "e", p.meta.id);
     assert.equal((await view()).last_approved_step, "scoping", `an approved ${step} plan does not move the planning step`);
   }
 });

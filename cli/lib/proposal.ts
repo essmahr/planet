@@ -11,10 +11,6 @@ export function proposalFileName(id: number, step: string): string {
   return `${String(id).padStart(3, "0")}-${step}.md`;
 }
 
-export function editedPath(path: string): string {
-  return path.replace(/\.md$/, ".edited.md");
-}
-
 function readProposalFile(path: string): Proposal {
   const { data, body } = parseFrontmatter(readFileSync(path, "utf8"));
   return { meta: validateProposalMeta(data, path), body, path };
@@ -63,7 +59,6 @@ export function createProposal(home: string, epic: string, input: NewProposalInp
     plan_file: input.planFile,
     created: now,
     outcome: "pending",
-    edited: false,
     feedback: null,
   };
   const proposal: Proposal = { meta, body: input.body, path: join(dir, proposalFileName(meta.id, meta.step)) };
@@ -86,16 +81,15 @@ export function latestPending(home: string, epic: string, session: string): Prop
   return pending.length ? pending[pending.length - 1] : null;
 }
 
-function normalize(text: string): string {
-  return text.replace(/\r\n/g, "\n").trim();
+/** True when two plan texts match apart from line endings and surrounding whitespace. */
+export function sameText(a: string, b: string): boolean {
+  const normalize = (text: string) => text.replace(/\r\n/g, "\n").trim();
+  return normalize(a) === normalize(b);
 }
 
-export function markApproved(home: string, epic: string, id: number, approvedText: string): Proposal {
+export function markApproved(home: string, epic: string, id: number): Proposal {
   const proposal = readProposal(home, epic, id);
-  const edited = normalize(approvedText) !== normalize(proposal.body);
-  if (edited) writeFileSync(editedPath(proposal.path), approvedText.endsWith("\n") ? approvedText : `${approvedText}\n`);
   proposal.meta.outcome = "approved";
-  proposal.meta.edited = edited;
   writeProposal(proposal);
   return proposal;
 }
@@ -106,11 +100,6 @@ export function markRejected(home: string, epic: string, id: number, feedback: s
   proposal.meta.feedback = feedback;
   writeProposal(proposal);
   return proposal;
-}
-
-export function approvedText(proposal: Proposal): string {
-  const edited = editedPath(proposal.path);
-  return existsSync(edited) ? readFileSync(edited, "utf8") : proposal.body;
 }
 
 export type Destination = { kind: "plan" } | { kind: "phase"; id: number } | { kind: "review" };
@@ -138,8 +127,8 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
   if (proposal.meta.outcome === "rejected" && fromText === undefined) {
     throw new Error(`proposal ${id} was rejected; pass --from to approve different text`);
   }
-  const text = fromText ?? approvedText(proposal);
-  if (proposal.meta.outcome !== "approved" || fromText !== undefined) proposal = markApproved(home, epic, id, text);
+  const text = fromText ?? proposal.body;
+  if (proposal.meta.outcome !== "approved") proposal = markApproved(home, epic, id);
   const body = text.endsWith("\n") ? text : `${text}\n`;
   if (dest.kind === "plan") {
     const file = paths.plan(home, epic);

@@ -33,7 +33,6 @@ test("validatePhaseMeta validates nested prs", () => {
 test("validateProposalMeta allows the unknown step and defaults outcome fields", () => {
   const p = validateProposalMeta({ id: 3, step: "unknown", phase: null, session: "s", created: "t" }, "f");
   assert.equal(p.outcome, "pending");
-  assert.equal(p.edited, false);
   assert.equal(p.feedback, null);
   assert.equal(p.tool_use, null);
   assert.throws(() => validateProposalMeta({ id: 3, step: "dreaming", phase: null, session: "s", created: "t" }, "f"), /step must be one of/);

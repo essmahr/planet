@@ -1,10 +1,7 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { tmpdir } from "node:os";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Proposal } from "../schema/types.ts";
 import { listEvents } from "./events.ts";
-import { listProposals, editedPath } from "./proposal.ts";
+import { listProposals } from "./proposal.ts";
 import { listRetros } from "./retro.ts";
 import { paths } from "./store.ts";
 
@@ -35,37 +32,12 @@ export function parseTags(notes: string): Record<string, number> {
   return tags;
 }
 
-/** Unified diff between two files, hunks only. git exits 1 when the files differ, so the status is ignored. */
-export function diffFiles(a: string, b: string): string {
-  const result = spawnSync("git", ["diff", "--no-index", "--no-color", "--unified=1", "--", a, b], { encoding: "utf8" });
-  const lines = result.stdout.split("\n");
-  const first = lines.findIndex((l) => l.startsWith("@@"));
-  return first === -1 ? "" : lines.slice(first).join("\n").trimEnd();
-}
-
-/** Diffs a proposal's snapshot body against an edited file, so frontmatter never appears in the diff.
- *
- * Writes the body to a temp dir (frontmatter lives only in the proposal file, not `proposal.body`) and always
- * cleans that dir up afterward, so repeated report runs don't leak temp directories.
- */
-function diffAgainstBody(proposal: Proposal, editedFile: string): string {
-  const dir = mkdtempSync(join(tmpdir(), "planet-diff-"));
-  try {
-    const snapshotPath = join(dir, "snapshot.md");
-    writeFileSync(snapshotPath, proposal.body);
-    return diffFiles(snapshotPath, editedFile);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 export interface StepStats {
   step: string;
   proposals: number;
   approved: number;
   rejected: number;
   pending: number;
-  edited: number;
   proposals_per_approval: number | null;
 }
 
@@ -76,13 +48,6 @@ export interface Rejection {
   phase: number | null;
   feedback: string;
   comments: PlanComment[];
-}
-
-export interface Edit {
-  epic: string;
-  id: number;
-  step: string;
-  diff: string;
 }
 
 export interface LessonRow {
@@ -104,7 +69,6 @@ export interface FeedbackReport {
   epics: string[];
   steps: StepStats[];
   rejections: Rejection[];
-  edits: Edit[];
   tags: Record<string, number>;
   prompts: Record<string, number>;
   lessons: LessonRow[];
@@ -143,7 +107,6 @@ export function listReviews(home: string): ReviewRow[] {
 export function buildReport(home: string, epics: string[]): FeedbackReport {
   const stats = new Map<string, StepStats>();
   const rejections: Rejection[] = [];
-  const edits: Edit[] = [];
   const tags: Record<string, number> = {};
   const prompts: Record<string, number> = {};
   const lessons: LessonRow[] = [];
@@ -155,21 +118,17 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
     const notesText = existsSync(notes) ? readFileSync(notes, "utf8") : "";
     const tagsByP = tagsByProposal(notesText);
     for (const p of listProposals(home, epic)) {
-      const s = stats.get(p.meta.step) ?? { step: p.meta.step, proposals: 0, approved: 0, rejected: 0, pending: 0, edited: 0, proposals_per_approval: null };
+      const s = stats.get(p.meta.step) ?? { step: p.meta.step, proposals: 0, approved: 0, rejected: 0, pending: 0, proposals_per_approval: null };
       s.proposals += 1;
       if (p.meta.outcome === "approved") s.approved += 1;
       if (p.meta.outcome === "rejected") s.rejected += 1;
       if (p.meta.outcome === "pending") s.pending += 1;
-      if (p.meta.edited) s.edited += 1;
       stats.set(p.meta.step, s);
       if (p.meta.outcome === "rejected") {
         const feedback = p.meta.feedback ?? "";
         const rejection = { epic, id: p.meta.id, step: p.meta.step, phase: p.meta.phase, feedback, comments: parseComments(feedback) };
         rejections.push(rejection);
         if ((tagsByP.get(p.meta.id) ?? []).includes("skill")) skillRejections.push(rejection);
-      }
-      if (p.meta.edited && existsSync(editedPath(p.path))) {
-        edits.push({ epic, id: p.meta.id, step: p.meta.step, diff: diffAgainstBody(p, editedPath(p.path)) });
       }
     }
     if (notesText) for (const [tag, n] of Object.entries(parseTags(notesText))) tags[tag] = (tags[tag] ?? 0) + n;
@@ -189,5 +148,5 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
   for (const s of stats.values()) s.proposals_per_approval = s.approved ? s.proposals / s.approved : null;
   const steps = [...stats.values()].sort((a, b) => a.step.localeCompare(b.step));
   const reviews = listReviews(home);
-  return { epics, steps, rejections, edits, tags, prompts, lessons, skill_rejections: skillRejections, events, reviews };
+  return { epics, steps, rejections, tags, prompts, lessons, skill_rejections: skillRejections, events, reviews };
 }

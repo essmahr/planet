@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
 import { PR_URL_RE, linkPrs } from "../lib/link.ts";
-import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected } from "../lib/proposal.ts";
+import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected, sameText } from "../lib/proposal.ts";
 import { endSession, readMarker } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
 import { rejectionFeedback } from "../lib/transcript.ts";
@@ -127,10 +127,13 @@ function onPlanResult(input: HookInput, marker: SessionMarker, ctx: Ctx, text: s
   if (proposal.meta.outcome !== "pending") return [`proposal ${proposal.meta.id} already ${proposal.meta.outcome}`];
   const planFromResult = forceReject ? null : structuredPlan(input.tool_response);
   if (planFromResult !== null || APPROVED_RE.test(text)) {
-    const approved = markApproved(ctx.home, marker.epic, proposal.meta.id, planFromResult ?? approvedPlanText(text, proposal.body));
-    const suffix = approved.meta.edited ? " with edits" : "";
-    commit(ctx.home, `${marker.epic}: approve proposal ${proposal.meta.id}${suffix}`);
-    return [`proposal ${proposal.meta.id} approved${approved.meta.edited ? " (edited)" : ""}`];
+    const approvedPlan = planFromResult ?? approvedPlanText(text, proposal.body);
+    markApproved(ctx.home, marker.epic, proposal.meta.id);
+    if (!sameText(approvedPlan, proposal.body)) {
+      appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} approved text for proposal ${proposal.meta.id} differs from its snapshot; approve --to writes the snapshot\n`);
+    }
+    commit(ctx.home, `${marker.epic}: approve proposal ${proposal.meta.id}`);
+    return [`proposal ${proposal.meta.id} approved`];
   }
   if (!forceReject && !REJECTED_RE.test(text)) {
     const id = proposal.meta.id;

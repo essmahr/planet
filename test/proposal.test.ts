@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { NOW, SESSION, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
-import { approveTo, createProposal, editedPath, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal, resolveProposalId, tagProposal } from "../cli/lib/proposal.ts";
+import { approveTo, createProposal, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal, resolveProposalId, sameText, tagProposal } from "../cli/lib/proposal.ts";
 import { paths } from "../cli/lib/store.ts";
 
 const input = { step: "phasing" as const, phase: null, session: SESSION, toolUse: "toolu_1", planFile: "/plans/x.md", body: "# Phases\n\n1. A\n2. B\n" };
@@ -45,19 +45,18 @@ test("findProposalByToolUse and latestPending", () => {
   assert.equal(latestPending(home, "e", "other-session"), null);
 });
 
-test("markApproved records edits only when the text differs", () => {
+test("markApproved sets the outcome and keeps the snapshot body", () => {
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
-  const same = markApproved(home, "e", p.meta.id, `${input.body}\n`);
-  assert.equal(same.meta.outcome, "approved");
-  assert.equal(same.meta.edited, false);
-  assert.ok(!existsSync(editedPath(same.path)));
+  const approved = markApproved(home, "e", p.meta.id);
+  assert.equal(approved.meta.outcome, "approved");
+  assert.equal(approved.body, input.body);
+  assert.deepEqual(listProposals(home, "e").map((x) => x.meta.id), [1]);
+});
 
-  const q = createProposal(home, "e", input, NOW);
-  const edited = markApproved(home, "e", q.meta.id, "# Phases\n\n1. B\n2. A\n");
-  assert.equal(edited.meta.edited, true);
-  assert.equal(readFileSync(editedPath(edited.path), "utf8"), "# Phases\n\n1. B\n2. A\n");
-  assert.deepEqual(listProposals(home, "e").map((x) => x.meta.id), [1, 2], "edited file is not a proposal");
+test("sameText ignores line endings and surrounding whitespace only", () => {
+  assert.ok(sameText("a\r\nb\n", "a\nb"));
+  assert.ok(!sameText("a\nb", "b\na"));
 });
 
 test("markRejected stores the message verbatim", () => {
@@ -75,10 +74,10 @@ test("parseDestination and approveTo", () => {
 
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
-  markApproved(home, "e", p.meta.id, "# Edited\n");
+  markApproved(home, "e", p.meta.id);
   const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, undefined, NOW);
   assert.equal(r.wrote, paths.plan(home, "e"));
-  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Edited\n");
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), input.body, "an already approved proposal writes its snapshot");
 
   const q = createProposal(home, "e", { ...input, step: "phase-plan", phase: 1 }, NOW);
   const r2 = approveTo(home, "e", q.meta.id, { kind: "phase", id: 1 }, undefined, NOW);
@@ -89,7 +88,7 @@ test("parseDestination and approveTo", () => {
   const s = createProposal(home, "e", input, NOW);
   approveTo(home, "e", s.meta.id, { kind: "plan" }, "# From file\n", NOW);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# From file\n");
-  assert.equal(readProposal(home, "e", s.meta.id).meta.edited, true);
+  assert.equal(readProposal(home, "e", s.meta.id).meta.outcome, "approved");
 });
 
 test("approveTo refuses to flip a rejected proposal without --from", () => {
@@ -99,7 +98,6 @@ test("approveTo refuses to flip a rejected proposal without --from", () => {
   assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "plan" }, undefined, NOW), /was rejected/);
   const r = approveTo(home, "e", p.meta.id, { kind: "plan" }, "# Retry\n", NOW);
   assert.equal(r.proposal.meta.outcome, "approved");
-  assert.equal(r.proposal.meta.edited, true);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# Retry\n");
 });
 

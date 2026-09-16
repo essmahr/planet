@@ -57,7 +57,6 @@ export interface ProposalMeta {
   plan_file: string | null;
   created: string;
   outcome: Outcome;
-  edited: boolean;
   feedback: string | null;
 }
 

@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { NOW, SESSION, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
@@ -29,14 +28,14 @@ test("parseTags counts tags from notes.md", () => {
   assert.deepEqual(parseTags("- proposal 3 · reorder\n- proposal 5 · reorder\n- proposal 6 · scope-cut\nrandom line\n"), { reorder: 2, "scope-cut": 1 });
 });
 
-test("buildReport aggregates per step with rejections, edits, tags, and prompts", () => {
+test("buildReport aggregates per step with rejections, tags, and prompts", () => {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
   const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
   const p1 = createProposal(home, "e", { ...base, step: "phasing", body: "# A\n1\n2\n" }, NOW);
   markRejected(home, "e", p1.meta.id, 'Comments on the plan:\n[Re: "1"] swap');
   const p2 = createProposal(home, "e", { ...base, step: "phasing", body: "# A\n2\n1\n" }, NOW);
-  markApproved(home, "e", p2.meta.id, "# A\n2\n1\n3\n");
+  markApproved(home, "e", p2.meta.id);
   createProposal(home, "e", { ...base, step: "scoping", body: "s" }, NOW);
   writeFileSync(paths.notes(home, "e"), "- proposal 1 · reorder\n");
   appendFileSync(paths.prompts(home, "e"), `${JSON.stringify({ ts: NOW, session: SESSION, kind: "planning", phase: null, proposal: 1, text: "swap them" })}\n`);
@@ -44,31 +43,13 @@ test("buildReport aggregates per step with rejections, edits, tags, and prompts"
 
   const report = buildReport(home, ["e"]);
   assert.deepEqual(report.steps, [
-    { step: "phasing", proposals: 2, approved: 1, rejected: 1, pending: 0, edited: 1, proposals_per_approval: 2 },
-    { step: "scoping", proposals: 1, approved: 0, rejected: 0, pending: 1, edited: 0, proposals_per_approval: null },
+    { step: "phasing", proposals: 2, approved: 1, rejected: 1, pending: 0, proposals_per_approval: 2 },
+    { step: "scoping", proposals: 1, approved: 0, rejected: 0, pending: 1, proposals_per_approval: null },
   ]);
   assert.equal(report.rejections.length, 1);
   assert.deepEqual(report.rejections[0].comments, [{ quote: "1", comment: "swap" }]);
-  assert.equal(report.edits.length, 1);
-  assert.match(report.edits[0].diff, /^@@/m);
-  assert.match(report.edits[0].diff, /^\+3$/m);
-  assert.doesNotMatch(report.edits[0].diff, /^diff --git/m);
-  assert.doesNotMatch(report.edits[0].diff, /^-id:/m, "frontmatter is not part of the edit diff");
   assert.deepEqual(report.tags, { reorder: 1 });
   assert.deepEqual(report.prompts, { planning: 1, implementation: 1 });
-});
-
-test("buildReport removes its temp diff directories after use", () => {
-  const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
-  const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
-  const p = createProposal(home, "e", { ...base, step: "phasing", body: "# A\n1\n2\n" }, NOW);
-  markApproved(home, "e", p.meta.id, "# A\n2\n1\n3\n");
-
-  const countLeaked = () => readdirSync(tmpdir()).filter((f) => f.startsWith("planet-diff-")).length;
-  const before = countLeaked();
-  buildReport(home, ["e"]);
-  assert.equal(countLeaked(), before);
 });
 
 test("pr files sums per path across merged prs", async () => {
@@ -126,5 +107,5 @@ test("feedback report command renders a summary", async () => {
   createProposal(home, "e", { step: "intake", phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" }, NOW);
   const r = await run(["feedback", "report", "e"], ctx(home));
   assert.equal(r.code, 0);
-  assert.match(r.stdout, /intake\s+1\s+0\s+0\s+1\s+0/);
+  assert.match(r.stdout, /intake\s+1\s+0\s+0\s+1\s+-/);
 });

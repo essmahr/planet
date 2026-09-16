@@ -59,7 +59,7 @@ export function ensureStore(home: string): void {
   if (!existsSync(join(home, ".git"))) git(home, ["init", "-q"]);
   const gitignore = join(home, ".gitignore");
   if (!existsSync(gitignore)) {
-    writeFileSync(gitignore, "hook.log\n.DS_Store\n");
+    writeFileSync(gitignore, "hook.log\n.DS_Store\n*.log\n");
     commit(home, "init store");
   }
 }

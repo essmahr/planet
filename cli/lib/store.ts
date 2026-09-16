@@ -64,9 +64,39 @@ export function ensureStore(home: string): void {
   }
 }
 
+export const LOCK_RETRIES = 5;
+export const LOCK_RETRY_MS = 100;
+
+function isLockError(err: unknown): boolean {
+  const e = err as { stderr?: unknown; message?: string };
+  const text = `${typeof e.stderr === "string" ? e.stderr : ""}\n${e.message ?? ""}`;
+  return text.includes("index.lock");
+}
+
+function sleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Runs a git write, retrying when another process holds `.git/index.lock`.
+ *
+ * Hooks fire close together (UserPromptSubmit, then PostToolUse a moment later) and each
+ * commits to the store, so two `planet capture` runs can overlap on the same repo.
+ */
+export function withLockRetry<T>(fn: () => T, retries = LOCK_RETRIES, waitMs = LOCK_RETRY_MS): T {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return fn();
+    } catch (err) {
+      if (!isLockError(err) || attempt >= retries) throw err;
+      sleep(waitMs);
+    }
+  }
+}
+
 export function commit(home: string, message: string): boolean {
-  git(home, ["add", "-A"]);
+  withLockRetry(() => git(home, ["add", "-A"]));
   if (git(home, ["status", "--porcelain"]).trim() === "") return false;
-  git(home, ["commit", "-q", "-m", message]);
+  withLockRetry(() => git(home, ["commit", "-q", "-m", message]));
   return true;
 }

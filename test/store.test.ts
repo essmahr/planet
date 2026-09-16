@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpHome } from "./helpers.ts";
-import { planetHome, git, commit, ensureStore, paths } from "../cli/lib/store.ts";
+import { planetHome, git, commit, ensureStore, paths, withLockRetry } from "../cli/lib/store.ts";
 
 test("planetHome prefers PLANET_HOME", () => {
   assert.equal(planetHome({ PLANET_HOME: "/x/store" }), "/x/store");
@@ -48,6 +49,28 @@ test("commit stages and commits only when dirty", () => {
   assert.equal(commit(home, "add note"), true);
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "add note");
   assert.equal(commit(home, "again"), false);
+});
+
+test("commit waits out another process holding index.lock", () => {
+  const home = tmpHome();
+  writeFileSync(join(home, "note.txt"), "hi\n");
+  const lock = join(home, ".git", "index.lock");
+  writeFileSync(lock, "");
+  spawn("sh", ["-c", `sleep 0.25 && rm -f "${lock}"`], { detached: true, stdio: "ignore" }).unref();
+  assert.equal(commit(home, "add note"), true);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "add note");
+});
+
+test("withLockRetry gives up after the retry budget and rethrows other errors at once", () => {
+  let calls = 0;
+  assert.throws(
+    () => withLockRetry(() => { calls += 1; throw Object.assign(new Error("fatal: Unable to create '.git/index.lock': File exists."), { stderr: "index.lock" }); }, 2, 1),
+    /index\.lock/,
+  );
+  assert.equal(calls, 3);
+  calls = 0;
+  assert.throws(() => withLockRetry(() => { calls += 1; throw new Error("boom"); }, 2, 1), /boom/);
+  assert.equal(calls, 1);
 });
 
 test("paths compose under the epic directory", () => {

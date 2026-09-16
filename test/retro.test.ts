@@ -7,7 +7,7 @@ import { NOW, SESSION, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { appendEvent, listEvents } from "../cli/lib/events.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { newPhases, readPhase } from "../cli/lib/phase.ts";
+import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { listRetros, retroFileName } from "../cli/lib/retro.ts";
 import { paths } from "../cli/lib/store.ts";
 import type { PrFeedback } from "../cli/lib/gh.ts";
@@ -44,6 +44,22 @@ test("retro inputs bundles events, prs, files, and prompts after the implemented
   assert.deepEqual((j.prs as PrFeedback[])[0].head_sha, "head777");
   assert.equal(((j.files as { files: unknown[] }).files).length, 1);
   assert.equal(j.gh_unavailable, false);
+});
+
+test("retro inputs stops the prompt window at shipped_at", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "impl123", session: SESSION }, NOW);
+  const phase = readPhase(home, "e", 1);
+  phase.meta.status = "shipped";
+  phase.meta.shipped_at = "2026-09-03T18:00:00.000Z";
+  writePhase(phase);
+  mkdirSync(paths.feedback(home, "e"), { recursive: true });
+  for (const [ts, text] of [["2026-09-03T17:00:00.000Z", "in window"], ["2026-09-03T18:00:00.000Z", "at merge"], ["2026-09-03T19:00:00.000Z", "retro session"]]) {
+    appendFileSync(paths.prompts(home, "e"), `${JSON.stringify({ ts, session: SESSION, kind: "implementation", phase: 1, proposal: null, text })}\n`);
+  }
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
+  const r = await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }));
+  assert.deepEqual((r.json as { prompts: { text: string }[] }).prompts.map((p) => p.text), ["in window", "at merge"]);
 });
 
 test("retro inputs reports gh_unavailable with empty pr data when gh is offline", async () => {

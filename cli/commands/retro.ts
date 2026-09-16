@@ -43,13 +43,15 @@ export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<R
   const events = listEvents(ctx.home, epic, id);
   const implemented = [...events].reverse().find((e) => e.kind === "implemented") ?? null;
   const gh = await ghPart(ctx, epic, id, phase.meta.prs.map((pr) => pr.url));
+  // The refinement window closes when the phase ships; later prompts belong to the retro session or other work.
+  const shippedAt = phase.meta.shipped_at;
   const promptsFile = paths.prompts(ctx.home, epic);
   const prompts = existsSync(promptsFile)
     ? readFileSync(promptsFile, "utf8")
         .split("\n")
         .filter((l) => l.trim() !== "")
         .map((l) => JSON.parse(l) as { ts: string; phase: number | null; text: string })
-        .filter((p) => p.phase === id && (implemented === null || p.ts > implemented.ts))
+        .filter((p) => p.phase === id && (implemented === null || p.ts > implemented.ts) && (shippedAt === null || p.ts <= shippedAt))
         .map((p) => ({ ts: p.ts, text: p.text }))
     : [];
   return {

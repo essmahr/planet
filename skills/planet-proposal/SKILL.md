@@ -5,25 +5,26 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded and its hooks active.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: proposal
 
-Input from the calling step: `epic` slug (or `review` for a feedback review), `to` (`plan`, `phase:<n>`, or `review`). The draft is already in your context. This step does no research or new reasoning.
+Input from the calling step: `epic` slug (or `review` for a feedback review), `to` (`plan`, `phase:<n>`, or `review`), and `changes`, one to four bullets, omitted only on the first proposal of a document. The draft is already in your context. This step does no research or new reasoning.
 
 ## Critical rules
 
 - In plan mode, write only the plan file; no `planet` commands until the proposal resolves.
 - On rejection, amend the plan file in place. Never regenerate it or swap in another document; a rejection that says the phase or the cut is wrong goes back to the caller unamended.
+- The `changes` block is chat text. It never enters the draft, the plan file, or the approved document.
 - Never compute proposal ids. Use `latest` and `latest-N`.
 
 ## Steps
 
 1. Call EnterPlanMode unless in plan mode. Write the draft, unchanged, to the plan file Claude Code names when plan mode starts; edit that file when re-entering after a rejection.
-2. Call ExitPlanMode.
+2. Say the `changes` block, so it sits above the dialog: a `Changes since the approved plan:` line, then its bullets, the last one naming what is untouched. Then call ExitPlanMode.
 3. **Approved.** ExitPlanMode's result is the only signal. Once it reports approval, plan mode has ended and the CLI works. Run `planet proposal approve <epic> latest --to <to>`. One `planet proposal tag <epic> latest-K <tag>` per rejection, K counting back from the most recent. Tag from the user's words: scope-cut, scope-add, reorder, wrong-assumption, too-granular, too-coarse, style, skill (the user says the skill or Planet should behave differently in general, not this plan), other. Return `approved` to the caller.
-4. **Rejected.** The result carries the user's message, typed or as `[Re: "quote"] comment` lines; plan mode continues. Count the rejections here. If the message says stop, abort, or keep the current plan, return `aborted: <message>`; nothing is written; plan mode stays on until the user leaves it. Otherwise return the message; the caller amends the draft and proposes again. The hooks record the rejection.
+4. **Rejected.** The result carries the user's message, typed or as `[Re: "quote"] comment` lines; plan mode continues. Count the rejections here. If the message says stop, abort, or keep the current plan, return `aborted: <message>`; nothing is written; plan mode stays on until the user leaves it. Otherwise return the message; the caller amends the draft and proposes again with a fresh `changes` describing the amendment. The hooks record the rejection.
 
 ## Troubleshooting
 

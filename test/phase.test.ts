@@ -63,6 +63,23 @@ test("recomputeEpicStatus derives active and shipped", () => {
   void home;
 });
 
+test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed", () => {
+  const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
+  assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b", status: "shipped" }], NOW), true, "a shipped manual phase activates the epic");
+  assert.equal(epic.status, "active");
+  assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b" }], "2026-10-01T00:00:00Z"), true);
+  assert.equal(epic.status, "shipped");
+  assert.equal(epic.shipped_at, "2026-10-01T00:00:00Z");
+});
+
+test("recomputeEpicStatus goes straight from planning to shipped when every phase is already reviewed", () => {
+  const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
+  assert.equal(recomputeEpicStatus(epic, [manual], NOW), true);
+  assert.equal(epic.status, "shipped");
+});
+
 test("newPhases validates all inputs before writing any", () => {
   const home = epicHome();
   assert.throws(() => newPhases(home, "e", [{ slug: "ok", title: "Ok" }, { slug: "Bad Slug", title: "Bad" }]), /kebab-case/);

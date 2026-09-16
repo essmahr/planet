@@ -91,4 +91,9 @@ test("epic show reports the last approved step", async () => {
   createProposal(home, "e", { ...base, step: "scoping" }, NOW);
   markApproved(home, "e", 3, "x");
   assert.equal((await view()).last_approved_step, "scoping");
+  for (const step of ["implement", "retro", "unknown"] as const) {
+    const p = createProposal(home, "e", { ...base, step }, NOW);
+    markApproved(home, "e", p.meta.id, "x");
+    assert.equal((await view()).last_approved_step, "scoping", `an approved ${step} plan does not move the planning step`);
+  }
 });

@@ -33,6 +33,7 @@ async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
   const created = newPhases(ctx.home, epic, inputs);
   const epicDoc = readEpic(ctx.home, epic);
   epicDoc.updated = ctx.now();
+  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
   writeEpic(ctx.home, epicDoc);
   commit(ctx.home, `${epic}: add phase${created.length > 1 ? "s" : ""} ${created.map((p) => p.meta.slug).join(", ")}`);
   return { json: created.map((p) => p.meta), text: created.map((p) => `created phase ${p.meta.id} ${p.meta.slug}`).join("\n") };

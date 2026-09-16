@@ -188,3 +188,15 @@ test("phase new --manual, set --status shipped, and drop", async () => {
   const noDrop = await run(["phase", "drop", "e", "1"], ctx(home));
   assert.match(noDrop.stderr, /cannot drop phase 1: status is reviewed/);
 });
+
+test("phase new on a shipped epic puts it back to active", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "one", "--title", "One", "--manual"], ctx(home));
+  await run(["phase", "set", "e", "1", "--status", "shipped"], ctx(home));
+  await run(["phase", "set", "e", "1", "--status", "reviewed"], ctx(home));
+  assert.equal(readEpic(home, "e").status, "shipped");
+  await run(["phase", "new", "e", "two", "--title", "Two"], ctx(home));
+  const epic = readEpic(home, "e");
+  assert.equal(epic.status, "active", "a re-cut reopens the epic so sync and status stop skipping it");
+  assert.equal(epic.shipped_at, null);
+});

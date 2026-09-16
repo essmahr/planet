@@ -5,7 +5,7 @@ import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
 import { recomputeEpicStatus } from "../cli/lib/lifecycle.ts";
-import type { PhaseMeta } from "../cli/schema/types.ts";
+import type { Epic, PhaseMeta } from "../cli/schema/types.ts";
 
 function epicHome(): string {
   const home = tmpHome();
@@ -78,6 +78,29 @@ test("recomputeEpicStatus goes straight from planning to shipped when every phas
   const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
   assert.equal(recomputeEpicStatus(epic, [manual], NOW), true);
   assert.equal(epic.status, "shipped");
+});
+
+test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () => {
+  const epic: Epic = { slug: "e", title: "E", repo: "o/r", status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [] };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
+  const draft: PhaseMeta = { ...done, id: 2, slug: "b", status: "draft", shipped_at: null };
+  assert.equal(recomputeEpicStatus(epic, [done], NOW), false, "still shipped while every phase is reviewed");
+  assert.equal(recomputeEpicStatus(epic, [done, draft], "2026-10-01T00:00:00Z"), true);
+  assert.equal(epic.status, "active");
+  assert.equal(epic.shipped_at, null, "shipped_at is cleared so the next ship records its own date");
+  assert.equal(recomputeEpicStatus(epic, [done, { ...draft, status: "reviewed" }], "2026-10-02T00:00:00Z"), true);
+  assert.equal(epic.status, "shipped");
+  assert.equal(epic.shipped_at, "2026-10-02T00:00:00Z");
+});
+
+test("recomputeEpicStatus leaves paused and abandoned alone", () => {
+  const base: Epic = { slug: "e", title: "E", repo: "o/r", status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
+  for (const status of ["paused", "abandoned"] as const) {
+    const epic: Epic = { ...base, status };
+    assert.equal(recomputeEpicStatus(epic, [done], NOW), false);
+    assert.equal(epic.status, status);
+  }
 });
 
 test("newPhases validates all inputs before writing any", () => {

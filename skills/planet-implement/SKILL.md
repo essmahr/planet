@@ -19,6 +19,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 - Run each commit's Check after making it, and every Verification step before the PR; read the output. Nothing is done until the output says so.
 - Store writes only through `planet`. Never edit `plan.md` or the phase file; re-planning goes through the router.
 - Never commit to the default branch.
+- Prose a commit adds to docs or rules, and the PR body, follow the repo's writing rules the first time: short sentences, no hedging, no narration of the work.
 
 ## Steps
 
@@ -36,7 +37,7 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 
 ## Example
 
-Phase 3, `move-subdirs`, Closes none. Review finds every Files list matches the tree. No Linear ID, so ask for a branch name; the user gives `icons/move-subdirs`. Commit 1 is a move: no Test first; `git mv` the directories, Check `pnpm typecheck`, commit. Commit 2 rewrites imports: Test first is `Icon.test.tsx > resolves logos from the new path`; it fails; rewrite; Check passes; commit. Verification's grep returns nothing. Push, `gh pr create`, return the implemented line.
+Phase 3, `move-subdirs`. Files lists match the tree. No Linear ID, so ask for a branch: `icons/move-subdirs`. Commit 1 is a move: no Test first; `git mv` the directories, Check `pnpm typecheck`, commit. Commit 2 rewrites imports: Test first `Icon.test.tsx > resolves logos from the new path` fails; rewrite; Check passes; commit. Verification's grep is empty. Push, `gh pr create`, return the implemented line.
 
 ## Troubleshooting
 

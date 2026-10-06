@@ -38,14 +38,14 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 
 ## Example
 
-Phase 3, `move-subdirs`. No Linear ID, so ask for a branch. Commit 1 is a move: `git mv`, Check, commit. Commit 2 starts with its failing test. Verification passes. Push, `gh pr create`, return the implemented line.
+Phase 3: ask for a branch; commit 1, a move, has no Test first; commit 2 starts with its failing test; push, open the PR, return.
 
 ## Troubleshooting
 
 - The phase is `draft`: it has no plan; return `phase <N> not planned`.
-- The phase is `manual` (Steps and Done means): nothing to implement here; return `phase <N> manual`.
+- The phase is `manual`: nothing to implement; return `phase <N> manual`.
 - `planet session start` reports no epic or no session id: return its message.
-- The PR is open but `planet epic show <slug> --json` shows no PR on the phase: run `planet link <slug> <N> <url>` and say the hook missed it.
+- `planet epic show` lists no PR on the phase after it opened: the hook missed it; run `planet link <slug> <N> <url>`.
 - `gh pr create` fails: report the error and the pushed branch, then `planet link` once the PR exists.
 - A Check is an observation, not a command: perform it and say what you saw.
-- The default branch moved under you: `git rebase` onto it before pushing, rerun Verification.
+- The default branch moved, or a stacked branch's base landed: rebase onto the default branch while the PR is a draft with no reviews; after an approval or review comments, merge it in instead, since a rebase needs a force-push. Rerun Verification.

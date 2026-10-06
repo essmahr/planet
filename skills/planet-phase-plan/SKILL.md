@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git log *)
 compatibility: Claude Code with the planet plugin loaded.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Planet: phase-plan

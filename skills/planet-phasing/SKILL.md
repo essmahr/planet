@@ -24,6 +24,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 
 - Each phase is independently shippable and reviewable, and the epic's goal is visible in it.
 - Order by dependency, then by uncertainty: the phase most likely to change the plan goes first.
+- Work that an investigate or measuring phase exists to define stays one unsized entry until it reports, and says so; the investigate phase's entry names the later phases its findings can change.
 - Each phase fits the budget by a rough count, about 20 files or 8 commits unless `plan.md` has a `PR budget:` line, or its entry says why the budget does not apply.
 - Anything user-visible ships dark until a deliberate rollout phase.
 - A manual phase is engineering work with no PR: a migration run, a flag flip, a backfill, a spike whose findings land in `research/`. Announcements, reviews, and waiting on people are never phases; they go in Sequencing notes or inside a phase's plan.

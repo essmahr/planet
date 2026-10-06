@@ -19,6 +19,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 - Run each commit's Check after making it, and every Verification step before the PR; read the output. Nothing is done until the output says so.
 - Store writes only through `planet`. Never edit `plan.md` or the phase file; re-planning goes through the router.
 - Never commit to the default branch.
+- When a commit removes or moves code, grep the files it touches for comments that describe that code and fix or remove them in the same commit.
 - Prose a commit adds to docs or rules, and the PR body, follow the repo's writing rules the first time: short sentences, no hedging, no narration of the work.
 
 ## Steps
@@ -37,7 +38,7 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 
 ## Example
 
-Phase 3, `move-subdirs`. Files lists match the tree. No Linear ID, so ask for a branch: `icons/move-subdirs`. Commit 1 is a move: no Test first; `git mv` the directories, Check `pnpm typecheck`, commit. Commit 2 rewrites imports: Test first `Icon.test.tsx > resolves logos from the new path` fails; rewrite; Check passes; commit. Verification's grep is empty. Push, `gh pr create`, return the implemented line.
+Phase 3, `move-subdirs`. No Linear ID, so ask for a branch. Commit 1 is a move: `git mv`, Check, commit. Commit 2 starts with its failing test. Verification passes. Push, `gh pr create`, return the implemented line.
 
 ## Troubleshooting
 
@@ -45,6 +46,6 @@ Phase 3, `move-subdirs`. Files lists match the tree. No Linear ID, so ask for a 
 - The phase is `manual` (Steps and Done means): nothing to implement here; return `phase <N> manual`.
 - `planet session start` reports no epic or no session id: return its message.
 - The PR is open but `planet epic show <slug> --json` shows no PR on the phase: run `planet link <slug> <N> <url>` and say the hook missed it.
-- `gh pr create` fails: the branch is pushed; report the error and the branch name so the user can open the PR, then `planet link` as above.
+- `gh pr create` fails: report the error and the pushed branch, then `planet link` once the PR exists.
 - A Check is an observation, not a command: perform it and say what you saw.
 - The default branch moved under you: `git rebase` onto it before pushing, rerun Verification.

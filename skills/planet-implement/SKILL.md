@@ -14,7 +14,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 
 ## Critical rules
 
-- The phase document is the plan. Work Commits in order; never reorder, merge, or add one. A small deviation that keeps a commit's intent (a name, a signature) is fine; note it for the PR body. A commit whose intent cannot be met stops the work (Blockers).
+- The phase document is the plan. Work Commits in order; never reorder, merge, or add one. A deviation that keeps a commit's intent (a name, a signature) is fine; note it for the PR body. A commit whose intent cannot be met stops the work (Blockers).
 - A commit with `Test first` starts with that test: write or adjust it, run it, see it fail, then implement. Moves, renames, and refactors have none.
 - Run each commit's Check after making it, and every Verification step before the PR; read the output. Nothing is done until the output says so.
 - Store writes only through `planet`. Never edit `plan.md` or the phase file; re-planning goes through the router.
@@ -26,19 +26,15 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 
 1. **Start.** Run `planet session start <slug> --phase <N> --step implement`. `planet epic show <slug> --json` gives the phase's path, status, and kind. Read the phase file and `plan.md`'s Constraints. Nothing else from the store.
 2. **Review.** Compare each commit's Files and Change with the code. A mismatch, or two commits that conflict, stops here per Blockers before anything changes.
-3. **Branch.** When Closes names a Linear ID, take `branchName` from the Linear MCP `get_issue` result; otherwise, or when the result has none, ask once for a branch name. From the up-to-date default branch: `git checkout -b <name>`. Resuming: when the branch exists, check it out; its commits (`git log --format=%s <default>..HEAD`) must be a prefix of the Commits subjects, else stop per Blockers; skip to the first subject missing.
+3. **Branch.** When Closes names a Linear ID, take `branchName` from the Linear MCP `get_issue` result; otherwise, or when the result has none, ask once for a branch name. From the up-to-date default branch: `git checkout -b <name>`, then run the repo's setup (install, codegen) before any Check. Resuming: when the branch exists, check it out; its commits (`git log --format=%s <default>..HEAD`) must be a prefix of the Commits subjects, else stop per Blockers; skip to the first subject missing.
 4. **Implement.** For each commit: Test first when present, then the Change, then the Check, then `git add` the Files and `git commit -m "<subject>"` (the heading without its number). One commit per section. Keep a list of deviations.
-5. **Verify.** Run every Verification step. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
-6. **PR.** `git push -u origin <branch>`, then `gh pr create --title "<phase title>" --body-file <a file in the scratch directory>`. Write the body now, from what happened: a summary from Context and Decisions, the commit list, each deviation with its reason, and what Verification asked the body to carry. Follow the repo's PR template and the user's PR conventions when they exist. The hook links the PR to the phase.
+5. **Verify.** Run every Verification step, set up per `references/verification.md`; a step you cannot perform blocks. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
+6. **PR.** `git push -u origin <branch>`, then `gh pr create --title "<phase title>" --body-file <a file in the scratch directory>`. Write the body from what happened: a summary from Context and Decisions, the commits, deviations with reasons, and what Verification asked for. Follow the repo's PR template and the user's PR conventions when they exist. The hook links the PR to the phase.
 7. **Record and return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)`, then return `phase <N> implemented, <PR url>`.
 
 ## Blockers
 
 Stop and say which commit, what the code shows instead, and what would unblock it. Leave the branch and its commits in place. Run `planet phase event <slug> <N> blocked "<why>"` (single quotes if the why contains a double quote). Return `phase <N> blocked at commit <k>: <why>`.
-
-## Example
-
-Phase 3: ask for a branch; commit 1, a move, has no Test first; commit 2 starts with its failing test; push, open the PR, return.
 
 ## Troubleshooting
 

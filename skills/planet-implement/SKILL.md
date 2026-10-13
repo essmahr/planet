@@ -30,7 +30,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 4. **Implement.** For each commit: Test first when present, then the Change, then the Check, then `git add` the Files and `git commit -m "<subject>"` (the heading without its number). One commit per section. Keep a list of deviations.
 5. **Verify.** Run every Verification step, set up per `references/verification.md`; a step you cannot perform blocks. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
 6. **PR.** `git push -u origin <branch>`, then `gh pr create --title "<phase title>" --body-file <a file in the scratch directory>`. Write the body from what happened: a summary from Context and Decisions, the commits, deviations with reasons, and what Verification asked for. Follow the repo's PR template and the user's PR conventions when they exist. The hook links the PR to the phase.
-7. **Record and return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)`, then return `phase <N> implemented, <PR url>`.
+7. **Record and return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)` once per PR, then return `phase <N> implemented, <PR url>`.
 
 ## Blockers
 
@@ -44,4 +44,4 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 - `planet epic show` lists no PR on the phase after it opened: the hook missed it; run `planet link <slug> <N> <url>`.
 - `gh pr create` fails: report the error and the pushed branch, then `planet link` once the PR exists.
 - A Check is an observation, not a command: perform it and say what you saw.
-- The default branch moved, or a stacked branch's base landed: rebase onto the default branch while the PR is a draft with no reviews; after an approval or review comments, merge it in instead, since a rebase needs a force-push. Rerun Verification.
+- The default branch moved, or a stacked branch's base landed: rebase onto the default branch while the PR is a draft with no reviews; after an approval or review comments, merge it in instead, since a rebase needs a force-push. A rebase before the author's changes re-records `implemented` at the new tip; never after. Rerun Verification.

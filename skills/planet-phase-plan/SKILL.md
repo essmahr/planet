@@ -16,7 +16,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Output: the 
 
 - Read `plan.md`'s Approach, Sequencing notes, PR budget, and this phase's entry; `research/codebase.md` and any `research/phase-<N>.md`; the previous phase's body when there is one, and its retro when it shipped. Nothing else from the store.
 - Measure before drafting. An oversized phase gets a proposed cut and a hand-up, never a plan document.
-- Draft from the code, not from memory. Before the draft states it, read it: a term the code already uses, a hook's real parameters before a code block calls it, a dependency PR's full diff before scoping on it, the repo's agent rules before keeping a pattern, the other sources of an entity a factory will return, and a flaky failure reproduced before it is called a cause.
+- Draft from the code, not from memory. Before the draft states it, read it: a term the code already uses, a hook's real parameters before a code block calls it, a dependency PR's full diff before scoping on it, the repo's agent rules before keeping a pattern, the other sources of an entity a factory will return, a flaky failure reproduced before it is called a cause, and a library's or the browser's behavior proven in its installed source or a running page before the plan relies on it.
 - Ask only when the code surfaces a choice `plan.md` does not settle and the answer changes the PR's shape. A question that shows the approach or the cut was wrong goes back up.
 - The phase body is written only by `planet proposal approve`.
 

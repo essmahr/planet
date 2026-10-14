@@ -4,7 +4,7 @@ import { listEpics, resolveEpics } from "../lib/epic.ts";
 import { listPhases } from "../lib/phase.ts";
 import { sessionIdFrom, startSession } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
-import { epicView } from "../lib/view.ts";
+import { epicBrief } from "../lib/view.ts";
 import { parseStep } from "./session.ts";
 import { READ_OPTIONS, buildRows, syncForRead } from "./status.ts";
 
@@ -27,7 +27,7 @@ export const openCommand: Command = async (args, ctx) => {
   const marker = startSession(ctx.home, id, slug, { step: stepText === undefined ? null : parseStep(stepText) }, ctx.now());
   commit(ctx.home, `${slug}: start session`);
   return {
-    json: { match: slug, marker, status: rows, epic: epicView(ctx.home, slug) },
+    json: { match: slug, marker, status: rows, epic: epicBrief(ctx.home, slug) },
     text: `opened ${slug}`,
   };
 };

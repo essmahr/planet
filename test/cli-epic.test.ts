@@ -4,7 +4,10 @@ import { ctx, run, tmpHome, SESSION, NOW } from "./helpers.ts";
 import { readEpic } from "../cli/lib/epic.ts";
 import { createProposal, markApproved, markRejected } from "../cli/lib/proposal.ts";
 import { git } from "../cli/lib/store.ts";
-import type { EpicView } from "../cli/lib/view.ts";
+import type { EpicBrief, EpicView } from "../cli/lib/view.ts";
+import { linkPrs } from "../cli/lib/link.ts";
+import { newPhases } from "../cli/lib/phase.ts";
+import { writeRetro } from "../cli/lib/retro.ts";
 
 test("planet with no command prints usage; unknown command exits 2", async () => {
   const home = tmpHome();
@@ -61,6 +64,25 @@ test("epic show returns frontmatter and paths, never bodies", async () => {
   assert.equal(view.paths.latest_proposal, null);
   assert.match(view.paths.dir, /epics\/gql$/);
   assert.equal(JSON.stringify(view).includes('"body"'), false);
+});
+
+test("epic show --brief carries statuses and open PR urls only; the full view lists applied lessons", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
+  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7"], NOW);
+  writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    apply: true\n  - text: taste\n    skill: not-planet\n    apply: false\n---\nbody\n", NOW, "head1");
+  const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
+  assert.deepEqual(brief.epic, { slug: "e", title: "E", repo: "o/r", status: "active" });
+  assert.deepEqual(brief.phases.map((p) => [p.id, p.slug, p.status, p.open_prs]), [[1, "a", "in-progress", ["https://github.com/o/r/pull/7"]], [2, "b", "draft", []]]);
+  assert.equal(brief.last_approved_step, null);
+  assert.match(brief.paths.dir, /epics\/e$/);
+  const text = JSON.stringify(brief);
+  for (const key of ["retros", "latest_proposal", "prompts", "merged_at", "shipped_at", "lessons"]) assert.equal(text.includes(`"${key}"`), false, `brief has no ${key}`);
+  const full = (await run(["epic", "show", "e", "--json"], ctx(home))).json as EpicView;
+  assert.deepEqual(full.lessons, [{ phase: 1, skill: "planet-phase-plan", text: "name the spec file" }]);
+  const t = (await run(["epic", "show", "e", "--brief"], ctx(home))).stdout;
+  assert.match(t, /01 a {2}in-progress {2}open_prs=1/);
 });
 
 test("epic resolve returns candidates", async () => {

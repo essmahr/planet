@@ -3,7 +3,7 @@ import { need, needString, optList, optString, parse } from "../lib/args.ts";
 import { createEpic, listEpics, readEpic, resolveEpics, writeEpic } from "../lib/epic.ts";
 import { listPhases } from "../lib/phase.ts";
 import { commit } from "../lib/store.ts";
-import { epicView } from "../lib/view.ts";
+import { epicBrief, epicView } from "../lib/view.ts";
 
 const MANUAL_STATUSES = ["paused", "abandoned", "active"] as const;
 type ManualStatus = (typeof MANUAL_STATUSES)[number];
@@ -53,8 +53,18 @@ async function epicSet(args: string[], ctx: Ctx): Promise<CommandResult> {
 }
 
 async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
-  const { positionals } = parse(args, {});
-  const view = epicView(ctx.home, need(positionals, 0, "epic slug"));
+  const { positionals, values } = parse(args, { brief: { type: "boolean" } });
+  const slug = need(positionals, 0, "epic slug");
+  if (values.brief === true) {
+    const brief = epicBrief(ctx.home, slug);
+    const lines = [
+      `${brief.epic.slug}  ${brief.epic.title}  [${brief.epic.status}]  ${brief.epic.repo}`,
+      ...brief.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  open_prs=${p.open_prs.length}`),
+      `  last approved step: ${brief.last_approved_step ?? "none"}`,
+    ];
+    return { json: brief, text: lines.join("\n") };
+  }
+  const view = epicView(ctx.home, slug);
   const lines = [
     `${view.epic.slug}  ${view.epic.title}  [${view.epic.status}]  ${view.epic.repo}`,
     ...view.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  prs=${p.prs.length}`),

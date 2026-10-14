@@ -17,7 +17,7 @@ metadata:
 - Never enter plan mode here; step skills propose through `planet:planet-proposal`.
 - Never read `plan.md` or phase bodies; the step skill reads what's needed.
 - Never guess the epic; zero or several matches means a confirming question.
-- Never end a turn by naming a command for the user to type in place of acting or asking. Every step return refreshes and re-enters step 5; where step 5 cannot pick, ask with AskUserQuestion. Only these end a turn: plan mode is on, the repo is wrong, a step returned `aborted`, a step returned without an approval, and the user picking Stop.
+- Never end a turn by naming a command for the user to type in place of acting or asking. Every step return refreshes and re-enters step 5; where step 5 cannot pick, ask with AskUserQuestion. Only these end a turn: plan mode is on, the repo is wrong, a step returned `aborted`, a step returned without an approval, a PR just opened, and the user picking Stop.
 - Store writes go only through the `planet` CLI, never by hand under `~/.planet`; step skills write only under `research/`.
 
 ## Status
@@ -37,20 +37,20 @@ Request: $ARGUMENTS
    - `match` null, `candidates` not empty: list each candidate slug with title when present, ask which; on an answer run `planet open <slug> --json`, go to step 5. If none, go to step 4 when the request could start a new epic, else stop.
    - `match` null, `candidates` empty: go to step 4 if the request names a Linear ID, a linear.app URL, or asks to start/plan something new; otherwise ask which epic and stop.
 4. **New epic.** Follow `references/new-epic.md`. It ends at `planet open <slug> --json` with the sources kept for step 7, or stops.
-5. **Choose the step** from the epic view (`last_approved_step`, `paths.plan`, `phases`; the `epic` field in the `planet open` payload), without reading any file. No `paths.plan`: intake. `last_approved_step` `intake`: scoping. `scoping`, no phases: phasing. `scoping` with phases and any not `shipped`: phasing, with `reason: re-cut from phase <N>` (N: lowest `draft` id, else lowest not `shipped`). `phasing`, no phases: phasing. Any phase `shipped`: retro, lowest id first. Any phase `draft`: phase-plan, lowest id first. No drafts, no phase `shipped`: ask with AskUserQuestion, `Implement phase <lowest planned>`, `Stop`; Implement goes to step 8's Implement path. Every phase `reviewed`: say the epic is done and run `planet session end`. A step named in the request wins over every row above, including the stops; `phase-plan N` also fixes the phase.
+5. **Choose the step** from the epic view (`last_approved_step`, `paths.plan`, `phases`; the `epic` field in the `planet open` payload), without reading any file. No `paths.plan`: intake. `last_approved_step` `intake`: scoping. `scoping`, no phases: phasing. `scoping` with phases and any not `shipped`: phasing, with `reason: re-cut from phase <N>` (N: lowest `draft` id, else lowest not `shipped`). `phasing`, no phases: phasing. Any phase `shipped`: retro, lowest id first. Any phase `draft`: phase-plan, lowest id first. No drafts, no phase `shipped`: implement the lowest `planned` phase per step 8. Every phase `reviewed`: say the epic is done and run `planet session end`. A step named in the request wins over every row above, including the stops; `phase-plan N` also fixes the phase.
 6. **Repo check**, before intake, scoping, phase-plan, retro, or implement: run `gh repo view --json nameWithOwner -q .nameWithOwner`; it must equal `epic.epic.repo`, else say `this directory is <a>; the epic is <b>. Run /planet:go from the epic's repo.` and stop.
 7. **Dispatch.** Run `planet session step <step>`, adding `--phase <N>` for phase-plan and retro. Invoke `planet:planet-<step>` with `epic: <slug>` and `dir: <epic.paths.dir>`; intake also gets a `sources:` block, one line per source as `- <kind> <ref> (<role>)` or `- text: <prose>`, or `sources: none`; phase-plan and retro also get `phase: <N>`, the id step 5 chose or the request named; pass `reason: <why>` whenever step 5 or step 9 supplied one. Act on its last line:
-   - `... done, next step <name>`: run `planet epic show <slug> --json` (read-only, same view as the payload's `epic` field), then go to step 5 with it.
+   - `... done, next step <name>`: run `planet epic show <slug> --json --brief` (read-only, same view as the payload's `epic` field), then go to step 5 with it.
    - `phase N planned`: go to step 8.
-   - `retro done for phase N`: run `planet epic show <slug> --json`, go to step 5.
-   - `phase N not shipped`: say so, run `planet epic show <slug> --json`, go to step 5.
+   - `retro done for phase N`: run `planet epic show <slug> --json --brief`, go to step 5.
+   - `phase N not shipped`: say so, run `planet epic show <slug> --json --brief`, go to step 5.
    - `re-cut from phase N: <why>` or `back to scoping: <why>`: go to step 9.
    - `<step> aborted: <why>`: say nothing was written and plan mode may still be on; stop.
    Never dispatch the same step twice without an approval in between (retro's done line counts as one); if a step returns without one, stop and say why.
-8. **After a phase is planned.** Ask with AskUserQuestion: `Implement phase N here`, `Plan the next phase`, `Stop`. Plan next: run `planet epic show <slug> --json`, go to step 5. Stop: say `/planet:go <slug>` plans more and `/planet:go <slug> implement N` implements, then run `planet session end`. Implement: invoke `planet:planet-implement` with `epic: <slug>`, `dir: <epic.paths.dir>`, `phase: N`, then act on its last line:
-   - `phase N implemented, <url>`: say so, then ask `Stay here and refine the PR`, `Plan phase <next>`, `Stop`. Recommend staying; the prompts after a PR opens are what the retro reads. Staying leaves the session open and ends the turn.
+8. **Implement a planned phase.** Implement at once when every lower-numbered `pr` phase is `shipped` or `reviewed`; otherwise ask with AskUserQuestion, `Implement phase N stacked on phase <M>` (M: the highest such phase), `Stop` (runs `planet session end`). Invoke `planet:planet-implement` with `epic: <slug>`, `dir: <epic.paths.dir>`, `phase: N`, and `base: <M>` when stacking, then act on its last line:
+   - `phase N implemented, <url>`: say so, that the session stays open so refinement prompts feed the retro, and that `/planet:go <slug>` moves on; end the turn.
    - `phase N blocked at commit k: <why>`: say which commit and why, then ask `Re-plan phase N`, `Stop`. Re-plan dispatches phase-plan N per step 7.
-   - `phase N manual`: ask `Mark phase N shipped`, `Plan the next phase`, `Stop`. Shipped runs `planet phase set <slug> N --status shipped`, then go to step 5.
+   - `phase N manual`: ask `Mark phase N shipped`, `Plan the next phase`, `Stop`. Shipped runs `planet phase set <slug> N --status shipped`, then go to step 5. Plan next: refresh, step 5. Stop: `planet session end`.
    - `phase N not planned`: step 3 checks the status first, so this means the store moved under the session; refresh and go to step 5.
 9. **Hand-ups.** `re-cut from phase N: <why>`: dispatch phasing with `reason: re-cut from phase N: <why>`. `back to scoping: <why>`: dispatch scoping with `reason: back to scoping: <why>`. Either runs step 6 when it applies, then step 7 once; a second hand-up in the same run stops with the reason shown.
 10. **Review feedback.** Only for the request `review feedback`. Follow `references/review-feedback.md`; it ends the session itself.
@@ -58,7 +58,7 @@ Request: $ARGUMENTS
 
 ## Example
 
-`continue the GQL thing` matches `gql-migration`; `last_approved_step` `scoping`, no phases: phasing. It returns done; refresh; phase 1 is a draft: repo check, phase-plan; on `phase 1 planned`, ask step 8's question.
+`continue the GQL thing` matches `gql-migration`; `last_approved_step` `scoping`, no phases: phasing. It returns done; refresh; phase 1 is a draft: repo check, phase-plan; on `phase 1 planned`, nothing is below it, so implement at once; on `phase 1 implemented`, say so and end the turn.
 
 ## Troubleshooting
 

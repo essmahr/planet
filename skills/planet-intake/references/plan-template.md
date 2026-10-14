@@ -20,7 +20,8 @@ Decisions the user made while rejecting a draft go here too, each ending with
 their research file; non-goals go to Non-goals.
 
 ## Open questions for scoping
-Bullets. Decisions the approach depends on. Do not answer them here.
+Bullets. Only the questions the user deferred to scoping when intake asked.
+Do not answer them here. Omit the section when nothing was deferred.
 
 ## Non-goals
 Bullets, only when the ticket or the user made them evident. Otherwise omit the section.

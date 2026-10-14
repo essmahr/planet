@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { NOW, SESSION, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
@@ -70,7 +70,8 @@ test("markRejected stores the message verbatim", () => {
 test("parseDestination and approveTo", () => {
   assert.deepEqual(parseDestination("plan"), { kind: "plan" });
   assert.deepEqual(parseDestination("phase:3"), { kind: "phase", id: 3 });
-  assert.throws(() => parseDestination("phase:x"), /--to must be plan, phase:<n>, or review/);
+  assert.deepEqual(parseDestination("phases"), { kind: "phases" });
+  assert.throws(() => parseDestination("phase:x"), /--to must be plan, phases, phase:<n>, or review/);
 
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
@@ -89,6 +90,23 @@ test("parseDestination and approveTo", () => {
   approveTo(home, "e", s.meta.id, { kind: "plan" }, "# From file\n", NOW);
   assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# From file\n");
   assert.equal(readProposal(home, "e", s.meta.id).meta.outcome, "approved");
+});
+
+test("approveTo --to phases replaces only the Phases section, or appends it", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nAlias first.\n";
+  writeFileSync(paths.plan(home, "e"), above);
+  const first = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (alias)\n" }, NOW);
+  approveTo(home, "e", first.meta.id, { kind: "phases" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n### 1. Alias (alias)\n`, "appended after the approach");
+  const recut = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (alias)\n### 2. Move (move)\n" }, NOW);
+  approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n### 1. Alias (alias)\n### 2. Move (move)\n`, "replaced from the heading down, approach untouched");
+  const bad = createProposal(home, "e", { ...input, step: "phasing", body: "### 1. No heading\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", bad.meta.id, { kind: "phases" }, undefined, NOW), /must start with a '## Phases' heading/);
+  assert.equal(readProposal(home, "e", bad.meta.id).meta.outcome, "pending", "a refused proposal stays pending");
+  rmSync(paths.plan(home, "e"));
+  assert.throws(() => approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW), /no plan.md/);
 });
 
 test("approveTo refuses to flip a rejected proposal without --from", () => {

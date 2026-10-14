@@ -33,6 +33,7 @@ export const proposeCommand: Command = async (args, ctx) => {
 
 function destinationLabel(dest: Destination): string {
   if (dest.kind === "plan") return "plan";
+  if (dest.kind === "phases") return "phases";
   if (dest.kind === "review") return "review";
   return `phase ${dest.id}`;
 }
@@ -87,5 +88,5 @@ export const proposalCommand: Command = async (args, ctx) => {
   if (sub === "approve") return proposalApprove(rest, ctx);
   if (sub === "reject") return proposalReject(rest, ctx);
   if (sub === "tag") return proposalTag(rest, ctx);
-  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phase:<n>|review | planet proposal reject <epic> <id> [--feedback <text>] | planet proposal tag <epic> <id> <tag>");
+  throw new Error("usage: planet proposal approve <epic> <id> --to plan|phases|phase:<n>|review | planet proposal reject <epic> <id> [--feedback <text>] | planet proposal tag <epic> <id> <tag>");
 };

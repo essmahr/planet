@@ -102,14 +102,32 @@ export function markRejected(home: string, epic: string, id: number, feedback: s
   return proposal;
 }
 
-export type Destination = { kind: "plan" } | { kind: "phase"; id: number } | { kind: "review" };
+export type Destination = { kind: "plan" } | { kind: "phases" } | { kind: "phase"; id: number } | { kind: "review" };
 
 export function parseDestination(text: string): Destination {
   if (text === "plan") return { kind: "plan" };
+  if (text === "phases") return { kind: "phases" };
   if (text === "review") return { kind: "review" };
   const m = /^phase:(\d+)$/.exec(text);
-  if (!m) throw new Error("--to must be plan, phase:<n>, or review");
+  if (!m) throw new Error("--to must be plan, phases, phase:<n>, or review");
   return { kind: "phase", id: Number(m[1]) };
+}
+
+const PHASES_HEADING_RE = /^## Phases[ \t]*$/m;
+
+/**
+ * Replaces plan.md's `## Phases` section with `section`, or appends it. The section is
+ * always the last one in plan.md, so everything from its heading to the end goes.
+ */
+export function writePhasesSection(home: string, epic: string, section: string): string {
+  const file = paths.plan(home, epic);
+  if (!existsSync(file)) throw new Error("no plan.md to put a Phases section in; approve scoping first");
+  if (!PHASES_HEADING_RE.test(section)) throw new Error("a phases proposal must start with a '## Phases' heading");
+  const plan = readFileSync(file, "utf8");
+  const at = plan.search(PHASES_HEADING_RE);
+  const above = (at === -1 ? plan : plan.slice(0, at)).replace(/\s+$/, "");
+  writeFileSync(file, `${above}\n\n${section}`);
+  return file;
 }
 
 function nextReviewFile(home: string, now: string): string {
@@ -128,8 +146,10 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
     throw new Error(`proposal ${id} was rejected; pass --from to approve different text`);
   }
   const text = fromText ?? proposal.body;
-  if (proposal.meta.outcome !== "approved") proposal = markApproved(home, epic, id);
   const body = text.endsWith("\n") ? text : `${text}\n`;
+  if (dest.kind === "phases" && !PHASES_HEADING_RE.test(body)) throw new Error("a phases proposal must start with a '## Phases' heading");
+  if (proposal.meta.outcome !== "approved") proposal = markApproved(home, epic, id);
+  if (dest.kind === "phases") return { proposal, wrote: writePhasesSection(home, epic, body) };
   if (dest.kind === "plan") {
     const file = paths.plan(home, epic);
     writeFileSync(file, body);

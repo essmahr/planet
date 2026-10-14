@@ -26,13 +26,13 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 - Order by dependency, then by uncertainty: the phase most likely to change the plan goes first.
 - Work that an investigate or measuring phase exists to define stays one unsized entry until it reports, and says so; the investigate phase's entry names the later phases its findings can change.
 - Each phase fits the budget by a rough count, about 20 files or 8 commits unless `plan.md` has a `PR budget:` line, or its entry says why the budget does not apply. A phase whose set is a small fraction of the budget merges into its neighbour unless a dependency keeps them apart.
-- Anything user-visible ships dark until a deliberate rollout phase.
+- In a `feature`, anything user-visible ships dark until a deliberate rollout phase.
 - A manual phase is engineering work with no PR: a migration run, a flag flip, a backfill, a spike whose findings land in `research/`. Announcements, reviews, and waiting on people are never phases; they go in Sequencing notes or inside a phase's plan.
 
 ## Steps
 
 1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
-2. **Cut** by the principles. Consult `references/cut-patterns.md` when the work resembles one of its shapes.
+2. **Cut** by the principles, starting from the pattern in `references/cut-patterns.md` for `plan.md`'s `Shape:` line; Spike then build applies to any shape when the approach is uncertain.
 3. **Draft** only the `## Phases` section, in the format of `references/phases-section.md`; nothing above it in `plan.md` is touched or shown. On a re-cut, entries below N are copied verbatim.
 4. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>`, `to: phases`. On a re-cut, pass `changes:` naming the entries added, split, dropped, or renumbered, with a last bullet for the entries left untouched; a first cut passes none. On rejection, amend in place and propose again with `changes:` for the amendment; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phasing aborted: <message>`.
 5. **Create.** On a re-cut, first run `planet phase drop <epic> <id>` for every draft with id N or higher. Then run one `planet phase new <epic> <slug> --title "<title>"` per entry in section order, skipping entries below N on a re-cut since they already exist, adding `--manual` where the entry says manual and `--linear <ID>` where it names a ticket, all chained with `&&` in one Bash command. If the chain stops partway, drop the drafts it created, fix the failing entry, and rerun.

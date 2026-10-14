@@ -25,6 +25,8 @@ Bullets. What is out, including things the user said no to. (name ticket IDs whe
 Bullets. Observable checks: a metric, a grep, a behavior, a review passed.
 
 ## Approach
+Shape: feature | migration | refactor
+
 The chosen approach in one or two paragraphs.
 
 ### Considered

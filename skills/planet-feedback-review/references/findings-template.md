@@ -21,6 +21,9 @@ Budget: <words before> to <words after> of <budget>.
 
 ## Appendix
 
+### Tested
+- Tested: <skill> <section>: control <fails>/<runs>, variant <passes>/<runs> | control did not fail, dropped
+
 ### Singletons
 - <text> (<source>): seen once; marked apply but no recurrence yet.
 

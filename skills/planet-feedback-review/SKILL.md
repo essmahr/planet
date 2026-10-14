@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(npm test)
 compatibility: Claude Code with the planet plugin loaded, run from the plugin repo itself.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Planet: feedback-review

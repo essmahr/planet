@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded and its hooks active.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Planet: proposal

@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git diff *), Bash(git log *), Bash(git fetch *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Planet: retro

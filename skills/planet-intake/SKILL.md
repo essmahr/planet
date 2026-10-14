@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(gh pr view *), Bash(gh pr list *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the sources include Linear issues, projects, or documents.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Planet: intake

@@ -10,6 +10,8 @@ const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake", "pl
 const HIDDEN = new Set(["planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review"]);
 const WORD_BUDGET: Record<string, number> = { go: 1250, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 750, "planet-retro": 900, "planet-feedback-review": 900 };
 const DESCRIPTION_CAP = 1536;
+/** Moving text out of SKILL.md into a reference is not free; the largest reference today is about 400 words. */
+const REFERENCE_BUDGET = 450;
 
 function skillDirs(): string[] {
   if (!existsSync(SKILLS_DIR)) return [];
@@ -60,6 +62,12 @@ for (const name of skillDirs()) {
     }
     for (const [, refFile] of body.matchAll(/references\/([a-z0-9-]+\.md)/g)) {
       assert.ok(existsSync(join(SKILLS_DIR, name, "references", refFile)), `references/${refFile} exists`);
+    }
+    const refsDir = join(SKILLS_DIR, name, "references");
+    if (!existsSync(refsDir)) return;
+    for (const refFile of readdirSync(refsDir).filter((f) => f.endsWith(".md"))) {
+      const n = words(readFileSync(join(refsDir, refFile), "utf8"));
+      assert.ok(n <= REFERENCE_BUDGET, `references/${refFile} has ${n} words, budget ${REFERENCE_BUDGET}`);
     }
   });
 }

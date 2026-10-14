@@ -1,6 +1,6 @@
 ---
 name: planet-feedback-review
-description: Only invoked by the Planet router, never on its own. Reads the feedback report and retros across every epic, groups recurring pushback, proposes exact edits to the Planet step skills through plan mode, and applies approved edits on a branch in the plugin repo. Do not use outside a Planet review session.
+description: Only invoked by the Planet router, never on its own, for the request "review feedback" in the plugin repo. Do not use outside a Planet review session.
 user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(npm test)
 compatibility: Claude Code with the planet plugin loaded, run from the plugin repo itself.

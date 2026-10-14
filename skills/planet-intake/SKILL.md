@@ -1,6 +1,6 @@
 ---
 name: planet-intake
-description: Only invoked by the Planet router, never on its own. First planning step for a Planet epic with no plan.md yet. Gathers the sources the request named, Linear issues, projects, PRs, documents, or plain text, plus codebase context into the epic's research directory, asks only the questions that block a problem statement, and proposes plan.md for approval. Do not use outside a Planet session.
+description: Only invoked by the Planet router, never on its own, for an epic with no plan.md yet. Do not use outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *), Bash(gh pr view *), Bash(gh pr list *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the sources include Linear issues, projects, or documents.

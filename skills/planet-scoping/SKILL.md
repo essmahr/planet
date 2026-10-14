@@ -1,6 +1,6 @@
 ---
 name: planet-scoping
-description: Only invoked by the Planet router, never on its own. Second planning step for a Planet epic whose plan.md has a problem statement but no approach. Runs a guided conversation to settle goal, non-goals, success criteria, and the approach, then proposes a rewritten plan.md for approval. Do not use outside a Planet session.
+description: Only invoked by the Planet router, never on its own, for an epic whose plan.md has a problem statement but no approach. Do not use outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded.

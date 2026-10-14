@@ -1,6 +1,6 @@
 ---
 name: planet-phase-plan
-description: Only invoked by the Planet router, never on its own. Plans one phase of a Planet epic as the document an implementation session follows, one section per commit with files, code, and checks, sizes it against the PR budget first, and proposes it for approval. Do not use outside a Planet session.
+description: Only invoked by the Planet router, never on its own, for a phase whose status is draft, or one named for re-planning. Do not use outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *), Bash(git log *)
 compatibility: Claude Code with the planet plugin loaded.

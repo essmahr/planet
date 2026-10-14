@@ -1,6 +1,6 @@
 ---
 name: planet-phasing
-description: "Only invoked by the Planet router, never on its own. Third planning step for a Planet epic: cuts the approved approach into ordered phases that each map to one PR or a manual step, proposes the Phases section of plan.md for approval, then creates the draft phases with the planet CLI. Do not use outside a Planet session."
+description: Only invoked by the Planet router, never on its own, for an epic whose plan.md has an approach and no phases, or a re-cut from a named phase. Do not use outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded.

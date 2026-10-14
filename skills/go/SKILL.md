@@ -1,6 +1,6 @@
 ---
 name: go
-description: Planet planning workflow for epics that span several PRs. Shows the status table of active epics, opens an epic by name, Linear ticket, or description, creates a new epic from tickets, projects, PRs, documents, or plain text, and runs the next planning step. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase". Not for one-off plans, which use plain plan mode.
+description: Planet, for an epic that spans several PRs. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase", "review feedback". Not for one-off plans, which use plain plan mode.
 argument-hint: "[epic, ticket, or what to work on]"
 disable-model-invocation: true
 allowed-tools: Bash(planet *), Bash(gh repo view *), Bash(git rev-parse *), Bash(grep *)

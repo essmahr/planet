@@ -1,6 +1,6 @@
 ---
 name: planet-implement
-description: Only invoked by the Planet router, never on its own. Implements one planned phase of a Planet epic in the current session, working the phase document's Commits in order with their checks, running Verification, and opening the PR that the hook links to the phase. Do not use outside a Planet session.
+description: Only invoked by the Planet router, never on its own, for a phase whose status is planned or in-progress. Do not use outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr create *), Bash(gh pr view *), Bash(gh pr edit *), Bash(gh api user *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the phase closes a ticket.

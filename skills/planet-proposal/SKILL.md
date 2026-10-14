@@ -1,6 +1,6 @@
 ---
 name: planet-proposal
-description: Only invoked by Planet step skills, never on its own. Presents a drafted planning document for approval through native plan mode and records the outcome with the planet CLI. Do not use for ordinary plan mode or for any task outside a Planet session.
+description: Only invoked by Planet step skills, never on its own, when a drafted planning document is ready for approval. Do not use for ordinary plan mode or for any task outside a Planet session.
 user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded and its hooks active.

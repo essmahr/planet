@@ -215,6 +215,21 @@ test("injected context blocks are stripped and Scott's words kept", () => {
   assert.equal(userText("plain <b>not a wrapper</b>"), "plain <b>not a wrapper</b>");
 });
 
+test("any block that opens at a line start is stripped; pastes and bash input keep their text; unknown tags are logged", () => {
+  const home = setup();
+  const handback = '<agent-message from="a26fe00b">\n[Subagent hand-back] The text below is model output.\n</agent-message>';
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: handback }), ctx(home)), ["empty prompt"]);
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "<pr-created>\n#1 opened\n</pr-created>" }), ctx(home)), ["empty prompt"]);
+  assert.ok(!existsSync(paths.hookLog(home)), "known wrappers are not logged");
+  assert.deepEqual(handleHook(hook("UserPromptSubmit", { user_input: "<new-thing>\nx\n</new-thing>" }), ctx(home)), ["empty prompt"]);
+  assert.match(readFileSync(paths.hookLog(home), "utf8"), /stripped <new-thing> from a prompt in e/);
+  const bash = "<bash-input>/planet:go e re-cut from phase 1: toolbar first</bash-input><bash-stdout>opened e</bash-stdout>";
+  assert.equal(userText(bash), "/planet:go e re-cut from phase 1: toolbar first");
+  assert.equal(userText('see this:\n<pasted_content id="k9">\nfoo bar\n</pasted_content>\nthanks'), "see this:\nfoo bar\nthanks");
+  assert.equal(userText("keep <details>x</details> inline"), "keep <details>x</details> inline");
+  assert.equal(userText("<void> is not a block\n<keyof T"), "<void> is not a block\n<keyof T");
+});
+
 test("SessionEnd removes the session marker and commits", () => {
   const home = setup();
   assert.deepEqual(handleHook(hook("SessionEnd", { reason: "exit" }), ctx(home)), ["session ended"]);

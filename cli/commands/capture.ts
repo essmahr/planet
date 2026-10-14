@@ -60,18 +60,44 @@ export function structuredPlan(response: unknown): string | null {
 const REJECTION_NOT_CAPTURED = "rejected before the next plan was proposed; message not captured";
 
 /**
- * Claude Code wraps its own context in these tags inside UserPromptSubmit: IDE state is
- * prepended to Scott's real prompt, and task notifications arrive alone. The blocks are
- * removed and whatever remains is Scott's text; nothing left means nothing to record.
+ * Claude Code wraps everything it injects into UserPromptSubmit in a tag that opens at
+ * a line start: IDE state prepended to Scott's prompt, task notifications and subagent
+ * hand-backs that arrive alone, bash-mode output. Every such block is removed whatever
+ * its tag, so a wrapper added by a newer Claude Code is dropped too. Inline tags typed
+ * mid-sentence (`<b>`, `<input`) are not at a line start and stay. Bash mode puts its
+ * blocks on one line (`<bash-input>…</bash-input><bash-stdout>…</bash-stdout>`), so a
+ * block directly after another block counts as at a line start.
  */
-const INJECTED_BLOCK_RE = /<(task-notification|system-reminder|ide_opened_file|ide_selection)\b[^>]*>[\s\S]*?<\/\1>\s*/g;
+const INJECTED_BLOCK_RE = /(^|(?<=>))<([a-z][a-z0-9_-]*)\b[^>]*>([\s\S]*?)<\/\2>[ \t]*/gm;
+
+/** Wrappers whose inner text is Scott's own: a paste the harness wrapped, or the command typed in bash mode. */
+const KEEP_INNER = new Set(["pasted_content", "bash-input"]);
+
+/** Wrappers seen so far. Stripping any other tag is logged, so a new wrapper or a wrongly stripped user block is visible in hook.log. */
+const KNOWN_WRAPPERS = new Set([
+  "task-notification", "system-reminder", "ide_opened_file", "ide_selection",
+  "agent-message", "bash-stdout", "bash-stderr", "pr-created", "create-pr-command",
+]);
+
+export function stripInjected(prompt: string): { text: string; stripped: string[] } {
+  const stripped: string[] = [];
+  const text = prompt.replace(INJECTED_BLOCK_RE, (_whole, _start: string, tag: string, inner: string) => {
+    if (KEEP_INNER.has(tag)) return inner.trim();
+    stripped.push(tag);
+    return "";
+  });
+  return { text: text.trim(), stripped };
+}
 
 export function userText(prompt: string): string {
-  return prompt.replace(INJECTED_BLOCK_RE, "").trim();
+  return stripInjected(prompt).text;
 }
 
 function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
-  const text = userText(input.user_input ?? input.prompt ?? "");
+  const { text, stripped } = stripInjected(input.user_input ?? input.prompt ?? "");
+  for (const tag of stripped) {
+    if (!KNOWN_WRAPPERS.has(tag)) appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} stripped <${tag}> from a prompt in ${marker.epic}\n`);
+  }
   if (!text) return ["empty prompt"];
   const line = {
     ts: ctx.now(),

@@ -4,16 +4,21 @@
 # Phase <N>: <title>
 
 ## Context
-Why this phase now, what came before it and what follows, in two to four
+Why this phase now, what came before and what follows, in two to four
 sentences. Link plan.md's Approach section and the research files used.
 
 Lessons applied:
 - <retro slug>: <the lesson, one line, and where in this document it shows>
 
+Conventions checked:
+- <library or framework>: <what its docs or installed source say that a commit
+  relies on>, or none needed
+
 ## Decisions
-### <the tricky choice>
-What was chosen and why, two to five sentences. Omit the section when nothing
-was tricky.
+### <the choice>
+One `###` per choice a reviewer would ask why about: a library or pattern over
+another, a fallback, an export name, a type annotation. What was chosen and
+why, one to three sentences. Omit only when no commit makes such a choice.
 
 ## Commits
 ### 1. <commit subject, imperative, lowercase>

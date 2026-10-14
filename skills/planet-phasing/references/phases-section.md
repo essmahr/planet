@@ -1,6 +1,7 @@
 # Phases section format
 
-Appended to plan.md as `## Phases`. One entry per phase, in order. After
+The `## Phases` section of plan.md, always its last section; approving
+`--to phases` replaces it in place. One entry per phase, in order. After
 approval, the `planet phase new` calls mirror these entries exactly.
 
 ```
@@ -9,7 +10,7 @@ approval, the `planet phase new` calls mirror these entries exactly.
 ### 1. <Title> (<slug>)
 <one paragraph of scope: what changes and what is left alone>
 - Depends on: none | phase N
-- Size: about <files> files, <commits> commits | not applicable because <why>
+- Size: small | medium | large, or about <files> files; phase-plan counts exactly | not applicable because <why>
 - Closes: <Linear ID> | none
 
 ### 2. <Title> (<slug>), manual

@@ -8,6 +8,8 @@ import { readPhase } from "../lib/phase.ts";
 import { writeRetro } from "../lib/retro.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
+import { epicLessons } from "../lib/view.ts";
+import type { EpicLesson } from "../lib/view.ts";
 import type { PhaseMeta } from "../schema/types.ts";
 import { phasePrFiles } from "./pr.ts";
 
@@ -22,6 +24,8 @@ export interface RetroInputs {
   files: { source: "merged" | "all"; prs: string[]; files: PrFile[] };
   gh_unavailable: boolean;
   prompts: { ts: string; text: string }[];
+  /** Applied lessons from this epic's earlier retros, so a recurring one is recorded as a repeat rather than reworded. */
+  prior_lessons: EpicLesson[];
 }
 
 type GhPart = Pick<RetroInputs, "prs" | "files" | "gh_unavailable">;
@@ -63,6 +67,7 @@ export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<R
     implemented_at: implemented?.ts ?? null,
     ...gh,
     prompts,
+    prior_lessons: epicLessons(ctx.home, epic).filter((l) => l.phase < id),
   };
 }
 

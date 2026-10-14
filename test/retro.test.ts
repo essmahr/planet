@@ -8,7 +8,7 @@ import { createEpic } from "../cli/lib/epic.ts";
 import { appendEvent, listEvents } from "../cli/lib/events.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
-import { listRetros, retroFileName } from "../cli/lib/retro.ts";
+import { listRetros, retroFileName, writeRetro } from "../cli/lib/retro.ts";
 import { paths } from "../cli/lib/store.ts";
 import type { PrFeedback } from "../cli/lib/gh.ts";
 
@@ -98,6 +98,22 @@ test("retro write validates frontmatter, writes the file, appends the reviewed e
   assert.equal(retros[0].meta.lessons[0].apply, true);
   assert.deepEqual(listEvents(home, "e", 1).map((e) => e.kind), ["reviewed"]);
   assert.equal(readPhase(home, "e", 1).meta.status, statusBefore);
+});
+
+test("retro inputs lists earlier applied lessons, and a lesson can record which phase it repeats", async () => {
+  const home = setup();
+  newPhases(home, "e", [{ slug: "b", title: "B" }]);
+  writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: grep comments when removing a call\n    skill: planet-phase-plan\n    apply: true\n  - text: taste\n    skill: not-planet\n    apply: false\n---\nbody\n", NOW, null);
+  const r = await run(["retro", "inputs", "e", "2", "--json"], ctx(home, { gh: fakeGh({}, {}, true) }));
+  assert.equal(r.code, 0);
+  assert.deepEqual((r.json as { prior_lessons: unknown }).prior_lessons, [{ phase: 1, skill: "planet-phase-plan", text: "grep comments when removing a call" }]);
+  const own = await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh: fakeGh({}, {}, true) }));
+  assert.deepEqual((own.json as { prior_lessons: unknown }).prior_lessons, [], "a phase's own lessons are not prior");
+  const repeat = writeRetro(home, "e", 2, "---\nphase: 2\nlessons:\n  - text: grep comments when removing a call\n    skill: planet-phase-plan\n    apply: true\n    repeat_of: 1\n---\nbody\n", NOW, null);
+  assert.equal(repeat.meta.lessons[0].repeat_of, 1);
+  assert.equal(listRetros(home, "e")[1].meta.lessons[0].repeat_of, 1, "repeat_of survives the round trip");
+  assert.equal(listRetros(home, "e")[0].meta.lessons[0].repeat_of, undefined);
+  assert.throws(() => writeRetro(home, "e", 2, "---\nphase: 2\nlessons:\n  - text: x\n    skill: planet-phase-plan\n    apply: true\n    repeat_of: one\n---\nbody\n", NOW, null), /repeat_of must be a phase id/);
 });
 
 test("retro write falls back to the draft's frontmatter head_sha when --head is omitted", async () => {

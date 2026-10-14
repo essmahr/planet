@@ -12,6 +12,8 @@ export interface RetroLesson {
   text: string;
   skill: RetroSkill;
   apply: boolean;
+  /** The earlier phase of this epic whose applied lesson this one repeats; a repeat is evidence the skill text did not bind. */
+  repeat_of?: number;
 }
 
 export interface RetroMeta {
@@ -46,7 +48,10 @@ export function parseLessons(v: unknown): RetroLesson[] {
     if (typeof o.text !== "string" || o.text.trim() === "") throw new Error(`lessons[${i}].text must be a non-empty string`);
     if (!(RETRO_SKILLS as readonly string[]).includes(String(o.skill))) throw new Error(`lessons[${i}].skill must be one of ${RETRO_SKILLS.join(", ")}`);
     if (typeof o.apply !== "boolean") throw new Error(`lessons[${i}].apply must be true or false`);
-    return { text: o.text, skill: o.skill as RetroSkill, apply: o.apply };
+    const lesson: RetroLesson = { text: o.text, skill: o.skill as RetroSkill, apply: o.apply };
+    if (o.repeat_of === undefined || o.repeat_of === null) return lesson;
+    if (!Number.isInteger(o.repeat_of) || Number(o.repeat_of) < 1) throw new Error(`lessons[${i}].repeat_of must be a phase id`);
+    return { ...lesson, repeat_of: Number(o.repeat_of) };
   });
 }
 

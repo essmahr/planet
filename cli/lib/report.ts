@@ -56,6 +56,7 @@ export interface LessonRow {
   text: string;
   skill: string;
   apply: boolean;
+  repeat_of: number | null;
   path: string;
 }
 
@@ -142,7 +143,7 @@ export function buildReport(home: string, epics: string[]): FeedbackReport {
     }
     for (const e of listEvents(home, epic)) events[e.kind] = (events[e.kind] ?? 0) + 1;
     for (const r of listRetros(home, epic)) {
-      for (const l of r.meta.lessons) lessons.push({ epic, phase: r.meta.phase, text: l.text, skill: l.skill, apply: l.apply, path: r.path });
+      for (const l of r.meta.lessons) lessons.push({ epic, phase: r.meta.phase, text: l.text, skill: l.skill, apply: l.apply, repeat_of: l.repeat_of ?? null, path: r.path });
     }
   }
   for (const s of stats.values()) s.proposals_per_approval = s.approved ? s.proposals / s.approved : null;

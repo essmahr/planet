@@ -92,7 +92,7 @@ test("buildReport adds lessons, skill rejections, events, and reviews", () => {
   mkdirSync(paths.reviews(home), { recursive: true });
   writeFileSync(paths.reviewFile(home, "2026-09-01", 1), "# Findings\n\n## Recurring\n\n### Name the spec file in phase plans\n\ntext\n\n## Appendix\n");
   const report = buildReport(home, ["e"]);
-  assert.deepEqual(report.lessons, [{ epic: "e", phase: 1, text: "name the spec file", skill: "planet-phase-plan", apply: true, path: paths.retroFile(home, "e", 1, "a") }]);
+  assert.deepEqual(report.lessons, [{ epic: "e", phase: 1, text: "name the spec file", skill: "planet-phase-plan", apply: true, repeat_of: null, path: paths.retroFile(home, "e", 1, "a") }]);
   assert.equal(report.lessons[0].path, paths.retroFile(home, "e", 1, "a"));
   assert.deepEqual(report.skill_rejections.map((r) => r.feedback), ["always name the spec file", "name the spec file here too"]);
   assert.equal(report.skill_rejections[0].phase, null);

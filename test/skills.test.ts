@@ -6,9 +6,11 @@ import { COMMANDS } from "../cli/planet.ts";
 import { parseFrontmatter } from "../cli/lib/frontmatter.ts";
 
 const SKILLS_DIR = "skills";
-const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review"];
+const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review", "plan"];
 const HIDDEN = new Set(["planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review"]);
-const WORD_BUDGET: Record<string, number> = { go: 1250, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 750, "planet-retro": 900, "planet-feedback-review": 900 };
+const WORD_BUDGET: Record<string, number> = { go: 1250, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 750, "planet-retro": 900, "planet-feedback-review": 900, plan: 750 };
+/** Skills that run without an epic and never touch the store. */
+const STATELESS = new Set(["plan"]);
 const DESCRIPTION_CAP = 1536;
 /** Moving text out of SKILL.md into a reference is not free; the largest references today sit at the budget. */
 const REFERENCE_BUDGET = 450;
@@ -40,7 +42,12 @@ for (const name of skillDirs()) {
     assert.ok(typeof data.compatibility === "string" && data.compatibility.length > 0, "compatibility present");
     const metadata = data.metadata as Record<string, unknown> | undefined;
     assert.match(String(metadata?.version ?? ""), /^\d+\.\d+\.\d+$/, "metadata.version present");
-    assert.match(String(data["allowed-tools"] ?? ""), /Bash\(planet \*\)/, "allowed-tools grants the planet cli");
+    if (STATELESS.has(name)) {
+      assert.doesNotMatch(String(data["allowed-tools"] ?? ""), /Bash\(planet /, "stateless skill does not grant the planet cli");
+      assert.equal(data["disable-model-invocation"], true, "stateless skill is explicit-only");
+    } else {
+      assert.match(String(data["allowed-tools"] ?? ""), /Bash\(planet \*\)/, "allowed-tools grants the planet cli");
+    }
     if (HIDDEN.has(name)) {
       assert.equal(data["user-invocable"], false, "hidden skill");
       assert.match(description, /^Only invoked by/, "negative trigger first");
@@ -60,8 +67,9 @@ for (const name of skillDirs()) {
     for (const [, verb] of body.matchAll(/planet ([a-z-]+)/g)) {
       assert.ok(verb in COMMANDS, `'planet ${verb}' names a real command`);
     }
-    for (const [, refFile] of body.matchAll(/references\/([a-z0-9-]+\.md)/g)) {
-      assert.ok(existsSync(join(SKILLS_DIR, name, "references", refFile)), `references/${refFile} exists`);
+    for (const [, otherSkill, refFile] of body.matchAll(/(?:\.\.\/([a-z0-9-]+)\/)?references\/([a-z0-9-]+\.md)/g)) {
+      const owner = otherSkill ?? name;
+      assert.ok(existsSync(join(SKILLS_DIR, owner, "references", refFile)), `${owner}/references/${refFile} exists`);
     }
     const refsDir = join(SKILLS_DIR, name, "references");
     if (!existsSync(refsDir)) return;

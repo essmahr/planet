@@ -24,6 +24,10 @@ from any mix of Linear issues, projects, PRs, documents, URLs, or plain text;
 the research directory holds one file per source, with `sources.md` as the
 index.
 
+`/planet:plan <request>` writes a one-off plan for a single PR with the same
+drafting rules and template as phase-plan, approved in plan mode. It has no
+epic, writes nothing to the store, and stops at approval.
+
 Plan mode without `/planet:go` is untouched: nothing is recorded unless a
 session was opened with the router.
 

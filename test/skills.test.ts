@@ -10,7 +10,7 @@ const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake", "pl
 const HIDDEN = new Set(["planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review"]);
 const WORD_BUDGET: Record<string, number> = { go: 1250, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 750, "planet-retro": 900, "planet-feedback-review": 900 };
 const DESCRIPTION_CAP = 1536;
-/** Moving text out of SKILL.md into a reference is not free; the largest reference today is about 400 words. */
+/** Moving text out of SKILL.md into a reference is not free; the largest references today sit at the budget. */
 const REFERENCE_BUDGET = 450;
 
 function skillDirs(): string[] {
@@ -66,7 +66,11 @@ for (const name of skillDirs()) {
     const refsDir = join(SKILLS_DIR, name, "references");
     if (!existsSync(refsDir)) return;
     for (const refFile of readdirSync(refsDir).filter((f) => f.endsWith(".md"))) {
-      const n = words(readFileSync(join(refsDir, refFile), "utf8"));
+      const text = readFileSync(join(refsDir, refFile), "utf8");
+      for (const [, linked] of text.matchAll(/references\/([a-z0-9-]+\.md)/g)) {
+        assert.ok(existsSync(join(refsDir, linked)), `references/${refFile} links references/${linked}, which exists`);
+      }
+      const n = words(text);
       assert.ok(n <= REFERENCE_BUDGET, `references/${refFile} has ${n} words, budget ${REFERENCE_BUDGET}`);
     }
   });

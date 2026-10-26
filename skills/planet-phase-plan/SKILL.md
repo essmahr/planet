@@ -16,7 +16,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Output: the 
 
 - Read `plan.md`'s Approach, Sequencing notes, PR budget, and this phase's entry; `research/codebase.md` and any `research/phase-<N>.md`; the previous phase's body when there is one, and its retro when it shipped. Nothing else from the store.
 - Measure before drafting. An oversized phase gets a proposed cut and a hand-up, never a plan document.
-- Draft from the code, and settle every decision that leaves the PR's shape alone, per `references/drafting-rules.md`.
+- Draft from the code, and settle every decision that leaves the PR's shape alone, per `references/drafting-rules.md`. Wire an error only when a user can produce it in the UI. A legacy error prop, a schema rule, or a spec that renders the form empty is not proof; a default value or an always-set field rules it out.
 - Ask only when the code surfaces a choice `plan.md` does not settle and the answer changes the PR's shape. A question that shows the approach or the cut was wrong goes back up.
 - The phase body is written only by `planet proposal approve`.
 

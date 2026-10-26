@@ -15,6 +15,8 @@ Size, Out of scope, and Closes stay.
   a yes, write it", and the writing tool is named. Approval is in chat, item by
   item, not plan mode: the items are the phase's output, and the phase
   document only lists them.
+- A spike Step reads the installed source and the code first and writes
+  predictions; a run in a server or browser only confirms them.
 - A phase that replaces an existing document starts with a Step that reads
   the current version.
 - An investigate or measuring phase ends with a Step that writes its findings

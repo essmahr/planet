@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr create *), Bash(gh pr view *), Bash(gh pr edit *), Bash(gh api user *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the phase closes a ticket.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Planet: implement

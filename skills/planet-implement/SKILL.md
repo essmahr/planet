@@ -40,7 +40,7 @@ Stop and say which commit, what the code shows instead, and what would unblock i
 ## Troubleshooting
 
 - The phase is `draft`: it has no plan; return `phase <N> not planned`.
-- The phase is `manual`: nothing to implement; return `phase <N> manual`.
+- The phase is `manual`: ask whether to run its Steps. On yes, work them in order, reading each observation, and write the findings the last Step names. Then return `phase <N> manual`.
 - `planet session start` reports no epic or no session id: return its message.
 - `planet epic show` lists no PR on the phase after it opened: the hook missed it; run `planet link <slug> <N> <url>`.
 - `gh pr create` fails: report the error and the pushed branch, then `planet link` once the PR exists.

@@ -10,6 +10,9 @@ deviation with its reason, and what Verification asked the body to carry, as
 raw material; its recipe sets the structure and the length. Without that skill,
 follow the repo's PR template with the same material.
 
+When earlier phases opened PRs, read their final bodies (`gh pr view <n> --json body`)
+and keep their recipe and sections. A stacked PR says "Follows <url>".
+
 ## Push policy
 
 While the PR is a draft and nobody but the author has reviewed it: push,

@@ -1,6 +1,6 @@
 # Findings document
 
-```
+~~~
 # Feedback review <date>
 
 Since: <last review date or the beginning>. Sources: <N> lessons to apply,
@@ -13,10 +13,11 @@ Seen <N> times in <phases or epics>:
 - "<quote>" (<epic> phase <N> | proposal <id>)
 - ...
 Skill: `skills/<name>/SKILL.md` <section or step>.
-Replace:
-> <current text>
-With:
-> <new text>
+```diff
+  <unchanged sentence for context>
+- <current sentence>
++ <new sentence>
+```
 Budget: <words before> to <words after> of <budget>.
 
 ## Appendix
@@ -32,7 +33,7 @@ Budget: <words before> to <words after> of <budget>.
 
 ### Not Planet's to fix
 - <text> (<source>): points at <superpowers | CLAUDE.md | the repo>.
-```
+~~~
 
 Under 1,000 words. One `###` per recurring group; the group heading is what
 later reviews match against, so keep it stable when the same group recurs.

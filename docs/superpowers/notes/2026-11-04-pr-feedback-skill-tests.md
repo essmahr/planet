@@ -423,3 +423,92 @@ Reply e.g. "weigh 1 -> do" or "skip 1". Full diffs: /Users/u/.planet/epics/e/res
 ```
 
 No new rationalization appeared in green. Two variances left as is: whether two small do fixes share a commit (reps split or merged; both are valid), and whether the return line is echoed in chat.
+
+## Fix round 1
+
+Review found that step 7's `git push origin HEAD:<head_ref>` sent every drafted
+commit, including commits for items the reply skipped, refuted, deferred, or
+did not name. Step 7's apply details moved to `references/apply.md`, which
+resets the worktree to `origin/<head_ref>`, cherry-picks only the drafted
+commits whose items are all do, redrafts the rest, and checks
+`git log origin/<head_ref>..HEAD` before the push. The same round fixed the
+triage JSON shape (literal example, explicit nulls, ids not numbers), the
+cross-epic marker restore, reply bodies passed by file, and the merged and
+fast-forward edge cases.
+
+### F (new, green only): 3 of 3 pass
+
+Scenario: two separate drafted do commits, `d1d1d1d` (item 1) and `e2e2e2e`
+(item 2), unpushed in the worktree. The user replies `do 1, skip 2`. Pass: only
+commit 1 is pushed.
+
+All reps: `reset --hard origin/u/phase-2-rename`, `cherry-pick d1d1d1d` only,
+`log --oneline origin/u/phase-2-rename..HEAD` showing one commit, push, no
+replies, `feedback-commit 'PRRC_k1'` with the new sha, triage with
+`PRRC_k6` `final: "skip"`, both marked handled, fast-forward, worktree
+removed, marker restored. Rep 1 wrote `planet pr feedback e 2 mark handled`
+(arguments out of order) in its dry-run list; the skill text has the right
+order.
+
+Rep 1:
+
+```
+Pushed 1 commit to u/phase-2-rename: rename foo to fooBar (item 1).
+Skipped item 2 (no commit, no reply). Both items handled.
+feedback applied for phase 2
+```
+
+Rep 2:
+
+```
+Pushed f3f3f3f to u/phase-2-rename: rename foo to fooBar (item 1).
+Skipped item 2 (handled, no commit, no reply).
+No replies posted.
+```
+
+Rep 3:
+
+```
+Pushed to u/phase-2-rename:
+  f3f3f3f rename foo to fooBar (item 1)
+Skipped 2: handled, no commit, no reply.
+feedback applied for phase 2
+```
+
+### E rerun with apply.md: 3 of 3 pass
+
+All reps: reset, cherry-pick commit A (items 1 and 3), draft item 2's commit,
+log check, push `HEAD:u/phase-2-rename`, reply bodies written under
+`research/` and posted with `-F body=@<file>` on items 4 and 5 only, one
+`feedback-commit` per sha, one triage event with explicit nulls and
+`defer_to: "phase 3"`, handled marks, fast-forward, worktree removed, marker
+restored.
+
+Rep 1:
+
+```
+Pushed 2 commits to u/phase-2-rename:
+  e2e2e2e rename foo to fooBar and drop unused import (1, 3)
+  f3f3f3f move parseDate into useParsedDate hook (2)
+Replied on 4 (refute): items is reassigned on line 15, so it stays let.
+Replied on 5 (defer to phase 3): pagination is planned for phase 3.
+```
+
+Rep 2:
+
+```
+Pushed to u/phase-2-rename:
+  c1c1c1c rename foo to fooBar and drop unused import (items 1, 3)
+  e2e2e2e move parseDate into useParsedDate hook (item 2)
+Replied: item 4 (refute, items is reassigned so it stays let), item 5 (defer to phase 3).
+```
+
+Rep 3:
+
+```
+Pushed to u/phase-2-rename (PR #123):
+  e2e2e2e rename foo to fooBar and drop unused import (items 1, 3)
+  f3f3f3f move parseDate into useParsedDate hook (item 2)
+Replied: item 4 (refute), item 5 (defer to phase 3).
+Local u/phase-2-rename fast-forwarded; worktree removed.
+```

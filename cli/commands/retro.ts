@@ -57,6 +57,17 @@ async function ghPart(ctx: Ctx, epic: string, id: number, urls: string[]): Promi
   }
 }
 
+function normalizeTriage(r: Partial<TriageRecord>): TriageRecord {
+  return {
+    id: String(r.id ?? ""),
+    proposed: r.proposed as Bucket,
+    final: r.final as TriageRecord["final"],
+    edited: r.edited === true,
+    merged_into: r.merged_into ?? null,
+    defer_to: r.defer_to ?? null,
+  };
+}
+
 function parseTriage(events: ReturnType<typeof listEvents>): { triage: TriageRecord[]; triage_errors: number } {
   const triage: TriageRecord[] = [];
   let triage_errors = 0;
@@ -64,7 +75,13 @@ function parseTriage(events: ReturnType<typeof listEvents>): { triage: TriageRec
     try {
       const records: unknown = JSON.parse(e.text ?? "");
       if (!Array.isArray(records)) throw new Error("not an array");
-      triage.push(...(records as TriageRecord[]));
+      for (const record of records) {
+        if (typeof record !== "object" || record === null || Array.isArray(record)) {
+          triage_errors++;
+          continue;
+        }
+        triage.push(normalizeTriage(record as Partial<TriageRecord>));
+      }
     } catch {
       triage_errors++;
     }

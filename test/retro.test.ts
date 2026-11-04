@@ -158,6 +158,17 @@ test("a malformed triage event is skipped and counted", async () => {
   assert.equal(j.triage_errors, 2);
 });
 
+test("triage records are normalized and non-object entries are dropped and counted", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "triage", text: JSON.stringify([null, { id: "C1", proposed: "weigh", final: "weigh" }]), session: SESSION }, NOW);
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
+  const j = (await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }))).json as RetroInputs;
+  assert.deepEqual(j.triage, [{ id: "C1", proposed: "weigh", final: "weigh", edited: false, merged_into: null, defer_to: null }]);
+  assert.equal(j.triage_errors, 1);
+  const text = await run(["retro", "inputs", "e", "1"], ctx(home, { gh }));
+  assert.match(text.stdout, /triage overrides 0/);
+});
+
 test("prompt kind is passed through and defaults to implementation for old lines", async () => {
   const home = setup();
   appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "impl123", session: SESSION }, NOW);

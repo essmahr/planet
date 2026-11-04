@@ -11,7 +11,7 @@ not enter plan mode.
 
 Repo: <owner/name>, checked out in the current directory.
 Range: <implemented_sha>..<head_sha>, PR <n>. Run `git diff --stat <range>`,
-then `git log -p <range>`. If a sha is missing, run
+`git diff <range>`, then `git log -p <range>`. If a sha is missing, run
 `git fetch origin pull/<n>/head` once and retry; if it is still missing, reply
 with that and stop.
 Loop commits, made in answer to review: <shas, space-separated, or "none">
@@ -26,7 +26,8 @@ Produce:
    commits) and "Review-driven" (loop commits only). Each has one row per
    category, in this order: naming, comments, tests, structure, scope, other.
    Columns: hunks (a count, 0 allowed), example (a file path and a phrase, no
-   code).
+   code). Count each hunk of `git diff <range>` once, by its final state; the
+   last commit in `git log -p` that touched it picks the table.
 3. Each own prompt quoted once under the Own refinements category it drove,
    and each loop prompt under the Review-driven category it drove; prompts
    that drove no change go under "unpaired".

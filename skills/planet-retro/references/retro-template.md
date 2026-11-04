@@ -34,16 +34,24 @@ Own prompts, each quoted once under the category it drove:
 "no implemented event; refinements not measurable" when the sha is missing.
 
 ## Review feedback
-Review-driven (loop commits only), same columns as Refinements:
+Review-driven (loop commits only):
 
 | Category | Count | Example |
 |---|---|---|
+| naming | | |
+| comments | | |
+| tests | | |
+| structure | | |
+| scope | | |
+| other | | |
 
-Loop prompts under the category each drove. With no loop commits: review
-comments grouped by theme, one line each with the file.
+Loop prompts under the category each drove. With no loop commits, replace
+the table: review comments grouped by theme, one line each with the file, and
+failed checks with the commit that fixed each, from `git log`.
 
-Triage overrides: <count>, one example per kind (bucket changed, draft
-edited, merged into another commit).
+Triage overrides: <count> (an override: final bucket differs from proposed,
+the draft was edited, or `merged_into` is set), one example per kind (bucket
+changed, draft edited, merged into another commit).
 
 Deferred: one line per item with its target phase. "none" when empty.
 

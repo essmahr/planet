@@ -603,3 +603,35 @@ lesson candidate against `planet-pr-feedback` for the override.
 - All 5 offered a `planet-pr-feedback` candidate, worded close to "triage a
   comment saying callers cannot handle the current behavior as do, not weigh".
   Two flagged the evidence as thin (one override).
+
+### Fix round 1: planning prompts and review-driven lesson routing
+
+Fixture changes: a `planning` prompt in the window ("keep fetchUser in src/api,
+do not add a services folder"), and one reviewer pattern worth a lesson. In the
+new fixture, PRRC_1 and PRRC_4 both flag an untested hook state (loading, empty).
+Both are fixed by loop commit `c3c3c3c`. The PRRC_2 weigh-to-do override stays.
+Pass: own prompts include the planning prompt, two tables, the state-test
+lesson goes to `planet-implement` or `not-planet`, and an override candidate goes
+to `planet-pr-feedback`.
+
+#### Run A: step 4 with routing, "from overrides, to `planet-pr-feedback`": 2 of 5 pass
+
+- 5 of 5 put the planning prompt under own prompts (unpaired), and 5 of 5 had two tables.
+- 5 of 5 sent the state-test lesson to `planet-implement`. 2 also sent "return
+  an error state" to `not-planet` as a team convention.
+- Only 2 of 5 offered a `planet-pr-feedback` candidate. 3 said a weigh item
+  decided as do is the expected outcome, so they offered no lesson. The shortened
+  wording said where override lessons go, not that each override is a
+  candidate.
+
+#### Run B: "Each override is a lesson candidate for `planet-pr-feedback`": 5 of 5 pass
+
+- 5 of 5 put the planning prompt under own prompts, and 5 of 5 had two tables.
+- 5 of 5 sent the state-test lesson to `planet-implement` ("before opening the
+  PR, test loading, empty, and error states"). One sent the naming lesson to
+  `not-planet`. None sent a review-driven lesson to `planet-phase-plan`.
+- 5 of 5 offered the `planet-pr-feedback` candidate ("propose do, not weigh,
+  when a comment says callers cannot handle the behavior").
+- The new last-commit rule made the review-driven tests count vary from 0 to
+  2. The fixture has only a per-commit stat, so the sweep cannot see which
+  hunks `b5b5b5b` rewrote. Every rep said so in a caveat.

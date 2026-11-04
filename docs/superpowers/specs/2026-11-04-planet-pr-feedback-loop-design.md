@@ -49,7 +49,7 @@ have the same gap: the phase ships and the retro waits until someone runs
 | Where feedback arrives | The chat that opened the PR (user's call). |
 | How the chat wakes | A background Bash task running `planet watch`, which exits on the first new event. The exit wakes the chat. Claude Code core tool, not a desktop feature. |
 | Why not `Monitor` | Its 30-minute cap forces a re-arm turn every half hour while idle. A background task wakes the chat only when something happened. |
-| When the watcher is not running | (App quit, chat closed.) The `UserPromptSubmit` hook adds one line on the next prompt in any Planet session for that epic: `phase 2 PR: 3 new feedback items, /planet:go feedback`. `/planet:go feedback` from any session handles the batch and restarts the watcher there. |
+| When the watcher is not running | (App quit, chat closed.) The `UserPromptSubmit` hook adds one line on the next prompt in any Planet session for that epic: `Planet: phase 2 PR has 3 new review items. Mention this in one line; handle them only when the user asks (/planet:go <epic> pr feedback 2).` `/planet:go <epic> pr feedback [N]` from any session handles the batch and restarts the watcher there. |
 | Triage buckets | **do** (agree, commit drafted), **weigh** (assessment drafted, no diff), **refute** (reply drafted), **defer** (reply drafted plus a target: follow-up or phase M). Several do items may share one commit. |
 | When diffs are drafted | On wake, for do items only. Weigh items get a diff only after the user moves them to do. |
 | Where diffs are drafted | A separate worktree on the PR branch (user's call), so the user's checkout is untouched even if it is on another branch. |
@@ -69,6 +69,7 @@ have the same gap: the phase ships and the retro waits until someone runs
 3. The exit wakes the chat. `go` is not model-invocable, so the watcher's
    output tells the model what to do, as its last line:
    `invoke planet:planet-pr-feedback epic: <slug> phase: <N> event: <feedback|merged|closed>`.
+   The router reaches the same skill with the request `pr feedback [N]`.
    `planet-pr-feedback` handles all three events:
    - merged: step 6 below.
    - closed without merge: say so, remove the worktree, stop.
@@ -94,7 +95,7 @@ Each item has two marks:
   chat or repeats on every prompt.
 - **handled**: set when the user acts on it (do, refute, defer, or `skip N`).
   Notified-but-unhandled items are listed again at the top of the next batch.
-  `/planet:go feedback` shows them on demand.
+  `/planet:go <epic> pr feedback [N]` shows them on demand.
 
 ## Batch format (shown in chat)
 
@@ -119,7 +120,7 @@ defer
 Reply e.g. "do 1 3, weigh 2 -> do, refute 4, defer 5". Full diffs: <triage file path>
 ```
 
-The triage file, `phases/<N>/feedback.md` in the epic directory, holds the same
+The triage file, `<dir>/research/pr-feedback-<N>.md` (`<dir>` is the epic directory), holds the same
 batch plus the full drafted diffs, so the chat shows only the summary.
 
 ## CLI
@@ -134,13 +135,14 @@ batch plus the full drafted diffs, so the chat shows only the summary.
 - `gh.prFeedback` changes: include each comment's and review's node id and
   `createdAt`; include top-level PR conversation comments, which today's query
   omits; drop empty review bodies and the user's own comments (the PR author).
-- Marks live in the phase frontmatter or a sidecar file in the phase
-  directory, committed to the `~/.planet` store like other writes.
+- Marks live in `epics/<epic>/feedback/phase-<NN>-marks.json`, committed to
+  the `~/.planet` store like other writes.
 
 ## Worktree lifecycle
 
-- Path: under the scratch or `~/.planet` area, never inside the repo's working
-  tree. Name includes epic and phase.
+- Path: `<repo root>/../.planet-worktrees/<repo>-<slug>-<N>`, never inside the
+  repo's working tree. A worktree under `~/.planet` would end up in the store's
+  git commits.
 - Created detached at `origin/<pr branch>` after a fetch. No local branch is
   created. This avoids git's refusal to check out a branch already checked out
   in the user's main checkout.
@@ -162,8 +164,9 @@ batch plus the full drafted diffs, so the chat shows only the summary.
 `UserPromptSubmit`, in a Planet session: if the session's epic has a phase with
 feedback not yet notified, add one line naming the phase and the count. Never the
 content. The check calls GitHub at most once per 5 minutes per epic (like
-`planet sync`'s max age), with a timeout under the hook's 10 s, and stays
-silent on any failure. The hook must work when no watcher is running, so it
+`planet sync`'s max age). Phases are polled concurrently, each bounded to 4 s,
+well under the hook's 10 s. A failed check also records its time, so failures
+back off for the same 5 minutes. The hook stays silent on any failure. The hook must work when no watcher is running, so it
 cannot rely on a watcher's poll result.
 
 ## Retro
@@ -193,9 +196,9 @@ Changes:
   as two separate tables, so the categories (naming, tests, ...) stay
   comparable.
 - **Prompts.** Shorthand replies and other prompts made while a batch is open
-  are tagged as loop prompts, so they pair with loop commits, not own
-  refinements. The builder picks the mechanism (session step marker set to
-  `pr-feedback` while a batch is open, or batch time windows).
+  are tagged as loop prompts (the session step marker is `pr-feedback`, kind
+  `review`), so they pair with loop commits, not own refinements. Own prompts
+  are every kind except `review`.
 - **Lesson targets.** `planet-pr-feedback` is added to `RETRO_SKILLS` in
   `cli/lib/retro.ts`, so `planet-feedback-review` can turn repeated triage
   overrides into edits to the new skill.
@@ -217,7 +220,6 @@ Changes:
 - Poll interval default and backoff numbers.
 - Exact shorthand grammar, as long as the example above parses.
 - Where the triage file's diffs come from (`git format-patch` or `git diff`).
-- Whether marks live in frontmatter or a sidecar.
 
 ## Calls made without the user (check these)
 

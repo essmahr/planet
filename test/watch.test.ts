@@ -151,3 +151,9 @@ test("a pid file another watcher took over is left in place", async () => {
   await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, sleep: async () => { writeFileSync(pidFile, "2000\n"); } }));
   assert.equal(readFileSync(pidFile, "utf8"), "2000\n");
 });
+
+test("an interval below one second is refused", async () => {
+  const r = await run(["watch", "e", "1", "--interval", "0"], ctx(setup()));
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /--interval must be an integer of at least 1/);
+});

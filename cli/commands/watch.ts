@@ -13,10 +13,10 @@ const MAX_BACKOFF_SECONDS = 900;
 
 type Event = "feedback" | "merged" | "closed" | "stopped";
 
-function intOption(value: string | undefined, name: string, fallback: number): number {
+function intOption(value: string | undefined, name: string, fallback: number, min: number): number {
   if (value === undefined) return fallback;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) throw new Error(`--${name} must be a non-negative integer`);
+  if (!Number.isInteger(n) || n < min) throw new Error(`--${name} must be an integer of at least ${min}`);
   return n;
 }
 
@@ -59,8 +59,8 @@ export const watchCommand: Command = async (args, ctx) => {
   const { positionals, values } = parse(args, { interval: { type: "string" }, "max-polls": { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");
-  const interval = intOption(optString(values, "interval"), "interval", 60);
-  const maxPolls = intOption(optString(values, "max-polls"), "max-polls", 0);
+  const interval = intOption(optString(values, "interval"), "interval", 60, 1);
+  const maxPolls = intOption(optString(values, "max-polls"), "max-polls", 0, 0);
   const pidFile = paths.watchPid(ctx.home, epic, id);
   const running = runningWatcher(pidFile, ctx);
   if (running !== null) return { json: { epic, phase: id, event: null, running }, text: `phase ${id}: watcher already running (pid ${running})` };

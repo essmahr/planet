@@ -2,7 +2,7 @@
 name: planet-pr-feedback
 description: "Only invoked by the Planet router or by a planet watch line naming it, never on its own, for a phase whose PR has new feedback, merged, or closed. Do not use outside a Planet session."
 user-invocable: false
-allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr view *), Bash(gh pr comment *), Bash(gh api *)
+allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr view *), Bash(gh pr comment *), Bash(gh api repos/*/pulls/*/comments/*/replies *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
   version: 0.2.0

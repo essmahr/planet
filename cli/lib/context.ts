@@ -6,6 +6,7 @@ export interface Ctx {
   now: () => string;
   env: NodeJS.ProcessEnv;
   stdin: () => string;
+  sleep: (ms: number) => Promise<void>;
 }
 
 export interface CommandResult {

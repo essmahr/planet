@@ -1,20 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { NOW, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
-import type { PrCheck, PrComment, PrConversationComment, PrFeedback, PrReview } from "../cli/lib/gh.ts";
+import { BASE, LINT, NOW, PR, comment, convo, ctx, fakeGh, review, run, tmpHome } from "./helpers.ts";
+import type { PrFeedback } from "../cli/lib/gh.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { addMarks, feedbackItems, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
 import { git } from "../cli/lib/store.ts";
-
-const PR = "https://github.com/o/r/pull/7";
-const BASE: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "sha1", reviews: [], comments: [], conversation: [], failed_checks: [] };
-const LINT: PrCheck = { name: "lint", state: "FAILURE", url: "u/lint" };
-
-const review = (id: string, author: string, body: string): PrReview => ({ id, author, state: "COMMENTED", body, created_at: NOW, url: `u/${id}` });
-const comment = (id: string, author: string, resolved: boolean): PrComment => ({ id, author, path: "a.ts", line: 3, body: "nit", resolved, created_at: NOW, url: `u/${id}` });
-const convo = (id: string, author: string): PrConversationComment => ({ id, author, body: "hello", created_at: NOW, url: `u/${id}` });
 
 function setup(feedback: PrFeedback = BASE): { home: string; gh: ReturnType<typeof fakeGh> } {
   const home = tmpHome();

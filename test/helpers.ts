@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Ctx } from "../cli/lib/context.ts";
-import type { Gh, PrFeedback, PrFile, PrInfo } from "../cli/lib/gh.ts";
+import type { Gh, PrCheck, PrComment, PrConversationComment, PrFeedback, PrFile, PrInfo, PrReview } from "../cli/lib/gh.ts";
 import { GhUnavailable } from "../cli/lib/gh.ts";
 import { ensureStore } from "../cli/lib/store.ts";
 import { main } from "../cli/planet.ts";
@@ -16,10 +16,19 @@ export function tmpHome(): string {
   return home;
 }
 
+export const PR = "https://github.com/o/r/pull/7";
+export const BASE: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "sha1", reviews: [], comments: [], conversation: [], failed_checks: [] };
+export const LINT: PrCheck = { name: "lint", state: "FAILURE", url: "u/lint" };
+
+export const review = (id: string, author: string, body: string): PrReview => ({ id, author, state: "COMMENTED", body, created_at: NOW, url: `u/${id}` });
+export const comment = (id: string, author: string, resolved: boolean): PrComment => ({ id, author, path: "a.ts", line: 3, body: "nit", resolved, created_at: NOW, url: `u/${id}` });
+export const convo = (id: string, author: string): PrConversationComment => ({ id, author, body: "hello", created_at: NOW, url: `u/${id}` });
+
 export type FakeGh = Gh & { calls: string[] };
 
-export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false, failWith?: Error, feedback: Record<string, PrFeedback> = {}): FakeGh {
+export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string, PrFile[]> = {}, unavailable = false, failWith?: Error, feedback: Record<string, PrFeedback | (PrFeedback | Error)[]> = {}): FakeGh {
   const calls: string[] = [];
+  const polled: Record<string, number> = {};
   return {
     calls,
     async prStates(urls) {
@@ -38,7 +47,12 @@ export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string
       if (unavailable) throw new GhUnavailable("offline");
       const f = feedback[url];
       if (!f) throw new Error(`no feedback stub for ${url}`);
-      return f;
+      if (!Array.isArray(f)) return f;
+      const i = polled[url] ?? 0;
+      polled[url] = i + 1;
+      const entry = f[Math.min(i, f.length - 1)];
+      if (entry instanceof Error) throw entry;
+      return entry;
     },
   };
 }
@@ -50,6 +64,7 @@ export function ctx(home: string, overrides: Partial<Ctx> = {}): Ctx {
     now: () => NOW,
     env: { CLAUDE_CODE_SESSION_ID: SESSION },
     stdin: () => "",
+    sleep: async () => {},
     ...overrides,
   };
 }

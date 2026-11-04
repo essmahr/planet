@@ -16,6 +16,7 @@ import { retroCommand } from "./commands/retro.ts";
 import { sessionCommand } from "./commands/session.ts";
 import { statusCommand } from "./commands/status.ts";
 import { syncCommand } from "./commands/sync.ts";
+import { watchCommand } from "./commands/watch.ts";
 
 export const COMMANDS: Record<string, Command> = {
   status: statusCommand,
@@ -33,6 +34,7 @@ export const COMMANDS: Record<string, Command> = {
   feedback: feedbackCommand,
   capture: captureCommand,
   retro: retroCommand,
+  watch: watchCommand,
 };
 
 const USAGE = `usage: planet <command> [args] [--json]
@@ -54,6 +56,7 @@ commands:
   feedback report [epic]
   retro inputs <epic> <phase>
   retro write <epic> <phase> --file <path> [--head <sha>]
+  watch <epic> <phase> [--interval <s>] [--max-polls <n>]
   check
   capture   (hook entry, reads Claude Code json on stdin)
 `;
@@ -70,6 +73,7 @@ export function defaultCtx(): Ctx {
     now: () => new Date().toISOString(),
     env: process.env,
     stdin: () => readFileSync(0, "utf8"),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   };
 }
 

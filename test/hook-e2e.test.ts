@@ -4,8 +4,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NOW, tmpHome } from "./helpers.ts";
+import { NOW, PR, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
+import { linkPrs } from "../cli/lib/link.ts";
+import { newPhases } from "../cli/lib/phase.ts";
 import { startSession } from "../cli/lib/session.ts";
 import { paths } from "../cli/lib/store.ts";
 
@@ -92,4 +94,15 @@ test("bin/planet picks the numerically newest nvm node, not the lexically last",
   const r = spawnSync("bin/planet", ["--help"], { encoding: "utf8", env: { ...process.env, PATH: NO_NODE_PATH, PLANET_NODE: "", NVM_DIR: dir } });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /usage: planet/);
+});
+
+test("planet-hook prints the note on stdout", () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  linkPrs(home, "e", 1, [PR], NOW);
+  writeFileSync(paths.marks(home, "e", 1), JSON.stringify({ notified: [], handled: [], checked_at: new Date().toISOString(), pending: 2 }));
+  startSession(home, "sess-note", "e", { phase: 1 }, NOW);
+  const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-note", user_input: "hi" });
+  assert.match(r.stdout, /^Planet: phase 1 PR has 2 new review items\./);
 });

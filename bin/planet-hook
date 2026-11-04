@@ -11,5 +11,5 @@ while [ -L "$self" ]; do self="$(readlink "$self")"; done
 root="$(cd "$(dirname "$self")/.." && pwd)"
 . "$root/cli/find-node.sh"
 node_bin="$(planet_find_node)" || { printf '%s node not found; set PLANET_NODE\n' "$(date -u +%FT%TZ)" >> "$home/hook.log"; exit 0; }
-printf '%s' "$input" | "$node_bin" "$root/cli/planet.ts" capture >/dev/null 2>>"$home/hook.log" || true
+printf '%s' "$input" | "$node_bin" "$root/cli/planet.ts" capture 2>>"$home/hook.log" || true
 exit 0

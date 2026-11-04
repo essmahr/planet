@@ -1,6 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
+import { pendingNote } from "../lib/pending-note.ts";
 import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected, sameText } from "../lib/proposal.ts";
 import { endSession, readMarker } from "../lib/session.ts";
@@ -99,12 +100,13 @@ function promptKind(marker: SessionMarker): string {
   return "planning";
 }
 
-function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
+async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): Promise<HookResult> {
   const { text, stripped } = stripInjected(input.user_input ?? input.prompt ?? "");
   for (const tag of stripped) {
     if (!KNOWN_WRAPPERS.has(tag)) appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} stripped <${tag}> from a prompt in ${marker.epic}\n`);
   }
-  if (!text) return ["empty prompt"];
+  if (!text) return { actions: ["empty prompt"], context: null };
+  const context = await pendingNote(ctx, marker.epic);
   const line = {
     ts: ctx.now(),
     session: input.session_id,
@@ -116,7 +118,7 @@ function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   mkdirSync(paths.feedback(ctx.home, marker.epic), { recursive: true });
   appendFileSync(paths.prompts(ctx.home, marker.epic), `${JSON.stringify(line)}\n`);
   commit(ctx.home, `${marker.epic}: capture prompt`);
-  return ["prompt captured"];
+  return { actions: ["prompt captured"], context };
 }
 
 /**
@@ -192,13 +194,21 @@ function onBash(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   return [`linked ${url} to phase ${marker.phase}`];
 }
 
-export function handleHook(raw: string, ctx: Ctx): string[] {
+export interface HookResult {
+  actions: string[];
+  context: string | null;
+}
+
+export async function handleHook(raw: string, ctx: Ctx): Promise<HookResult> {
   const input = JSON.parse(raw) as HookInput;
   const marker = readMarker(ctx.home, input.session_id);
-  if (!marker) return ["no marker"];
+  if (!marker) return { actions: ["no marker"], context: null };
+  if (input.hook_event_name === "UserPromptSubmit") return onPrompt(input, marker, ctx);
+  return { actions: onOtherEvent(input, marker, ctx), context: null };
+}
+
+function onOtherEvent(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   switch (input.hook_event_name) {
-    case "UserPromptSubmit":
-      return onPrompt(input, marker, ctx);
     case "PreToolUse":
       return input.tool_name === "ExitPlanMode" ? onPlanProposed(input, marker, ctx) : ["ignored"];
     case "PostToolUse":
@@ -222,8 +232,8 @@ export const captureCommand: Command = async (_args, ctx) => {
   try {
     const raw = ctx.stdin();
     if (raw.trim() === "") return { json: { actions: ["no input"] }, text: "capture reads a Claude Code hook payload on stdin; nothing to do" };
-    const actions = handleHook(raw, ctx);
-    return { json: { actions }, text: "" };
+    const { actions, context } = await handleHook(raw, ctx);
+    return { json: { actions }, text: context ?? "" };
   } catch (err) {
     const message = err instanceof Error ? err.stack ?? err.message : String(err);
     try {

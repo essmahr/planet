@@ -28,13 +28,13 @@ test("planet session review marks the session and hooks capture under reviews/",
   const r = await run(["session", "review", "--json"], ctx(home));
   assert.equal(r.code, 0);
   assert.deepEqual(readMarker(home, SESSION), { epic: REVIEW, phase: null, step: "feedback-review", started: NOW });
-  handleHook(hook("UserPromptSubmit", { user_input: "review the rejections" }), ctx(home));
+  (await handleHook(hook("UserPromptSubmit", { user_input: "review the rejections" }), ctx(home))).actions;
   assert.ok(existsSync(paths.prompts(home, REVIEW)));
-  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: "# Findings\n" } }), ctx(home));
+  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: "# Findings\n" } }), ctx(home))).actions;
   const proposals = listProposals(home, REVIEW);
   assert.equal(proposals.length, 1);
   assert.match(proposals[0].path, /reviews\/proposals\/001-feedback-review\.md$/);
-  handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_response: { plan: "# Findings\n", filePath: "/p", isAgent: false } }), ctx(home));
+  (await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_response: { plan: "# Findings\n", filePath: "/p", isAgent: false } }), ctx(home))).actions;
   const a = await run(["proposal", "approve", REVIEW, "latest", "--to", "review", "--json"], ctx(home));
   assert.equal(a.code, 0);
   const record = join(home, "reviews", "2026-09-03.md");
@@ -52,7 +52,7 @@ test("planet session review marks the session and hooks capture under reviews/",
 test("proposal approve guards review destinations before mutating the proposal", async () => {
   const home = tmpHome();
   await run(["session", "review", "--json"], ctx(home));
-  handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: "# Findings\n" } }), ctx(home));
+  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: "# Findings\n" } }), ctx(home))).actions;
   const bad = await run(["proposal", "approve", REVIEW, "latest", "--to", "plan"], ctx(home));
   assert.equal(bad.code, 1);
   assert.match(bad.stderr, /only approve --to review/);

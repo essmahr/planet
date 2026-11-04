@@ -2,6 +2,8 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
 import { pendingNote } from "../lib/pending-note.ts";
+import { listPhases } from "../lib/phase.ts";
+import { readMarks, setAwaitingReply } from "../lib/pr-items.ts";
 import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected, sameText } from "../lib/proposal.ts";
 import { endSession, readMarker } from "../lib/session.ts";
@@ -94,6 +96,32 @@ export function userText(prompt: string): string {
   return stripInjected(prompt).text;
 }
 
+function awaitingReply(home: string, epic: string, phase: number): boolean {
+  try {
+    return readMarks(home, epic, phase).awaiting_reply === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The phase whose batch is waiting for a reply, with its flag cleared, so only the next prompt counts as the reply.
+ *
+ * A broken phase or marks file means no awaited phase; the pending note already logs those.
+ */
+function takeAwaitedPhase(home: string, epic: string): number | null {
+  let phases: number[];
+  try {
+    phases = listPhases(home, epic).map((p) => p.meta.id);
+  } catch {
+    return null;
+  }
+  const phase = phases.find((id) => awaitingReply(home, epic, id));
+  if (phase === undefined) return null;
+  setAwaitingReply(home, epic, phase, false);
+  return phase;
+}
+
 function promptKind(marker: SessionMarker): string {
   if (marker.step === "pr-feedback") return "review";
   if (marker.step === "implement") return "implementation";
@@ -107,11 +135,12 @@ async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): Prom
   }
   if (!text) return { actions: ["empty prompt"], context: null };
   const context = await pendingNote(ctx, marker.epic);
+  const awaited = takeAwaitedPhase(ctx.home, marker.epic);
   const line = {
     ts: ctx.now(),
     session: input.session_id,
-    kind: promptKind(marker),
-    phase: marker.phase,
+    kind: awaited === null ? promptKind(marker) : "review",
+    phase: awaited ?? marker.phase,
     proposal: latestProposalId(ctx.home, marker.epic),
     text,
   };

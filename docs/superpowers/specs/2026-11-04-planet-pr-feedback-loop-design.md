@@ -135,6 +135,8 @@ batch plus the full drafted diffs, so the chat shows only the summary.
 - `planet pr feedback <epic> <phase> --new`: today's command, limited to items
   not yet handled, each with its notified flag. Each item gets a stable id.
 - `planet pr feedback mark <epic> <phase> notified|handled <id>...`: sets an item's mark.
+- `planet pr feedback await <epic> <phase>`: marks the phase as waiting for
+  the reply to a shown batch (see Retro, Prompts).
 - `gh.prFeedback` changes: include each comment's and review's node id and
   `createdAt`; include top-level PR conversation comments, which today's query
   omits; drop empty review bodies and the user's own comments (the PR author).
@@ -198,10 +200,15 @@ Changes:
   gets the loop commit shas. It categorizes own refinements and loop commits
   as two separate tables, so the categories (naming, tests, ...) stay
   comparable.
-- **Prompts.** Shorthand replies and other prompts made while a batch is open
-  are tagged as loop prompts (the session step marker is `pr-feedback`, kind
-  `review`), so they pair with loop commits, not own refinements. Own prompts
-  are every kind except `review`.
+- **Prompts.** Prompts made while `planet-pr-feedback` runs (session step
+  `pr-feedback`) are tagged kind `review`. The skill restores the earlier
+  marker before ending its turn, so the shorthand reply would land under that
+  step. To catch it, the skill runs `planet pr feedback await <epic> <phase>`
+  after showing a batch, which sets `awaiting_reply` in the phase's marks file.
+  The next prompt in that epic is tagged `review` with that phase and clears
+  the flag. Later prompts follow the marker as before. Review prompts pair with
+  loop commits, not own refinements. Own prompts are every kind except
+  `review`.
 - **Lesson targets.** `planet-pr-feedback` is added to `RETRO_SKILLS` in
   `cli/lib/retro.ts`, so `planet-feedback-review` can turn repeated triage
   overrides into edits to the new skill.

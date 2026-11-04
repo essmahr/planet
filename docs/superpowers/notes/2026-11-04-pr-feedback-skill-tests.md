@@ -635,3 +635,21 @@ to `planet-pr-feedback`.
 - The new last-commit rule made the review-driven tests count vary from 0 to
   2. The fixture has only a per-commit stat, so the sweep cannot see which
   hunks `b5b5b5b` rewrote. Every rep said so in a caveat.
+
+## Final review fixes
+
+Micro-tests for the skill text changed by the final review fixes. Each rep is
+one fresh general-purpose subagent on sonnet, dry run (Read only), told to list
+its tool calls in order and its final chat message.
+
+### Awaiting reply (planet-pr-feedback step 6): 3 of 3 pass
+
+Scenario: planning phase 3 of epic `e`; `planet watch e 2` exits with 2 items
+(one obvious rename, one design question). Pass: `planet pr feedback await e 2`
+runs after the batch is marked notified and before the turn ends.
+
+- All 3 ran, in order: `planet pr feedback mark e 2 notified PRRC_k1 PRR_k2`,
+  `planet pr feedback await e 2`, `planet watch e 2` in the background, then
+  `planet session step phase-plan --phase 3`.
+- All 3 drafted the rename in the worktree, pushed nothing, and ended the turn
+  on the batch.

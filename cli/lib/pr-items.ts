@@ -43,11 +43,12 @@ export interface Marks {
   handled: string[];
   checked_at: string | null;
   pending: number;
+  awaiting_reply: boolean;
 }
 
 export function readMarks(home: string, epic: string, phase: number): Marks {
   const file = paths.marks(home, epic, phase);
-  const empty: Marks = { notified: [], handled: [], checked_at: null, pending: 0 };
+  const empty: Marks = { notified: [], handled: [], checked_at: null, pending: 0, awaiting_reply: false };
   if (!existsSync(file)) return empty;
   return { ...empty, ...JSON.parse(readFileSync(file, "utf8")) };
 }
@@ -76,4 +77,8 @@ export function addMarks(home: string, epic: string, phase: number, mark: "notif
 
 export function recordCheck(home: string, epic: string, phase: number, pending: number, now: string): void {
   writeMarks(home, epic, phase, { ...readMarks(home, epic, phase), pending, checked_at: now });
+}
+
+export function setAwaitingReply(home: string, epic: string, phase: number, awaiting: boolean): void {
+  writeMarks(home, epic, phase, { ...readMarks(home, epic, phase), awaiting_reply: awaiting });
 }

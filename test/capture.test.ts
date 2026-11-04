@@ -6,7 +6,7 @@ import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, review,
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { addMarks, recordCheck } from "../cli/lib/pr-items.ts";
+import { addMarks, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
 import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { readProposal } from "../cli/lib/proposal.ts";
 import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
@@ -258,6 +258,22 @@ test("a prompt during a pr-feedback step is captured as review", async () => {
   setSessionStep(home, SESSION, "pr-feedback", 1);
   await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
   assert.equal(lastPrompt(home, "e").kind, "review");
+});
+
+test("the reply to a shown batch is tagged review with the batch's phase, once", async () => {
+  const home = setup();
+  const r = await run(["pr", "feedback", "await", "e", "1"], ctx(home));
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, true);
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+  await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
+  const reply = lastPrompt(home, "e") as { kind: string; phase: number | null };
+  assert.deepEqual([reply.kind, reply.phase], ["review", 1]);
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, false);
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "", "the cleared flag is committed with the prompt");
+  await handleHook(hook("UserPromptSubmit", { user_input: "back to planning" }), ctx(home));
+  const next = lastPrompt(home, "e") as { kind: string; phase: number | null };
+  assert.deepEqual([next.kind, next.phase], ["planning", null]);
 });
 
 function noteSetup(): { home: string; gh: ReturnType<typeof fakeGh> } {

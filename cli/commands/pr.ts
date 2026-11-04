@@ -2,7 +2,7 @@ import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, parse } from "../lib/args.ts";
 import type { PrFeedback, PrFile } from "../lib/gh.ts";
 import { readPhase } from "../lib/phase.ts";
-import { addMarks, feedbackItems, readMarks } from "../lib/pr-items.ts";
+import { addMarks, feedbackItems, readMarks, setAwaitingReply } from "../lib/pr-items.ts";
 import { commit } from "../lib/store.ts";
 import { renderTable } from "../lib/table.ts";
 
@@ -36,6 +36,15 @@ function markFeedback(positionals: string[], ctx: Ctx): CommandResult {
   return { json: { phase: id, ...marks }, text: `marked ${ids.length} ${mark}` };
 }
 
+function awaitReply(positionals: string[], ctx: Ctx): CommandResult {
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  readPhase(ctx.home, epic, id);
+  setAwaitingReply(ctx.home, epic, id, true);
+  commit(ctx.home, `${epic}: await reply on phase ${id}`);
+  return { json: { phase: id, awaiting_reply: true }, text: `phase ${id}: next prompt is the reply` };
+}
+
 async function newFeedback(epic: string, id: number, ctx: Ctx): Promise<CommandResult> {
   const phase = readPhase(ctx.home, epic, id);
   const marks = readMarks(ctx.home, epic, id);
@@ -59,6 +68,7 @@ async function newFeedback(epic: string, id: number, ctx: Ctx): Promise<CommandR
 async function prFeedback(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { new: { type: "boolean" } });
   if (positionals[0] === "mark") return markFeedback(positionals.slice(1), ctx);
+  if (positionals[0] === "await") return awaitReply(positionals.slice(1), ctx);
   if (values.new) return newFeedback(need(positionals, 0, "epic slug"), needInt(positionals, 1, "phase id"), ctx);
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");
@@ -78,7 +88,7 @@ async function prFeedback(args: string[], ctx: Ctx): Promise<CommandResult> {
 export const prCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   if (sub === "feedback") return prFeedback(rest, ctx);
-  if (sub !== "files") throw new Error("usage: planet pr files|feedback <epic> <phase> [--new] | pr feedback mark <epic> <phase> notified|handled <id>...");
+  if (sub !== "files") throw new Error("usage: planet pr files|feedback <epic> <phase> [--new] | pr feedback mark <epic> <phase> notified|handled <id>... | pr feedback await <epic> <phase>");
   const { positionals } = parse(rest, {});
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");

@@ -36,7 +36,7 @@ test("handled implies notified and clears the hook cache", () => {
   const home = tmpHome();
   recordCheck(home, "e", 1, 3, NOW);
   const m = addMarks(home, "e", 1, "handled", ["C1", "C1"]);
-  assert.deepEqual(m, { notified: ["C1"], handled: ["C1"], checked_at: null, pending: 3 });
+  assert.deepEqual(m, { notified: ["C1"], handled: ["C1"], checked_at: null, pending: 3, awaiting_reply: false });
 });
 
 test("pr feedback --new hides handled items and flags notified ones", async () => {

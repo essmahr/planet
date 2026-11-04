@@ -53,7 +53,7 @@ Request: $ARGUMENTS
    - `phase N not planned`: step 3 checks the status first, so this means the store moved under the session; refresh and go to step 5.
 9. **Hand-ups.** `re-cut from phase N: <why>`: dispatch phasing with `reason: re-cut from phase N: <why>`. `back to scoping: <why>`: dispatch scoping with `reason: back to scoping: <why>`. Either runs step 6 when it applies, then step 7 once; a second hand-up in the same run stops with the reason shown.
 10. **Review feedback.** Only for the request `review feedback`. Follow `references/review-feedback.md`; it ends the session itself.
-11. **PR feedback.** For `pr feedback [N]`. N defaults to the lowest phase with `open_prs`; none: say so, stop. Run step 6; invoke `planet:planet-pr-feedback` with `epic: <slug>`, `dir: <epic.paths.dir>`, `phase: N`, `event: feedback`. End the turn on its last line.
+11. **PR feedback.** For `pr feedback [N]`. Default N: the lowest phase with a non-empty `open_prs`; none: say so, stop. Run step 6; invoke `planet:planet-pr-feedback` with `epic: <slug>`, `dir: <epic.paths.dir>`, `phase: N`, `event: feedback`. End the turn on its last line.
 12. **Done.** When the user says they are done, run `planet session end`.
 
 ## Example

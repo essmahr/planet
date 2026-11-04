@@ -512,3 +512,21 @@ Pushed to u/phase-2-rename (PR #123):
 Replied: item 4 (refute), item 5 (defer to phase 3).
 Local u/phase-2-rename fast-forwarded; worktree removed.
 ```
+
+## Task 8: planet-implement starts the watcher
+
+Setup: sonnet subagents, one fresh rep each, given the full `planet-implement`
+SKILL.md and a transcript ending at step 7 (steps 1 to 6 done, draft PR
+created). Each lists its step 7 tool calls and its return text.
+
+### RED, current skill (0.5.0): 0 of 5 start a watcher
+
+All 5 reps made one call, `planet phase event pr-loop 2 implemented --sha
+$(git rev-parse HEAD)`, and returned `phase 2 implemented, <PR url>`.
+
+### GREEN, edited step 7 (0.6.0): 5 of 5 start the watcher
+
+All 5 reps ran the `implemented` event in the foreground, then
+`planet watch pr-loop 2` with `run_in_background: true`, then said in one line
+that review feedback will arrive in this chat. All 5 returned
+`phase 2 implemented, https://github.com/acme/app/pull/57`, unchanged.

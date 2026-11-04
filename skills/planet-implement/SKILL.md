@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr create *), Bash(gh pr view *), Bash(gh pr edit *), Bash(gh api user *)
 compatibility: Claude Code with the planet plugin loaded. gh authenticated. Linear MCP connected when the phase closes a ticket.
 metadata:
-  version: 0.5.0
+  version: 0.6.0
 ---
 
 # Planet: implement
@@ -31,7 +31,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`, and `base: <
 4. **Implement.** For each commit: Test first when present, then the Change, then the Check, then `git add` the Files and `git commit -m "<subject>"` (the heading without its number). One commit per section. Keep a list of deviations.
 5. **Verify.** Run every Verification step, set up per `references/verification.md`; a step you cannot perform blocks. A failure whose fix belongs to a commit already made gets a fix-up commit naming that commit; anything else stops per Blockers.
 6. **PR.** Read `references/pr-lifecycle.md`. `git push -u origin <branch>`, then `gh pr create --draft --title "<phase title>" --body-file <a file in the scratch directory>`, the body written as the reference says. The hook links the PR to the phase.
-7. **Record and return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)` once per PR, then return `phase <N> implemented, <PR url>`.
+7. **Record, watch, return.** `planet phase event <slug> <N> implemented --sha $(git rev-parse HEAD)` once per PR. Then start `planet watch <slug> <N>` as a background Bash task (`run_in_background: true`) and say in one line that review feedback will arrive in this chat. Return `phase <N> implemented, <PR url>`.
 
 ## Blockers
 

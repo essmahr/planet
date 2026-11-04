@@ -23,6 +23,8 @@ still apply. A body edit changes only the asked-for text in the live body
 (`gh pr view <n> --json body`), never a whole body written over someone else's
 edits.
 
+Inside the PR feedback loop (`planet-pr-feedback`), commits are additive even on a draft.
+
 ## Default branch moved, or a stacked base landed
 
 While the PR is a draft with no reviews, rebase onto the default branch. After

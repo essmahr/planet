@@ -13,6 +13,17 @@ import type { EpicLesson } from "../lib/view.ts";
 import type { PhaseMeta } from "../schema/types.ts";
 import { phasePrFiles } from "./pr.ts";
 
+export type Bucket = "do" | "weigh" | "refute" | "defer";
+
+export interface TriageRecord {
+  id: string;
+  proposed: Bucket;
+  final: Bucket | "skip";
+  edited: boolean;
+  merged_into: string | null;
+  defer_to: string | null;
+}
+
 export interface RetroInputs {
   phase: PhaseMeta;
   phase_path: string;
@@ -23,7 +34,11 @@ export interface RetroInputs {
   prs: PrFeedback[];
   files: { source: "merged" | "all"; prs: string[]; files: PrFile[] };
   gh_unavailable: boolean;
-  prompts: { ts: string; text: string }[];
+  prompts: { ts: string; kind: "implementation" | "planning" | "review"; text: string }[];
+  loop_commits: { sha: string; items: string[] }[];
+  triage: TriageRecord[];
+  triage_errors: number;
+
   /** Applied lessons from this epic's earlier retros, so a recurring one is recorded as a repeat rather than reworded. */
   prior_lessons: EpicLesson[];
 }
@@ -42,6 +57,21 @@ async function ghPart(ctx: Ctx, epic: string, id: number, urls: string[]): Promi
   }
 }
 
+function parseTriage(events: ReturnType<typeof listEvents>): { triage: TriageRecord[]; triage_errors: number } {
+  const triage: TriageRecord[] = [];
+  let triage_errors = 0;
+  for (const e of events.filter((ev) => ev.kind === "triage")) {
+    try {
+      const records: unknown = JSON.parse(e.text ?? "");
+      if (!Array.isArray(records)) throw new Error("not an array");
+      triage.push(...(records as TriageRecord[]));
+    } catch {
+      triage_errors++;
+    }
+  }
+  return { triage, triage_errors };
+}
+
 export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<RetroInputs> {
   const phase = readPhase(ctx.home, epic, id);
   const events = listEvents(ctx.home, epic, id);
@@ -54,9 +84,9 @@ export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<R
     ? readFileSync(promptsFile, "utf8")
         .split("\n")
         .filter((l) => l.trim() !== "")
-        .map((l) => JSON.parse(l) as { ts: string; phase: number | null; text: string })
+        .map((l) => JSON.parse(l) as { ts: string; phase: number | null; kind?: RetroInputs["prompts"][number]["kind"]; text: string })
         .filter((p) => p.phase === id && (implemented === null || p.ts > implemented.ts) && (shippedAt === null || p.ts <= shippedAt))
-        .map((p) => ({ ts: p.ts, text: p.text }))
+        .map((p) => ({ ts: p.ts, kind: p.kind ?? "implementation", text: p.text }))
     : [];
   return {
     phase: phase.meta,
@@ -67,8 +97,16 @@ export async function retroInputs(ctx: Ctx, epic: string, id: number): Promise<R
     implemented_at: implemented?.ts ?? null,
     ...gh,
     prompts,
+    loop_commits: events
+      .filter((e) => e.kind === "feedback-commit")
+      .map((e) => ({ sha: e.sha ?? "", items: (e.text ?? "").split(" ").filter((i) => i !== "") })),
+    ...parseTriage(events),
     prior_lessons: epicLessons(ctx.home, epic).filter((l) => l.phase < id),
   };
+}
+
+function isOverride(t: TriageRecord): boolean {
+  return t.final !== t.proposed || t.edited || t.merged_into !== null;
 }
 
 async function inputs(args: string[], ctx: Ctx): Promise<CommandResult> {
@@ -80,6 +118,7 @@ async function inputs(args: string[], ctx: Ctx): Promise<CommandResult> {
     `phase ${id} ${bundle.phase.slug} ${bundle.phase.status} ${bundle.phase.kind}`,
     `implemented ${bundle.implemented_sha ?? "none"}${bundle.implemented_at ? ` at ${bundle.implemented_at}` : ""}`,
     `events ${bundle.events.length}, prs ${bundle.prs.length}, files ${bundle.files.files.length}, prompts after implemented ${bundle.prompts.length}`,
+    `loop commits ${bundle.loop_commits.length}, triage overrides ${bundle.triage.filter(isOverride).length}`,
   ].join("\n");
   return { json: bundle, text };
 }

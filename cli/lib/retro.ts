@@ -5,7 +5,7 @@ import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
 import { readPhase } from "./phase.ts";
 import { paths } from "./store.ts";
 
-export const RETRO_SKILLS = ["planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "not-planet"] as const;
+export const RETRO_SKILLS = ["planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-pr-feedback", "not-planet"] as const;
 export type RetroSkill = (typeof RETRO_SKILLS)[number];
 
 export interface RetroLesson {

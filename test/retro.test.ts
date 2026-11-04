@@ -8,9 +8,10 @@ import { createEpic } from "../cli/lib/epic.ts";
 import { appendEvent, listEvents } from "../cli/lib/events.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
-import { listRetros, retroFileName, writeRetro } from "../cli/lib/retro.ts";
+import { listRetros, parseLessons, retroFileName, writeRetro } from "../cli/lib/retro.ts";
 import { paths } from "../cli/lib/store.ts";
 import type { PrFeedback } from "../cli/lib/gh.ts";
+import type { RetroInputs } from "../cli/commands/retro.ts";
 
 const PR = "https://github.com/o/r/pull/7";
 const FEEDBACK: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "head777", reviews: [], comments: [], conversation: [], failed_checks: [] };
@@ -40,7 +41,7 @@ test("retro inputs bundles events, prs, files, and prompts after the implemented
   assert.equal(j.implemented_sha, "impl123");
   assert.equal(j.implemented_at, LATER);
   assert.equal((j.events as unknown[]).length, 2);
-  assert.deepEqual(j.prompts, [{ ts: "2026-09-03T17:00:00.000Z", text: "rename useFoo to useBar" }]);
+  assert.deepEqual(j.prompts, [{ ts: "2026-09-03T17:00:00.000Z", kind: "implementation", text: "rename useFoo to useBar" }]);
   assert.deepEqual((j.prs as PrFeedback[])[0].head_sha, "head777");
   assert.equal(((j.files as { files: unknown[] }).files).length, 1);
   assert.equal(j.gh_unavailable, false);
@@ -128,4 +129,46 @@ test("retro write falls back to the draft's frontmatter head_sha when --head is 
   const r2 = await run(["retro", "write", "e", "1", "--file", draft, "--head", "cli1", "--json"], ctx(home));
   assert.equal(r2.code, 0);
   assert.equal((r2.json as { meta: { head_sha: string } }).meta.head_sha, "cli1");
+});
+
+test("retro inputs separate loop commits, triage, and review prompts", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "feedback-commit", text: "C1 I2", sha: "f1", session: SESSION }, NOW);
+  appendEvent(home, "e", { phase: 1, kind: "triage", text: JSON.stringify([
+    { id: "C1", proposed: "do", final: "do", edited: false, merged_into: null, defer_to: null },
+    { id: "R1", proposed: "weigh", final: "do", edited: false, merged_into: null, defer_to: null },
+  ]), session: SESSION }, NOW);
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
+  const r = await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }));
+  const j = r.json as RetroInputs;
+  assert.deepEqual(j.loop_commits, [{ sha: "f1", items: ["C1", "I2"] }]);
+  assert.equal(j.triage.length, 2);
+  assert.equal(j.triage_errors, 0);
+  const text = await run(["retro", "inputs", "e", "1"], ctx(home, { gh }));
+  assert.match(text.stdout, /loop commits 1, triage overrides 1/);
+});
+
+test("a malformed triage event is skipped and counted", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "triage", text: "not json", session: SESSION }, NOW);
+  appendEvent(home, "e", { phase: 1, kind: "triage", text: "{}", session: SESSION }, NOW);
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
+  const j = (await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }))).json as RetroInputs;
+  assert.deepEqual(j.triage, []);
+  assert.equal(j.triage_errors, 2);
+});
+
+test("prompt kind is passed through and defaults to implementation for old lines", async () => {
+  const home = setup();
+  appendEvent(home, "e", { phase: 1, kind: "implemented", sha: "impl123", session: SESSION }, NOW);
+  mkdirSync(paths.feedback(home, "e"), { recursive: true });
+  appendFileSync(paths.prompts(home, "e"), `${JSON.stringify({ ts: LATER, session: SESSION, kind: "review", phase: 1, proposal: null, text: "triage" })}\n`);
+  appendFileSync(paths.prompts(home, "e"), `${JSON.stringify({ ts: LATER, session: SESSION, phase: 1, proposal: null, text: "old" })}\n`);
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
+  const j = (await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }))).json as RetroInputs;
+  assert.deepEqual(j.prompts.map((p) => p.kind), ["review", "implementation"]);
+});
+
+test("lessons may target planet-pr-feedback", () => {
+  assert.equal(parseLessons([{ text: "t", skill: "planet-pr-feedback", apply: true }])[0].skill, "planet-pr-feedback");
 });

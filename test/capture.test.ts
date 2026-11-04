@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, review, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
@@ -30,7 +30,7 @@ function setup(phase: number | null = null): string {
   return home;
 }
 
-test("responseText flattens strings, arrays, and objects", async () => {
+test("responseText flattens strings, arrays, and objects", () => {
   assert.equal(responseText("x"), "x");
   assert.equal(responseText([{ type: "text", text: "a" }, { type: "text", text: "b" }]), "a\nb");
   assert.equal(responseText({ stdout: "out", stderr: "err" }), "out\nerr");
@@ -38,7 +38,7 @@ test("responseText flattens strings, arrays, and objects", async () => {
   assert.equal(responseText(null), "");
 });
 
-test("approvedPlanText slices after the heading and falls back", async () => {
+test("approvedPlanText slices after the heading and falls back", () => {
   assert.equal(approvedPlanText(approvedResponse(PLAN), "fb"), PLAN);
   assert.equal(approvedPlanText("no heading", "fb"), "fb");
 });
@@ -312,6 +312,47 @@ test("a corrupt marks file skips the phase and still captures the prompt", async
   const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
   assert.equal(r.context, null);
   assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hi/);
+  assert.equal(readFileSync(paths.hookLog(home), "utf8").trim().split("\n").length, 1);
+});
+
+test("a malformed phase file gives no note, logs one line, and still captures the prompt", async () => {
+  const { home, gh } = noteSetup();
+  writeFileSync(join(home, "epics", "e", "phases", readdirSync(join(home, "epics", "e", "phases"))[0]), "---\n: : [\n---\n");
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
+  assert.equal(r.context, null);
+  assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hi/);
+  assert.equal(readFileSync(paths.hookLog(home), "utf8").trim().split("\n").length, 1);
+});
+
+test("phases are polled concurrently", async () => {
+  const home = setup(1);
+  newPhases(home, "e", [{ slug: "b", title: "B" }]);
+  const PR2 = "https://github.com/o/r/pull/8";
+  linkPrs(home, "e", 1, [OPEN_PR], NOW);
+  linkPrs(home, "e", 2, [PR2], NOW);
+  let started = 0;
+  let release!: () => void;
+  const both = new Promise<void>((resolve) => { release = resolve; });
+  const gh = fakeGh();
+  gh.prFeedback = async (url) => {
+    started++;
+    if (started === 2) release();
+    await both;
+    return { ...BASE, url, reviews: [review(`r-${url}`, "bob", "x")] };
+  };
+  const r = await Promise.race([
+    handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh })),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("phases were polled one after another")), 2000)),
+  ]);
+  assert.match(r.context ?? "", /phase 1 PR has 1 new review items\.[^\n]*\nPlanet: phase 2 PR has 1 new review items\./);
+});
+
+test("a gh failure is remembered so the next prompt makes no gh call", async () => {
+  const { home } = noteSetup();
+  const down = fakeGh({}, {}, true);
+  await handleHook(hook("UserPromptSubmit", { user_input: "one" }), ctx(home, { gh: down }));
+  await handleHook(hook("UserPromptSubmit", { user_input: "two" }), ctx(home, { gh: down }));
+  assert.equal(down.calls.filter((c) => c.startsWith("prFeedback")).length, 1);
 });
 
 test("only prompts and open prs produce a note", async () => {

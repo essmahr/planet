@@ -68,15 +68,18 @@ have the same gap: the phase ships and the retro waits until someone runs
    prints a short summary and exits.
 3. The exit wakes the chat. `go` is not model-invocable, so the watcher's
    output tells the model what to do, as its last line:
-   `invoke planet:planet-pr-feedback epic: <slug> phase: <N> event: <feedback|merged|closed>`.
+   `invoke planet:planet-pr-feedback epic: <slug> phase: <N> event: <feedback|merged|closed|stopped>`.
    The router reaches the same skill with the request `pr feedback [N]`.
-   `planet-pr-feedback` handles all three events:
+   `planet-pr-feedback` handles all four events:
    - merged: step 6 below.
    - closed without merge: say so, remove the worktree, stop.
    - feedback: step 4.
+   - stopped: say the watcher's reason (no linked PR, `gh` unavailable, max
+     polls) and that `/planet:go <epic> pr feedback <N>` restarts it.
    Its description says it runs only on that watcher line or from the router,
    like the other step skills. It works after compaction or unrelated work in
-   between, because the line carries everything it needs.
+   between: the line names the epic and phase, and the skill reads `dir` from
+   `planet epic show`.
 4. `planet-pr-feedback` reads `planet pr feedback <epic> <phase> --new`,
    triages each item, drafts do commits in the worktree, writes the triage
    file, and shows the batch (format below). It then restarts the watcher and
@@ -166,8 +169,8 @@ feedback not yet notified, add one line naming the phase and the count. Never th
 content. The check calls GitHub at most once per 5 minutes per epic (like
 `planet sync`'s max age). Phases are polled concurrently, each bounded to 4 s,
 well under the hook's 10 s. A failed check also records its time, so failures
-back off for the same 5 minutes. The hook stays silent on any failure. The hook must work when no watcher is running, so it
-cannot rely on a watcher's poll result.
+back off for the same 5 minutes. The hook stays silent on any failure. The hook must work when no
+watcher is running, so it cannot rely on a watcher's poll result.
 
 ## Retro
 
@@ -217,9 +220,10 @@ Changes:
 
 ## Left to the builder
 
-- Poll interval default and backoff numbers.
-- Exact shorthand grammar, as long as the example above parses.
-- Where the triage file's diffs come from (`git format-patch` or `git diff`).
+Nothing is left open. Shipped: the watcher polls every 60 s by default
+(`--interval`), doubles the delay after each failure up to 900 s, and stops
+after 5 failures in a row. The triage file's diffs come from `git format-patch`.
+The shorthand grammar is in the skill's `references/batch-format.md`.
 
 ## Calls made without the user (check these)
 

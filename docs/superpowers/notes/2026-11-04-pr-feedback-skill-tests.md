@@ -564,3 +564,42 @@ All 5 reps: `planet open`, then the step 6 repo check, then
 `dir: /Users/u/.planet/epics/gql-migration`, `phase: 2`, `event: feedback`.
 All 5 ended the turn on `feedback shown for phase 2` with no further calls.
 None ran `planet session step`, which is correct: the skill sets its own marker.
+
+### Retro: phase 2 with 2 loop commits and 1 weigh-to-do override
+
+Scenario: `planet retro inputs` with five commits after implemented (three own:
+rename, docblock cut, test split; two loop commits `c3c3c3c`, `d4d4d4d` for
+PRRC_1 and PRRC_2), prompts tagged `implementation` and `review`, and a
+`triage` record where PRRC_2 went from weigh to do. The agent writes the filled
+brief, runs the sweep itself on a canned `git log --stat`, then the retro body
+and lesson candidates. Pass: two category tables (own and review-driven), and a
+lesson candidate against `planet-pr-feedback` for the override.
+
+#### RED, current retro (0.3.0): 0 of 5 pass
+
+- All 5 filled the brief with the four prompts in one list, the review reply
+  "1, 2 do, 3 refute" among them, and no loop commit shas.
+- All 5 sweeps produced one table mixing the memoize and error-state loop
+  commits with the rename, docblock, and test split (under other, structure,
+  or tests). One sweep noted in a footnote that two commits were review-loop
+  commits, but still used one table.
+- All 5 mentioned the override in Review and CI ("Triage proposed weigh; the
+  author overrode it to do"). None proposed a lesson for `planet-pr-feedback`.
+  The review-driven fixes became `planet-phase-plan` or `planet-implement`
+  lessons instead.
+
+#### GREEN, split brief and Review feedback step (0.4.0): 5 of 5 pass
+
+- All 5 briefs filled `Loop commits ...: c3c3c3c d4d4d4d`, put the three
+  `implementation` prompts under own prompts and "1, 2 do, 3 refute" under loop
+  prompts.
+- All 5 sweeps and retros had an Own refinements table (naming 2, comments 1,
+  tests 1) and a Review-driven table (tests 1, plus the memoize and error-state
+  changes under other, structure, or scope). The category for the error-state
+  change varied (structure 2, scope 2, other 1), which is categorization taste,
+  not a split failure.
+- All 5 wrote `## Review feedback` with the override count (1, bucket changed:
+  PRRC_2 weigh to do, no edits, no merges) and `Deferred: none`.
+- All 5 offered a `planet-pr-feedback` candidate, worded close to "triage a
+  comment saying callers cannot handle the current behavior as do, not weigh".
+  Two flagged the evidence as thin (one override).

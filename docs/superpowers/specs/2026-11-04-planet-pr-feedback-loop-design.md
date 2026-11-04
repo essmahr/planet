@@ -56,7 +56,7 @@ have the same gap: the phase ships and the retro waits until someone runs
 | Cleanup | Remove what Planet created as soon as it is no longer needed (user's call). See Worktree lifecycle. |
 | Commits | Additive, always, inside this loop, including on a draft PR. `pr-lifecycle.md`'s draft force-push rule still applies to work outside the loop. |
 | Draft PRs | The watcher runs on drafts too (CI failures, bot reviews). Marking ready for review stays with the user. |
-| CI failure ids | `check:<name>@<head sha>`. A push that leaves the check failing wakes the chat again, which is correct. A refute or defer on a CI item posts no reply. |
+| CI failure ids | `check:<url-encoded name>@<head sha>`, so an id never holds a space. A push that leaves the check failing wakes the chat again, which is correct. A refute or defer on a CI item posts no reply. |
 | Merge | Watcher exits on merge. `planet sync` marks the phase shipped. AskUserQuestion with **Now** (run `planet-retro` in this chat) and **Later** (router's REVIEW column already shows "retro pending"). (user's call) |
 
 ## Flow

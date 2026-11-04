@@ -33,7 +33,7 @@ export function feedbackItems(f: PrFeedback): FeedbackItem[] {
     items.push({ ...base, id: c.id, kind: "conversation", author: c.author, body: c.body, url: c.url, created_at: c.created_at });
   }
   for (const c of f.failed_checks) {
-    items.push({ ...base, id: `check:${c.name}@${f.head_sha}`, kind: "check", author: "ci", body: c.state, url: c.url, created_at: null });
+    items.push({ ...base, id: `check:${encodeURIComponent(c.name)}@${f.head_sha}`, kind: "check", author: "ci", body: c.state, url: c.url, created_at: null });
   }
   return items;
 }

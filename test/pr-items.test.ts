@@ -32,6 +32,11 @@ test("a check keeps its id on the same head sha and gets a new one on a new sha"
   assert.deepEqual(b, ["check:lint@sha2"]);
 });
 
+test("a check id has no spaces, so it survives shell words and space-split event text", () => {
+  const [item] = feedbackItems({ ...BASE, failed_checks: [{ ...LINT, name: "CI / lint" }] });
+  assert.equal(item.id, "check:CI%20%2F%20lint@sha1");
+});
+
 test("handled implies notified and clears the hook cache", () => {
   const home = tmpHome();
   recordCheck(home, "e", 1, 3, NOW);

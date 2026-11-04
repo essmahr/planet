@@ -3,9 +3,10 @@
 Drafts live in a detached worktree on the PR branch, so the user's checkout is
 never touched, whatever branch it is on.
 
-Path: `<repo root>/../.planet-worktrees/<repo name>-<slug>-<N>`, with the repo
-root from `git rev-parse --show-toplevel`. Never inside the repo's working
-tree. No local branch is created. Run git there with `git -C <path>`.
+Path: `<repo root>/../.planet-worktrees/<repo name>-<slug>-<N>`. The repo root
+is the parent of `git rev-parse --path-format=absolute --git-common-dir`, so a
+session running in a linked worktree still gets the main checkout's root, not
+its own. Never inside the repo's working tree. No local branch is created. Run git there with `git -C <path>`.
 
 ## Create, at the start of every batch
 

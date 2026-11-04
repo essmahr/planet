@@ -153,7 +153,10 @@ batch plus the full drafted diffs, so the chat shows only the summary.
 ## Worktree lifecycle
 
 - Path: `<repo root>/../.planet-worktrees/<repo>-<slug>-<N>`, never inside the
-  repo's working tree. A worktree under `~/.planet` would end up in the store's
+  repo's working tree. The repo root is the parent of
+  `git rev-parse --path-format=absolute --git-common-dir`, so a session in a
+  linked worktree (a Claude Code worktree session) uses the main checkout's
+  root. A worktree under `~/.planet` would end up in the store's
   git commits.
 - Created detached at `origin/<pr branch>` after a fetch. No local branch is
   created. This avoids git's refusal to check out a branch already checked out

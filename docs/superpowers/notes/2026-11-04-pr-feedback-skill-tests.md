@@ -661,3 +661,22 @@ exits 0 with only `phase 2: watcher already running (pid 4711)`. Pass: no tool
 calls, no chat message, the marker left alone.
 
 - All 3 made no tool calls and wrote no message, citing the Troubleshooting line.
+
+### Router merged cleanup, step 11 event, `retro: router`, worktree root: 3 of 3 pass
+
+Context: `go` SKILL.md and `references/pr-feedback.md`, `planet-pr-feedback`
+SKILL.md and `references/worktree.md`. Four scenarios per rep.
+
+- **S1.** `/planet:go e`; phase 2 shipped with `merged_prs` set. Pass: the
+  router invokes `planet-pr-feedback` with `event: merged` and `retro: router`
+  before `planet session step retro --phase 2` and the retro dispatch. 3 of 3.
+  One rep noted the reference's "run step 6 first" could repeat the repo check
+  once; harmless.
+- **S2.** `/planet:go e pr feedback 2`; phase 2 has no `open_prs` and one
+  `merged_prs`. Pass: `event: merged`, no `retro` line, turn ends on the last
+  line. 3 of 3.
+- **S3.** `planet-pr-feedback` with `event: merged`, `retro: router`. Pass:
+  cleanup, marker restored, returns `phase 2 merged`, no AskUserQuestion. 3 of 3.
+- **S4.** Session cwd in a linked worktree `/work/r/.claude/worktrees/feature-x`.
+  Pass: root from `git rev-parse --path-format=absolute --git-common-dir`,
+  worktree at `/work/.planet-worktrees/r-e-2`. 3 of 3.

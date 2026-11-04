@@ -50,9 +50,9 @@ test("no marker means no action", async () => {
 
 test("UserPromptSubmit appends a prompt line with the latest proposal id", async () => {
   const home = setup();
-  (await handleHook(hook("UserPromptSubmit", { user_input: "first" }), ctx(home))).actions;
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home))).actions;
-  (await handleHook(hook("UserPromptSubmit", { prompt: "second via legacy field" }), ctx(home))).actions;
+  await handleHook(hook("UserPromptSubmit", { user_input: "first" }), ctx(home));
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home));
+  await handleHook(hook("UserPromptSubmit", { prompt: "second via legacy field" }), ctx(home));
   const lines = readFileSync(paths.prompts(home, "e"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.deepEqual(lines[0], { ts: NOW, session: SESSION, kind: "planning", phase: null, proposal: null, text: "first" });
   assert.equal(lines[1].proposal, 1);
@@ -62,9 +62,9 @@ test("UserPromptSubmit appends a prompt line with the latest proposal id", async
 
 test("kind follows the session step, not the phase", async () => {
   const home = setup(1);
-  (await handleHook(hook("UserPromptSubmit", { user_input: "still planning" }), ctx(home))).actions;
+  await handleHook(hook("UserPromptSubmit", { user_input: "still planning" }), ctx(home));
   setSessionStep(home, SESSION, "implement");
-  (await handleHook(hook("UserPromptSubmit", { user_input: "build it" }), ctx(home))).actions;
+  await handleHook(hook("UserPromptSubmit", { user_input: "build it" }), ctx(home));
   const lines = readFileSync(paths.prompts(home, "e"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
   assert.equal(lines[0].kind, "planning");
   assert.equal(lines[1].kind, "implementation");
@@ -90,8 +90,8 @@ test("PreToolUse snapshots the plan; PostToolUse approval marks it approved", as
 
 test("an approved text that differs from the snapshot is logged, and the snapshot is kept", async () => {
   const home = setup();
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN } }), ctx(home))).actions;
-  (await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN }, tool_response: approvedResponse("# Phase 1\n\nDo B then A.\n") }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN } }), ctx(home));
+  await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t2", tool_input: { plan: PLAN }, tool_response: approvedResponse("# Phase 1\n\nDo B then A.\n") }), ctx(home));
   const p = readProposal(home, "e", 1);
   assert.equal(p.meta.outcome, "approved");
   assert.equal(p.body, PLAN);
@@ -101,7 +101,7 @@ test("an approved text that differs from the snapshot is logged, and the snapsho
 
 test("an unrecognized PostToolUse result leaves the proposal pending and logs it", async () => {
   const home = setup();
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN } }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN } }), ctx(home));
   const actions = (await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t6", tool_input: { plan: PLAN }, tool_response: { isAgent: false, filePath: "/plans/x.md" } }), ctx(home))).actions;
   assert.deepEqual(actions, ["proposal 1 left pending: unrecognized result"]);
   assert.equal(readProposal(home, "e", 1).meta.outcome, "pending");
@@ -110,17 +110,17 @@ test("an unrecognized PostToolUse result leaves the proposal pending and logs it
 
 test("rejections through PostToolUse text, PostToolUseFailure, and PermissionDenied", async () => {
   const home = setup();
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t3", tool_input: { plan: PLAN } }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t3", tool_input: { plan: PLAN } }), ctx(home));
   const comments = 'User chose to stay in plan mode and continue planning\n\nComments on the plan:\n[Re: "Do A then B"] other order';
   assert.deepEqual((await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t3", tool_input: { plan: PLAN }, tool_response: comments }), ctx(home))).actions, ["proposal 1 rejected"]);
   assert.equal(readProposal(home, "e", 1).meta.feedback, comments);
   assert.deepEqual((await handleHook(hook("PostToolUseFailure", { tool_name: "ExitPlanMode", tool_use_id: "t3", tool_input: { plan: PLAN }, tool_error: comments }), ctx(home))).actions, ["proposal 1 already rejected"]);
 
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t4", tool_input: { plan: PLAN } }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t4", tool_input: { plan: PLAN } }), ctx(home));
   assert.deepEqual((await handleHook(hook("PermissionDenied", { tool_name: "ExitPlanMode", tool_use_id: "t4", tool_input: { plan: PLAN } }), ctx(home))).actions, ["proposal 2 rejected"]);
   assert.equal(readProposal(home, "e", 2).meta.feedback, "rejected without a message");
 
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t5", tool_input: { plan: PLAN } }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "t5", tool_input: { plan: PLAN } }), ctx(home));
   assert.deepEqual((await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: PLAN }, tool_response: "The user doesn't want to proceed. the user said:\nno" }), ctx(home))).actions, ["proposal 3 rejected"], "falls back to latest pending without tool_use_id");
 });
 
@@ -173,7 +173,7 @@ test("a PR from another repo is logged, not linked, and the hook still exits 0",
 
 test("PostToolUse approval arrives as a structured result carrying the approved plan", async () => {
   const home = setup();
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: { plan: PLAN, planFilePath: "/plans/x.md" } }), ctx(home));
   const same = (await handleHook(hook("PostToolUse", { tool_name: "ExitPlanMode", tool_use_id: "s1", tool_input: {}, tool_response: { filePath: "/plans/x.md", isAgent: false, plan: PLAN } }), ctx(home))).actions;
   assert.deepEqual(same, ["proposal 1 approved"]);
   assert.equal(readProposal(home, "e", 1).meta.outcome, "approved");
@@ -189,7 +189,7 @@ test("a new plan while one is pending rejects the pending one with the transcrip
     message: { role: "user", content: [{ type: "tool_result", tool_use_id: "r1", is_error: true, content: "The user doesn't want to proceed with this tool use. To tell you how to proceed, the user said:\ntrim down, too much surface area" }] },
   };
   writeFileSync(transcript, `${JSON.stringify({ type: "assistant", message: { content: [] } })}\n${JSON.stringify(rejection)}\n`);
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "r1", tool_input: { plan: PLAN }, transcript_path: transcript }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "r1", tool_input: { plan: PLAN }, transcript_path: transcript }), ctx(home));
   const actions = (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "r2", tool_input: { plan: PLAN }, transcript_path: transcript }), ctx(home))).actions;
   assert.deepEqual(actions, ["proposal 1 rejected", "proposal 2 created"]);
   const rejected = readProposal(home, "e", 1);
@@ -201,8 +201,8 @@ test("a new plan while one is pending rejects the pending one with the transcrip
 
 test("a pending proposal is rejected with a placeholder when the transcript has no record", async () => {
   const home = setup();
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q1", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home))).actions;
-  (await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q2", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home))).actions;
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q1", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home));
+  await handleHook(hook("PreToolUse", { tool_name: "ExitPlanMode", tool_use_id: "q2", tool_input: { plan: PLAN }, transcript_path: "/nonexistent.jsonl" }), ctx(home));
   assert.match(readProposal(home, "e", 1).meta.feedback ?? "", /message not captured/);
 });
 

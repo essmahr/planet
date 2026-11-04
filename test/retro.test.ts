@@ -13,7 +13,7 @@ import { paths } from "../cli/lib/store.ts";
 import type { PrFeedback } from "../cli/lib/gh.ts";
 
 const PR = "https://github.com/o/r/pull/7";
-const FEEDBACK: PrFeedback = { url: PR, head_sha: "head777", reviews: [], comments: [], failed_checks: [] };
+const FEEDBACK: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "head777", reviews: [], comments: [], conversation: [], failed_checks: [] };
 const LATER = "2026-09-03T16:00:00.000Z";
 
 function setup(): string {

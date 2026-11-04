@@ -9,9 +9,13 @@ import { newPhases } from "../cli/lib/phase.ts";
 const PR = "https://github.com/o/r/pull/7";
 const FEEDBACK: PrFeedback = {
   url: PR,
+  state: "open",
+  author: "me",
+  head_ref: "me/x",
   head_sha: "head777",
-  reviews: [{ author: "ana", state: "CHANGES_REQUESTED", body: "rename the hook" }],
-  comments: [{ author: "ana", path: "src/a.ts", line: 12, body: "useThing reads better", resolved: true }],
+  reviews: [{ id: "R1", author: "ana", state: "CHANGES_REQUESTED", body: "rename the hook", created_at: "2026-11-01T00:00:00Z", url: "https://github.com/o/r/pull/7#r1" }],
+  comments: [{ id: "C1", author: "ana", path: "src/a.ts", line: 12, body: "useThing reads better", resolved: true, created_at: "2026-11-01T00:01:00Z", url: "https://github.com/o/r/pull/7#c1" }],
+  conversation: [],
   failed_checks: [{ name: "typecheck", state: "FAILURE", url: "https://ci/1" }],
 };
 

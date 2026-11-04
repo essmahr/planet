@@ -17,17 +17,31 @@ export interface PrFile {
 }
 
 export interface PrReview {
+  id: string;
   author: string;
   state: string;
   body: string;
+  created_at: string;
+  url: string;
 }
 
 export interface PrComment {
+  id: string;
   author: string;
   path: string;
   line: number | null;
   body: string;
   resolved: boolean;
+  created_at: string;
+  url: string;
+}
+
+export interface PrConversationComment {
+  id: string;
+  author: string;
+  body: string;
+  created_at: string;
+  url: string;
 }
 
 export interface PrCheck {
@@ -38,16 +52,20 @@ export interface PrCheck {
 
 export interface PrFeedback {
   url: string;
+  state: PrState;
+  author: string;
+  head_ref: string;
   head_sha: string;
   reviews: PrReview[];
   comments: PrComment[];
+  conversation: PrConversationComment[];
   failed_checks: PrCheck[];
 }
 
 export interface Gh {
   prStates(urls: string[]): Promise<PrInfo[]>;
   prFiles(url: string): Promise<PrFile[]>;
-  prFeedback(url: string): Promise<PrFeedback>;
+  prFeedback(url: string, opts?: { timeoutMs?: number }): Promise<PrFeedback>;
 }
 
 export class GhUnavailable extends Error {
@@ -69,9 +87,9 @@ export function classifyGhError(err: unknown): Error {
   return new Error(stderr || e.message);
 }
 
-async function gh(args: string[]): Promise<string> {
+async function gh(args: string[], timeoutMs = 10_000): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 10_000 });
+    const { stdout } = await execFileAsync("gh", args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: timeoutMs });
     return stdout;
   } catch (err) {
     throw classifyGhError(err);
@@ -88,10 +106,14 @@ export type GraphqlContext =
   | { name: string; conclusion: string | null; detailsUrl: string | null }
   | { context: string; state: string; targetUrl: string | null };
 
-interface GraphqlFeedback {
+export interface GraphqlFeedback {
+  state: "OPEN" | "MERGED" | "CLOSED";
+  author: { login: string } | null;
+  headRefName: string;
   headRefOid: string;
-  reviews: { nodes: { author: { login: string } | null; state: string; body: string }[] };
-  reviewThreads: { nodes: { isResolved: boolean; comments: { nodes: { author: { login: string } | null; path: string; line: number | null; body: string }[] } }[] };
+  reviews: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; state: string; body: string }[] };
+  reviewThreads: { nodes: { isResolved: boolean; comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; path: string; line: number | null; body: string }[] } }[] };
+  comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; body: string }[] };
   commits: { nodes: { commit: { statusCheckRollup: { contexts: { nodes: GraphqlContext[] } } | null } }[] };
 }
 
@@ -111,6 +133,26 @@ export function failedChecks(contexts: GraphqlContext[]): PrCheck[] {
   return contexts
     .map((c) => ("conclusion" in c ? { name: c.name, state: c.conclusion ?? "PENDING", url: c.detailsUrl ?? "" } : { name: c.context, state: c.state, url: c.targetUrl ?? "" }))
     .filter((c) => !PASSING_OR_PENDING.has(c.state));
+}
+
+export function parseFeedback(url: string, pr: GraphqlFeedback): PrFeedback {
+  const reviews = pr.reviews.nodes.map((r) => ({ id: r.id, author: reviewAuthor(r.author), state: r.state, body: r.body, created_at: r.createdAt, url: r.url }));
+  const comments = pr.reviewThreads.nodes.flatMap((t) =>
+    t.comments.nodes.map((c) => ({ id: c.id, author: reviewAuthor(c.author), path: c.path, line: c.line, body: c.body, resolved: t.isResolved, created_at: c.createdAt, url: c.url })),
+  );
+  const conversation = pr.comments.nodes.map((c) => ({ id: c.id, author: reviewAuthor(c.author), body: c.body, created_at: c.createdAt, url: c.url }));
+  const contexts = pr.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [];
+  return {
+    url,
+    state: pr.state.toLowerCase() as PrState,
+    author: reviewAuthor(pr.author),
+    head_ref: pr.headRefName,
+    head_sha: pr.headRefOid,
+    reviews,
+    comments,
+    conversation,
+    failed_checks: failedChecks(contexts),
+  };
 }
 
 export function realGh(): Gh {
@@ -135,22 +177,20 @@ export function realGh(): Gh {
       const raw = JSON.parse(await gh(["pr", "view", url, "--json", "files"])) as { files: PrFile[] };
       return raw.files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions }));
     },
-    async prFeedback(url) {
+    async prFeedback(url, opts) {
       const query = `query { resource(url: ${JSON.stringify(url)}) { ... on PullRequest {
-        headRefOid
-        reviews(last: 50) { nodes { author { login } state body } }
-        reviewThreads(last: 100) { nodes { isResolved comments(first: 50) { nodes { author { login } path line body } } } }
+        state author { login } headRefName headRefOid
+        reviews(last: 50) { nodes { id url createdAt author { login } state body } }
+        reviewThreads(last: 100) { nodes { isResolved comments(first: 50) { nodes { id url createdAt author { login } path line body } } } }
+        comments(last: 100) { nodes { id url createdAt author { login } body } }
         commits(last: 1) { nodes { commit { statusCheckRollup { contexts(last: 100) { nodes {
           ... on CheckRun { name conclusion detailsUrl }
           ... on StatusContext { context state targetUrl } } } } } } }
       } } }`;
-      const raw = JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`])) as { data: { resource: GraphqlFeedback | null } };
+      const raw = JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`], opts?.timeoutMs)) as { data: { resource: GraphqlFeedback | null } };
       const pr = raw.data.resource;
       if (!pr) throw new Error(`no pull request at ${url}`);
-      const reviews = pr.reviews.nodes.map((r) => ({ author: reviewAuthor(r.author), state: r.state, body: r.body }));
-      const comments = pr.reviewThreads.nodes.flatMap((t) => t.comments.nodes.map((c) => ({ author: reviewAuthor(c.author), path: c.path, line: c.line, body: c.body, resolved: t.isResolved })));
-      const contexts = pr.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [];
-      return { url, head_sha: pr.headRefOid, reviews, comments, failed_checks: failedChecks(contexts) };
+      return parseFeedback(url, pr);
     },
   };
 }

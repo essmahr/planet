@@ -33,7 +33,7 @@ export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string
       if (unavailable) throw new GhUnavailable("offline");
       return files[url] ?? [];
     },
-    async prFeedback(url) {
+    async prFeedback(url, _opts) {
       calls.push(`prFeedback:${url}`);
       if (unavailable) throw new GhUnavailable("offline");
       const f = feedback[url];

@@ -6,7 +6,7 @@ import { createProposal, markApproved, markRejected } from "../cli/lib/proposal.
 import { git } from "../cli/lib/store.ts";
 import type { EpicBrief, EpicView } from "../cli/lib/view.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { newPhases } from "../cli/lib/phase.ts";
+import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { writeRetro } from "../cli/lib/retro.ts";
 
 test("planet with no command prints usage; unknown command exits 2", async () => {
@@ -83,6 +83,19 @@ test("epic show --brief carries statuses and open PR urls only; the full view li
   assert.deepEqual(full.lessons, [{ phase: 1, skill: "planet-phase-plan", text: "name the spec file" }]);
   const t = (await run(["epic", "show", "e", "--brief"], ctx(home))).stdout;
   assert.match(t, /01 a {2}in-progress {2}open_prs=1/);
+});
+
+test("epic show --brief lists merged PR urls per phase", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7", "https://github.com/o/r/pull/8"], NOW);
+  const phase = readPhase(home, "e", 1);
+  phase.meta.prs[0].state = "merged";
+  phase.meta.prs[1].state = "closed";
+  writePhase(phase);
+  const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
+  assert.deepEqual(brief.phases.map((p) => [p.open_prs, p.merged_prs]), [[[], ["https://github.com/o/r/pull/7"]]]);
 });
 
 test("epic resolve returns candidates", async () => {

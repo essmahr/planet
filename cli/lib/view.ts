@@ -32,7 +32,7 @@ export interface EpicView {
 /** What the router needs to pick the next step: statuses and paths, no PR detail, no retro or proposal paths. */
 export interface EpicBrief {
   epic: Pick<Epic, "slug" | "title" | "repo" | "status">;
-  phases: Array<Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear"> & { open_prs: string[] }>;
+  phases: Array<Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear"> & { open_prs: string[]; merged_prs: string[] }>;
   last_approved_step: Step | null;
   paths: { dir: string; plan: string | null };
 }
@@ -97,6 +97,7 @@ export function epicBrief(home: string, slug: string): EpicBrief {
       kind: meta.kind,
       linear: meta.linear,
       open_prs: meta.prs.filter((pr) => pr.state === "open").map((pr) => pr.url),
+      merged_prs: meta.prs.filter((pr) => pr.state === "merged").map((pr) => pr.url),
     })),
     last_approved_step: lastApprovedStep(home, slug),
     paths: { dir: paths.epic(home, slug), plan: ifExists(paths.plan(home, slug)) },

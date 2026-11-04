@@ -7,6 +7,8 @@ export interface Ctx {
   env: NodeJS.ProcessEnv;
   stdin: () => string;
   sleep: (ms: number) => Promise<void>;
+  pid: number;
+  isAlive: (pid: number) => boolean;
 }
 
 export interface CommandResult {

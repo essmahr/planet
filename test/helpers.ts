@@ -65,6 +65,8 @@ export function ctx(home: string, overrides: Partial<Ctx> = {}): Ctx {
     env: { CLAUDE_CODE_SESSION_ID: SESSION },
     stdin: () => "",
     sleep: async () => {},
+    pid: 4242,
+    isAlive: () => false,
     ...overrides,
   };
 }

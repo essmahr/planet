@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -37,6 +37,7 @@ export const paths = {
   sessions: (home: string) => join(home, "sessions"),
   session: (home: string, id: string) => join(home, "sessions", id),
   hookLog: (home: string) => join(home, "hook.log"),
+  watchPid: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.pid`),
 };
 
 export function git(home: string, args: string[]): string {
@@ -60,9 +61,14 @@ export function ensureStore(home: string): void {
   if (!existsSync(join(home, ".git"))) git(home, ["init", "-q"]);
   const gitignore = join(home, ".gitignore");
   if (!existsSync(gitignore)) {
-    writeFileSync(gitignore, "hook.log\n.DS_Store\n*.log\n");
+    writeFileSync(gitignore, "hook.log\n.DS_Store\n*.log\nrun/\n");
     commit(home, "init store");
+    return;
   }
+  const ignored = readFileSync(gitignore, "utf8");
+  if (/^run\/$/m.test(ignored)) return;
+  writeFileSync(gitignore, `${ignored}${ignored.endsWith("\n") || ignored === "" ? "" : "\n"}run/\n`);
+  commit(home, "ignore watcher pid files");
 }
 
 export const LOCK_RETRIES = 5;

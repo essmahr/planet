@@ -134,6 +134,11 @@ batch plus the full drafted diffs, so the chat shows only the summary.
   with backoff and prints one line only after repeated failures, then exits
   with event `stopped`. A store error (corrupt marks file, missing phase)
   exits at once with event `stopped` and a reason line.
+  It keeps a pid file at `~/.planet/run/<epic>-<phase>.pid` (gitignored in
+  the store). When that file names another live process, it prints
+  `phase <N>: watcher already running (pid <p>)` and exits 0 with no invoke
+  line, and `planet-pr-feedback` takes no action on that exit. It removes its
+  own pid file on exit.
 - `planet pr feedback <epic> <phase> --new`: today's command, limited to items
   not yet handled, each with its notified flag. Each item gets a stable id.
 - `planet pr feedback mark <epic> <phase> notified|handled <id>...`: sets an item's mark.

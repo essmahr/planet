@@ -8,7 +8,7 @@ import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { addMarks } from "../cli/lib/pr-items.ts";
 import { git, paths } from "../cli/lib/store.ts";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 const PR2 = "https://github.com/o/r/pull/8";
@@ -117,4 +117,37 @@ test("a missing phase stops at once", async () => {
   const r = await run(["watch", "e", "9"], ctx(setup()));
   assert.equal(r.code, 0);
   assert.match(r.stdout, /^phase 9: store error \(no phase 9 in epic 'e'\)\ninvoke planet:planet-pr-feedback epic: e phase: 9 event: stopped\n$/);
+});
+
+test("a second watcher for a live pid exits without an invoke line", async () => {
+  const home = setup();
+  mkdirSync(dirname(paths.watchPid(home, "e", 1)), { recursive: true });
+  writeFileSync(paths.watchPid(home, "e", 1), "999\n");
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
+  const r = await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, isAlive: (pid) => pid === 999 }));
+  assert.equal(r.code, 0);
+  assert.equal(r.stdout, "phase 1: watcher already running (pid 999)\n");
+  assert.deepEqual(gh.calls, []);
+  assert.equal(readFileSync(paths.watchPid(home, "e", 1), "utf8"), "999\n");
+});
+
+test("a dead pid file is taken over, held while polling, and removed on exit", async () => {
+  const home = setup();
+  const pidFile = paths.watchPid(home, "e", 1);
+  mkdirSync(dirname(pidFile), { recursive: true });
+  writeFileSync(pidFile, "999\n");
+  const held: string[] = [];
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
+  const r = await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, isAlive: () => false, sleep: async () => { held.push(readFileSync(pidFile, "utf8")); } }));
+  assert.match(r.stdout, /event: feedback\n$/);
+  assert.deepEqual(held, ["1000\n"]);
+  assert.equal(existsSync(pidFile), false);
+});
+
+test("a pid file another watcher took over is left in place", async () => {
+  const home = setup();
+  const pidFile = paths.watchPid(home, "e", 1);
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
+  await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, sleep: async () => { writeFileSync(pidFile, "2000\n"); } }));
+  assert.equal(readFileSync(pidFile, "utf8"), "2000\n");
 });

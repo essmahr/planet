@@ -66,6 +66,15 @@ export interface Output {
   stderr(text: string): void;
 }
 
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 export function defaultCtx(): Ctx {
   return {
     home: planetHome(),
@@ -74,6 +83,8 @@ export function defaultCtx(): Ctx {
     env: process.env,
     stdin: () => readFileSync(0, "utf8"),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    pid: process.pid,
+    isAlive: processAlive,
   };
 }
 

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpHome } from "./helpers.ts";
 import { planetHome, git, commit, ensureStore, paths, withLockRetry } from "../cli/lib/store.ts";
@@ -34,12 +34,22 @@ test("hook.log is ignored: writing it alone leaves nothing to commit", () => {
   assert.equal(commit(home, "x"), false);
 });
 
-test("ensureStore does not overwrite a modified .gitignore", () => {
+test("ensureStore keeps a modified .gitignore and adds run/ to it", () => {
   const home = tmpHome();
   const gitignore = join(home, ".gitignore");
   writeFileSync(gitignore, "custom\n");
   ensureStore(home);
-  assert.equal(readFileSync(gitignore, "utf8"), "custom\n");
+  assert.equal(readFileSync(gitignore, "utf8"), "custom\nrun/\n");
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+  ensureStore(home);
+  assert.equal(readFileSync(gitignore, "utf8"), "custom\nrun/\n");
+});
+
+test("watcher pid files under run/ are ignored", () => {
+  const home = tmpHome();
+  mkdirSync(join(home, "run"));
+  writeFileSync(paths.watchPid(home, "e", 1), "123\n");
+  assert.equal(commit(home, "x"), false);
 });
 
 test("commit stages and commits only when dirty", () => {

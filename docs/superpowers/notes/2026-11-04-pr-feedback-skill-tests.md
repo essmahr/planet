@@ -653,3 +653,11 @@ runs after the batch is marked notified and before the turn ends.
   `planet session step phase-plan --phase 3`.
 - All 3 drafted the rename in the worktree, pushed nothing, and ended the turn
   on the batch.
+
+### Duplicate watcher exit (planet-pr-feedback step 6 and Troubleshooting): 3 of 3 pass
+
+Scenario: after a batch for phase 2 was shown, the background `planet watch e 2`
+exits 0 with only `phase 2: watcher already running (pid 4711)`. Pass: no tool
+calls, no chat message, the marker left alone.
+
+- All 3 made no tool calls and wrote no message, citing the Troubleshooting line.

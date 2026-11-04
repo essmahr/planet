@@ -1,9 +1,12 @@
-import type { Command, Ctx } from "../lib/context.ts";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, optString, parse } from "../lib/args.ts";
 import type { PrFeedback } from "../lib/gh.ts";
 import { GhUnavailable } from "../lib/gh.ts";
 import { readPhase } from "../lib/phase.ts";
 import { feedbackItems, readMarks } from "../lib/pr-items.ts";
+import { paths } from "../lib/store.ts";
 
 const MAX_FAILURES = 5;
 const MAX_BACKOFF_SECONDS = 900;
@@ -41,12 +44,36 @@ function ghReason(err: unknown): string {
   return `gh failed (${errorMessage(err)})`;
 }
 
+function runningWatcher(file: string, ctx: Ctx): number | null {
+  if (!existsSync(file)) return null;
+  const pid = Number(readFileSync(file, "utf8").trim());
+  if (!Number.isInteger(pid) || pid <= 0 || pid === ctx.pid) return null;
+  return ctx.isAlive(pid) ? pid : null;
+}
+
+function release(file: string, ctx: Ctx): void {
+  if (existsSync(file) && readFileSync(file, "utf8").trim() === String(ctx.pid)) rmSync(file);
+}
+
 export const watchCommand: Command = async (args, ctx) => {
   const { positionals, values } = parse(args, { interval: { type: "string" }, "max-polls": { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");
   const interval = intOption(optString(values, "interval"), "interval", 60);
   const maxPolls = intOption(optString(values, "max-polls"), "max-polls", 0);
+  const pidFile = paths.watchPid(ctx.home, epic, id);
+  const running = runningWatcher(pidFile, ctx);
+  if (running !== null) return { json: { epic, phase: id, event: null, running }, text: `phase ${id}: watcher already running (pid ${running})` };
+  mkdirSync(dirname(pidFile), { recursive: true });
+  writeFileSync(pidFile, `${ctx.pid}\n`);
+  try {
+    return await poll(epic, id, interval, maxPolls, ctx);
+  } finally {
+    release(pidFile, ctx);
+  }
+};
+
+async function poll(epic: string, id: number, interval: number, maxPolls: number, ctx: Ctx): Promise<CommandResult> {
   let urls: string[];
   try {
     urls = readPhase(ctx.home, epic, id).meta.prs.map((pr) => pr.url);
@@ -90,4 +117,4 @@ export const watchCommand: Command = async (args, ctx) => {
     if (maxPolls && poll >= maxPolls) return finish(epic, id, "stopped", [`phase ${id}: max polls reached`]);
     await ctx.sleep(delaySeconds * 1000);
   }
-};
+}

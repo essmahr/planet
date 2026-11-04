@@ -34,7 +34,7 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
    - **refute**: wrong, or a bot false positive. Draft a reply giving the reason.
    - **defer**: valid but outside this phase. Pick phase M or follow-up and draft a reply.
    CI items get no reply. Items that share a fix share a do commit.
-6. **feedback: draft and show.** With any do item, create the worktree per `references/worktree.md`. For each do commit: edit in the worktree, run the narrowest relevant check, then `git -C <path> commit -m "<message>"`, lowercase imperative. Do not push. Write the triage file `<dir>/research/pr-feedback-<N>.md` per `references/batch-format.md`. Run `planet pr feedback mark <slug> <N> notified <every shown id>`. Show the batch per `references/batch-format.md`, then run `planet pr feedback await <slug> <N>` so the next prompt is captured as the reply. Restart the watcher: Bash with `run_in_background`, `planet watch <slug> <N>`. Restore the marker; return `feedback shown for phase <N>`. The turn ends here.
+6. **feedback: draft and show.** With any do item, create the worktree per `references/worktree.md`. For each do commit: edit in the worktree, run the narrowest relevant check, then `git -C <path> commit -m "<message>"`, lowercase imperative. Do not push. Write the triage file `<dir>/research/pr-feedback-<N>.md` per `references/batch-format.md`. Run `planet pr feedback mark <slug> <N> notified <every shown id>`. Show the batch per `references/batch-format.md`, then run `planet pr feedback await <slug> <N>` so the next prompt is captured as the reply. Restart the watcher: Bash with `run_in_background`, `planet watch <slug> <N>`; its exit with `watcher already running` needs no action. Restore the marker; return `feedback shown for phase <N>`. The turn ends here.
 7. **The shorthand reply.** The user's next message answers the batch. Set the marker as in step 1. Map numbers to ids from the triage file and parse per `references/batch-format.md`. Apply per `references/apply.md`: rebuild the drafts so only the reply's do items are above `origin/<head_ref>`, push, post replies, record events, mark handled, clean up. Restore the marker; return `feedback applied for phase <N>`.
 
 ## Troubleshooting
@@ -42,6 +42,7 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
 - `--new` returns no items: another session handled them. Say so, restart the watcher, restore the marker, and return `feedback shown for phase <N>`.
 - A do fix fails its check: drop the edit, move the item to weigh, and put the failure in its assessment.
 - The push is rejected because the branch moved: recreate the worktree at the new `origin/<head_ref>` and re-apply the drafts per `references/apply.md`, then push again. Never rebase or force.
+- A `planet watch` exits with `watcher already running (pid <p>)` and no invoke line: another watcher covers that phase. Do nothing and say nothing.
 - A reply fails to post: report it and leave that item unhandled.
 - The reply asks a question about an item instead of giving shorthand: answer it, apply nothing, and keep the batch open.
 - Items span several PRs in `prs`: handle one PR at a time, each with its own `head_ref`.

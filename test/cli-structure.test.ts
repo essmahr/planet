@@ -133,6 +133,15 @@ test("check validates prompts.jsonl lines and skips dotfiles in sessions", async
   assert.match(errors[0].message, /kind must be one of/);
 });
 
+test("check accepts review prompts", async () => {
+  const home = await setup();
+  const review = { ts: "t", session: "s", kind: "review", phase: 2, proposal: null, text: "1, 2 do, 3 refute" };
+  writeFileSync(paths.prompts(home, "e"), `${JSON.stringify(review)}\n`);
+  const r = await run(["check", "--json"], ctx(home));
+  assert.deepEqual((r.json as { errors: unknown[] }).errors, []);
+  assert.equal(r.code, 0);
+});
+
 test("proposal approve accepts latest; proposal tag validates and commits", async () => {
   const home = await setup();
   await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));

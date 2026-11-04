@@ -123,12 +123,12 @@ export function validateProposalMeta(v: unknown, file: string): ProposalMeta {
   };
 }
 
-const PROMPT_KINDS = ["planning", "implementation"] as const;
+const PROMPT_KINDS = ["planning", "implementation", "review"] as const;
 
 export function validatePromptLine(
   v: unknown,
   file: string,
-): { ts: string; session: string; kind: "planning" | "implementation"; phase: number | null; proposal: number | null; text: string } {
+): { ts: string; session: string; kind: (typeof PROMPT_KINDS)[number]; phase: number | null; proposal: number | null; text: string } {
   const o = obj(v, file);
   return {
     ts: str(o, "ts", file),

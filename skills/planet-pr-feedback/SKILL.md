@@ -5,12 +5,12 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr view *), Bash(gh pr comment *), Bash(gh api *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Planet: PR feedback
 
-Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, and `dir: <path>` from the router. A `planet watch` line has no `dir`: take `paths.dir` from `planet epic show <slug> --json --brief`. The user's reply to a batch is handled here too (step 7).
+Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, and `dir: <path>` from the router, which may add `retro: router`. A `planet watch` line has no `dir`: take `paths.dir` from `planet epic show <slug> --json --brief`. The user's reply to a batch is handled here too (step 7).
 
 ## Critical rules
 
@@ -25,7 +25,7 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
 ## Steps
 
 1. **Marker.** Save the output of `planet session show --json`. With `null`, or a saved epic other than `<slug>`, run `planet session start <slug> --phase <N> --step pr-feedback`; else `planet session step pr-feedback --phase <N>`. Before ending any turn of this skill, restore the saved marker: `planet session step <step> --phase <phase>` for the same epic, `planet session start <saved epic> --phase <phase> --step <step>` for another, omitting `--phase` when the saved phase is null. A saved `null` marker stays `pr-feedback`; a saved null step stays `pr-feedback` for the same epic and omits `--step` for another. Then go by `event`.
-2. **merged.** `planet sync <slug> --force`. `planet pr feedback <slug> <N> --new --json`; take `head_ref` and `head_sha` from the entry in `prs` whose state is merged. Clean up per `references/worktree.md` (Merged or closed). Ask with AskUserQuestion: `Retro now`, `Retro later`. Now: `planet session step retro --phase <N>`, invoke `planet:planet-retro` with `epic`, `dir`, `phase`, and leave the marker on retro. Later: say the router shows retro pending for this phase, and restore the marker. Return `phase <N> merged`.
+2. **merged.** `planet sync <slug> --force`. `planet pr feedback <slug> <N> --new --json`; take `head_ref` and `head_sha` from the entry in `prs` whose state is merged. Clean up per `references/worktree.md` (Merged or closed). With `retro: router`, restore the marker and return `phase <N> merged` now; the router runs retro. Else ask with AskUserQuestion: `Retro now`, `Retro later`. Now: `planet session step retro --phase <N>`, invoke `planet:planet-retro` with `epic`, `dir`, `phase`, and leave the marker on retro. Later: say the router shows retro pending for this phase, and restore the marker. Return `phase <N> merged`.
 3. **closed.** Clean up per `references/worktree.md` (Merged or closed, step 1 only). Say the PR closed without a merge. Restore the marker; return `phase <N> closed`.
 4. **stopped.** Say the watcher's reason from its output, and that `/planet:go <slug> pr feedback <N>` restarts it. Restore the marker; return `watcher stopped for phase <N>: <why>`.
 5. **feedback: triage.** `planet pr feedback <slug> <N> --new --json`. Number the items per `references/batch-format.md`. Put each in one bucket:

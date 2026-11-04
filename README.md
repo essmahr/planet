@@ -28,6 +28,10 @@ Phases have a dependency order size budget, and can be re-cut if they get too bi
 
 Each phase then gets its _own_ plan, where you refine technical decisions, a commit-by-commit breakdown, and verification steps. Once you approve it, Planet implements it and opens a PR.
 
+### Review loop
+
+After the PR opens, Planet watches it in the background. When a review comment or a CI failure arrives, or the PR merges, the chat that opened it wakes up. Planet sorts each comment into do, weigh, refute, or defer, and drafts the fix for the do items in a separate worktree. You answer the whole batch with one reply, like `do 1 3, refute 4`. Nothing is pushed and no reply is posted until you say so.
+
 ### Status tracking
 
 Plans and their status live in `~/.planet`, one directory per epic, where you can read them. PR state syncs from GitHub, so merging a PR ships its phase.
@@ -55,6 +59,7 @@ You call two skills. The router calls the rest.
 | `planet-phasing` | Cuts the epic into phases. |
 | `planet-phase-plan` | A commit-by-commit plan for one phase. |
 | `planet-implement` | Builds the phase and opens a PR. |
+| `planet-pr-feedback` | Sorts review feedback and drafts fixes for approval. |
 | `planet-retro` | Plan vs. shipped, and lessons. |
 | `planet-feedback-review` | Turns recurring lessons into skill edits. |
 | `planet-proposal` | Runs each draft through Plan Mode. |

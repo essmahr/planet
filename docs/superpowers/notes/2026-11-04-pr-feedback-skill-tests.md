@@ -530,3 +530,37 @@ All 5 reps ran the `implemented` event in the foreground, then
 `planet watch pr-loop 2` with `run_in_background: true`, then said in one line
 that review feedback will arrive in this chat. All 5 returned
 `phase 2 implemented, https://github.com/acme/app/pull/57`, unchanged.
+
+## Task 9: router `pr feedback` path and retro split
+
+Setup: sonnet subagents, one fresh rep each. Each got the full skill text (the
+router with the status block and `$ARGUMENTS` substituted; the retro with both
+references), a scenario with canned tool outputs, and the task to list its tool
+calls and final message without running tools. The control is the skill at
+HEAD before this task.
+
+### Router: `/planet:go gql pr feedback 2`
+
+Scenario: `gql-migration`, phase 1 reviewed, phase 2 in-progress with PR #57
+open, phase 3 draft. The skill list includes `planet-pr-feedback`'s
+description. Pass: dispatches `planet:planet-pr-feedback` with `phase: 2` and
+`event: feedback`, then ends the turn.
+
+#### RED, current router (0.7.0): 0 of 5 pass
+
+- 3 reps dispatched `planet-pr-feedback` with `epic`, `dir`, `phase: 2` on
+  their own judgment, with no `event` line. All 3 said the router has no route
+  for it ("The router has no rule for `pr feedback`"). They split on the repo
+  check (2 ran it, 1 skipped it) and the marker (1 ran
+  `planet session step pr-feedback --phase 2`, 2 skipped it).
+- 1 rep asked with AskUserQuestion: PR feedback for phase 2, plan phase 3, or
+  stop. Dispatched nothing.
+- 1 rep followed step 5 and dispatched `planet-phase-plan` for phase 3.
+
+#### GREEN, new step 11 (0.8.0): 5 of 5 pass
+
+All 5 reps: `planet open`, then the step 6 repo check, then
+`planet:planet-pr-feedback` with `epic: gql-migration`,
+`dir: /Users/u/.planet/epics/gql-migration`, `phase: 2`, `event: feedback`.
+All 5 ended the turn on `feedback shown for phase 2` with no further calls.
+None ran `planet session step`, which is correct: the skill sets its own marker.

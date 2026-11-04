@@ -8,7 +8,7 @@ import { parseFrontmatter } from "../cli/lib/frontmatter.ts";
 const SKILLS_DIR = "skills";
 const REQUIRED_SKILLS: string[] = ["go", "planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review", "planet-pr-feedback", "plan"];
 const HIDDEN = new Set(["planet-proposal", "planet-intake", "planet-scoping", "planet-phasing", "planet-phase-plan", "planet-implement", "planet-retro", "planet-feedback-review", "planet-pr-feedback"]);
-const WORD_BUDGET: Record<string, number> = { go: 1250, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 790, "planet-retro": 900, "planet-feedback-review": 900, "planet-pr-feedback": 950, plan: 750 };
+const WORD_BUDGET: Record<string, number> = { go: 1300, "planet-proposal": 420, "planet-intake": 1500, "planet-scoping": 1500, "planet-phasing": 1500, "planet-phase-plan": 1500, "planet-implement": 790, "planet-retro": 900, "planet-feedback-review": 900, "planet-pr-feedback": 950, plan: 750 };
 /** Skills that run without an epic and never touch the store. */
 const STATELESS = new Set(["plan"]);
 const DESCRIPTION_CAP = 1536;

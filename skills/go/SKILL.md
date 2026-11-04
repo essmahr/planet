@@ -1,12 +1,12 @@
 ---
 name: go
-description: Planet, for an epic that spans several PRs. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase", "review feedback". Not for one-off plans, which use /planet:plan.
+description: Planet, for an epic that spans several PRs. Use for /planet:go, "what am I working on", "continue the GQL epic", "start an epic from CRM-123", "plan the next phase", "pr feedback on phase 2", "review feedback". Not for one-off plans, which use /planet:plan.
 argument-hint: "[epic, ticket, or what to work on]"
 disable-model-invocation: true
 allowed-tools: Bash(planet *), Bash(gh repo view *), Bash(git rev-parse *), Bash(grep *)
 compatibility: Claude Code with the planet plugin loaded. Node 24, gh authenticated, Linear MCP connected for tickets.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
 ---
 
 # Planet: go
@@ -17,7 +17,7 @@ metadata:
 - Never enter plan mode here; step skills propose through `planet:planet-proposal`.
 - Never read `plan.md` or phase bodies; the step skill reads what's needed.
 - Pick the epic yourself unless two status rows fit about equally.
-- Never end a turn by naming a command for the user to type in place of acting or asking. Every step return refreshes and re-enters step 5; where step 5 cannot pick, ask with AskUserQuestion. Only these end a turn: plan mode is on, the repo is wrong, a step returned `aborted`, a step returned without an approval, a PR just opened, and the user picking Stop.
+- Never end a turn by naming a command for the user to type in place of acting or asking. Every step return refreshes and re-enters step 5; where step 5 cannot pick, ask with AskUserQuestion. Only these end a turn: plan mode is on, the repo is wrong, a step returned `aborted`, a step returned without an approval, a PR just opened, pr feedback returned, and the user picking Stop.
 - Store writes go only through the `planet` CLI, never by hand under `~/.planet`; step skills write only under `research/`.
 
 ## Status
@@ -33,7 +33,7 @@ Request: $ARGUMENTS
 1. **No request text.** Render a table: EPIC, STATUS, PHASES (`shipped/total`), CURRENT, OPEN PRS, REVIEW; REVIEW shows "retro pending" when `unreviewed` is above zero. Ask what to work on. Stop.
 2. **Plan mode check.** In plan mode, say "leave plan mode first, Planet needs to write to its store" and stop.
 3. **Resolve.** Requests may carry Linear IDs, URLs, prose, and an instruction after the epic: `implement N`, a step name (`scoping`, `phasing`, `phase-plan`, `phase-plan N` to re-plan phase N, `retro N`), `work on N` (once `planet open` resolved the slug, run `planet session start <slug> --phase N --step implement`, say the marker is set, stop), `re-cut from phase N` or `back to scoping` (step 9). The request `review feedback` alone goes to step 10 without `planet open`. Run `planet open '<request text>' --json`, single-quoting the text with any single quote removed.
-   - `match` is a slug: say `opened <slug>`. `work on N` was handled. With `implement N`, run step 6, then read phase N in the payload's `phases`: `planned` or `in-progress` goes to step 8's Implement path; `draft` dispatches phase-plan N per step 7 and then that path; `shipped` or `reviewed` says the phase is already built and goes to step 5; absent, say which steps are missing and ask with AskUserQuestion whether to start at the earliest, dispatching it and going to step 5 on yes. Otherwise go to step 5.
+   - `match` is a slug: say `opened <slug>`. `work on N` was handled. `pr feedback [N]` goes to step 11. With `implement N`, run step 6, then read phase N in the payload's `phases`: `planned` or `in-progress` goes to step 8's Implement path; `draft` dispatches phase-plan N per step 7 and then that path; `shipped` or `reviewed` says the phase is already built and goes to step 5; absent, say which steps are missing and ask with AskUserQuestion whether to start at the earliest, dispatching it and going to step 5 on yes. Otherwise go to step 5.
    - `match` null: judge the request against each row's slug and title (`DS linting` fits `design-system-lint-enforcement`). One clear fit: run `planet open <slug> --json`, say `opened <slug>`, go on as a match. A weak second fit is still one fit. Two fit about equally: ask which. None fits or none picked: go to step 4 if the request names a Linear ID, a linear.app URL, or asks to start/plan something new; else ask which epic and stop.
 4. **New epic.** Follow `references/new-epic.md`. It ends at `planet open <slug> --json` with the sources kept for step 7, or stops.
 5. **Choose the step** from the epic view (`last_approved_step`, `paths.plan`, `phases`; the `epic` field in the `planet open` payload), without reading any file. No `paths.plan`: intake. `last_approved_step` `intake`: scoping. `scoping`, no phases: phasing. `scoping` with phases and any not `shipped`: phasing, with `reason: re-cut from phase <N>` (N: lowest `draft` id, else lowest not `shipped`). `phasing`, no phases: phasing. Any phase `shipped`: retro, lowest id first. Any phase `draft`: phase-plan, lowest id first. No drafts, no phase `shipped`: implement the lowest `planned` phase per step 8. Every phase `reviewed`: say the epic is done and run `planet session end`. A step named in the request wins over every row above, including the stops; `phase-plan N` also fixes the phase.
@@ -53,7 +53,8 @@ Request: $ARGUMENTS
    - `phase N not planned`: step 3 checks the status first, so this means the store moved under the session; refresh and go to step 5.
 9. **Hand-ups.** `re-cut from phase N: <why>`: dispatch phasing with `reason: re-cut from phase N: <why>`. `back to scoping: <why>`: dispatch scoping with `reason: back to scoping: <why>`. Either runs step 6 when it applies, then step 7 once; a second hand-up in the same run stops with the reason shown.
 10. **Review feedback.** Only for the request `review feedback`. Follow `references/review-feedback.md`; it ends the session itself.
-11. **Done.** When the user says they are done, run `planet session end`.
+11. **PR feedback.** For `pr feedback [N]`. N defaults to the lowest phase with `open_prs`; none: say so, stop. Run step 6; invoke `planet:planet-pr-feedback` with `epic: <slug>`, `dir: <epic.paths.dir>`, `phase: N`, `event: feedback`. End the turn on its last line.
+12. **Done.** When the user says they are done, run `planet session end`.
 
 ## Example
 

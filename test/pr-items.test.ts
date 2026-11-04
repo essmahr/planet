@@ -5,7 +5,7 @@ import type { PrCheck, PrComment, PrConversationComment, PrFeedback, PrReview } 
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
-import { addMarks, feedbackItems, recordCheck } from "../cli/lib/pr-items.ts";
+import { addMarks, feedbackItems, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
 import { git } from "../cli/lib/store.ts";
 
 const PR = "https://github.com/o/r/pull/7";
@@ -65,4 +65,13 @@ test("pr feedback mark commits the store", async () => {
   const r = await run(["pr", "feedback", "mark", "e", "1", "notified", "I2"], ctx(home));
   assert.equal(r.code, 0);
   assert.match(git(home, ["log", "-1", "--format=%s"]), /e: mark 1 feedback items notified/);
+  assert.deepEqual(readMarks(home, "e", 1).notified, ["I2"]);
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+});
+
+test("pr feedback mark rejects an unknown kind", async () => {
+  const { home } = setup();
+  const r = await run(["pr", "feedback", "mark", "e", "1", "seen", "I2"], ctx(home));
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /notified or handled/);
 });

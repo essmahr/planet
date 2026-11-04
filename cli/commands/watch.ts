@@ -108,7 +108,7 @@ async function poll(epic: string, id: number, interval: number, maxPolls: number
         return storeStop(epic, id, err);
       }
       const lines: string[] = [];
-      for (const f of prs) {
+      for (const f of prs.filter((pr) => pr.state === "open")) {
         const fresh = feedbackItems(f).filter((item) => !notified.has(item.id));
         if (fresh.length) lines.push(`phase ${id}: ${fresh.length} new feedback items on ${f.url}`);
       }

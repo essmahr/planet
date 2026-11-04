@@ -157,3 +157,13 @@ test("an interval below one second is refused", async () => {
   assert.equal(r.code, 1);
   assert.match(r.stderr, /--interval must be an integer of at least 1/);
 });
+
+test("feedback on a merged sibling pr does not wake the watcher", async () => {
+  const home = setup([PR, PR2]);
+  const gh = fakeGh({}, {}, false, undefined, {
+    [PR]: { ...withComment, state: "merged" },
+    [PR2]: { ...BASE, url: PR2 },
+  });
+  const r = await run(["watch", "e", "1", "--max-polls", "1"], ctx(home, { gh }));
+  assert.match(r.stdout, /^phase 1: max polls reached\ninvoke .* event: stopped\n$/);
+});

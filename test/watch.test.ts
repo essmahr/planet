@@ -7,7 +7,9 @@ import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { addMarks } from "../cli/lib/pr-items.ts";
-import { git } from "../cli/lib/store.ts";
+import { git, paths } from "../cli/lib/store.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 const PR2 = "https://github.com/o/r/pull/8";
 const quiet = BASE;
@@ -87,4 +89,32 @@ test("watch writes nothing to the store", async () => {
   const before = git(home, ["rev-list", "--count", "HEAD"]);
   await run(["watch", "e", "1"], ctx(home, { gh }));
   assert.equal(git(home, ["rev-list", "--count", "HEAD"]), before);
+});
+
+test("any gh error backs off and stops after five failures", async () => {
+  const home = setup();
+  const sleeps: number[] = [];
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [new Error("bad json")] });
+  const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async (ms) => { sleeps.push(ms); } }));
+  assert.equal(r.code, 0);
+  assert.deepEqual(sleeps, [60000, 120000, 240000, 480000]);
+  assert.match(r.stdout, /phase 1: gh failed \(bad json\)\ninvoke .* event: stopped\n$/);
+});
+
+test("a corrupt marks file stops at once", async () => {
+  const home = setup();
+  mkdirSync(dirname(paths.marks(home, "e", 1)), { recursive: true });
+  writeFileSync(paths.marks(home, "e", 1), "{not json");
+  const sleeps: number[] = [];
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
+  const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async (ms) => { sleeps.push(ms); } }));
+  assert.equal(r.code, 0);
+  assert.deepEqual(sleeps, []);
+  assert.match(r.stdout, /^phase 1: store error \(.+\)\ninvoke .* event: stopped\n$/);
+});
+
+test("a missing phase stops at once", async () => {
+  const r = await run(["watch", "e", "9"], ctx(setup()));
+  assert.equal(r.code, 0);
+  assert.match(r.stdout, /^phase 9: store error \(no phase 9 in epic 'e'\)\ninvoke planet:planet-pr-feedback epic: e phase: 9 event: stopped\n$/);
 });

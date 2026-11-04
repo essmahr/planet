@@ -74,8 +74,8 @@ have the same gap: the phase ships and the retro waits until someone runs
    - merged: step 6 below.
    - closed without merge: say so, remove the worktree, stop.
    - feedback: step 4.
-   - stopped: say the watcher's reason (no linked PR, `gh` unavailable, max
-     polls) and that `/planet:go <epic> pr feedback <N>` restarts it.
+   - stopped: say the watcher's reason (no linked PR, `gh` failing, a store
+     error, max polls) and that `/planet:go <epic> pr feedback <N>` restarts it.
    Its description says it runs only on that watcher line or from the router,
    like the other step skills. It works after compaction or unrelated work in
    between: the line names the epic and phase, and the skill reads `dir` from
@@ -130,8 +130,10 @@ batch plus the full drafted diffs, so the chat shows only the summary.
 
 - `planet watch <epic> <phase> [--interval <s>]`: polls the phase's open PRs
   until it finds a feedback item not yet notified, a merge, or a close. Prints one
-  summary line per event, then exits 0. On `GhUnavailable` it keeps retrying
-  with backoff and prints one line only after repeated failures, then exits.
+  summary line per event, then exits 0. On any `gh` error it keeps retrying
+  with backoff and prints one line only after repeated failures, then exits
+  with event `stopped`. A store error (corrupt marks file, missing phase)
+  exits at once with event `stopped` and a reason line.
 - `planet pr feedback <epic> <phase> --new`: today's command, limited to items
   not yet handled, each with its notified flag. Each item gets a stable id.
 - `planet pr feedback mark <epic> <phase> notified|handled <id>...`: sets an item's mark.

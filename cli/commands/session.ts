@@ -54,13 +54,21 @@ async function sessionEnd(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: { session: id, ended: existed }, text: existed ? "session ended" : "no active session" };
 }
 
+async function sessionShow(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { values } = parse(args, { session: { type: "string" } });
+  const marker = readMarker(ctx.home, sessionIdFrom(ctx.env, optString(values, "session")));
+  if (!marker) return { json: null, text: "no active session" };
+  return { json: marker, text: `${marker.epic} phase ${marker.phase ?? "-"} step ${marker.step ?? "-"}` };
+}
+
 export const sessionCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   switch (sub) {
     case "start": return sessionStart(rest, ctx);
     case "step": return sessionStep(rest, ctx);
     case "review": return sessionReview(rest, ctx);
+    case "show": return sessionShow(rest, ctx);
     case "end": return sessionEnd(rest, ctx);
-    default: throw new Error("usage: planet session start|step [--phase <n>]|review|end");
+    default: throw new Error("usage: planet session start|step [--phase <n>]|review|show|end");
   }
 };

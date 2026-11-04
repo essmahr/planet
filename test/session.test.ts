@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { NOW, SESSION, tmpHome } from "./helpers.ts";
+import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { createEpic, readEpic } from "../cli/lib/epic.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { endSession, readMarker, sessionIdFrom, setSessionStep, startSession } from "../cli/lib/session.ts";
@@ -45,4 +45,12 @@ test("setSessionStep and endSession", () => {
   assert.equal(endSession(home, SESSION), true);
   assert.equal(readMarker(home, SESSION), null);
   assert.equal(endSession(home, SESSION), false);
+});
+
+test("session show returns the marker, or null", async () => {
+  const home = setup();
+  assert.equal((await run(["session", "show", "--json"], ctx(home))).json, null);
+  startSession(home, SESSION, "e", { phase: 1, step: "pr-feedback" }, NOW);
+  assert.deepEqual((await run(["session", "show", "--json"], ctx(home))).json, { epic: "e", phase: 1, step: "pr-feedback", started: NOW });
+  assert.equal((await run(["session", "show"], ctx(home))).stdout.trim(), "e phase 1 step pr-feedback");
 });

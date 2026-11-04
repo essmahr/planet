@@ -93,6 +93,12 @@ export function userText(prompt: string): string {
   return stripInjected(prompt).text;
 }
 
+function promptKind(marker: SessionMarker): string {
+  if (marker.step === "pr-feedback") return "review";
+  if (marker.step === "implement") return "implementation";
+  return "planning";
+}
+
 function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const { text, stripped } = stripInjected(input.user_input ?? input.prompt ?? "");
   for (const tag of stripped) {
@@ -102,7 +108,7 @@ function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const line = {
     ts: ctx.now(),
     session: input.session_id,
-    kind: marker.step === "implement" ? "implementation" : "planning",
+    kind: promptKind(marker),
     phase: marker.phase,
     proposal: latestProposalId(ctx.home, marker.epic),
     text,

@@ -245,3 +245,15 @@ test("capture with empty stdin is a quiet no-op", async () => {
   assert.match(r.stdout, /nothing to do/);
   assert.ok(!existsSync(paths.hookLog(home)));
 });
+
+function lastPrompt(home: string, epic: string): { kind: string } {
+  const lines = readFileSync(paths.prompts(home, epic), "utf8").trim().split("\n");
+  return JSON.parse(lines[lines.length - 1]) as { kind: string };
+}
+
+test("a prompt during a pr-feedback step is captured as review", () => {
+  const home = setup(1);
+  setSessionStep(home, SESSION, "pr-feedback", 1);
+  handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
+  assert.equal(lastPrompt(home, "e").kind, "review");
+});

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { NOW, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
-import { appendEvent, listEvents } from "../cli/lib/events.ts";
+import { appendEvent, listEvents, type PlanetEvent } from "../cli/lib/events.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { paths } from "../cli/lib/store.ts";
 
@@ -46,4 +46,11 @@ test("planet phase event validates kind and phase, records sha, commits", async 
   const text = await run(["phase", "event", "e", "1", "blocked", "commit 2: file gone"], ctx(home));
   assert.equal(text.stdout.trim(), "phase 1 blocked");
   assert.equal(listEvents(home, "e", 1).length, 2);
+});
+
+test("phase event accepts feedback-commit with a sha", async () => {
+  const home = setup();
+  const r = await run(["phase", "event", "e", "1", "feedback-commit", "C1 I2", "--sha", "abc", "--json"], ctx(home));
+  assert.equal((r.json as PlanetEvent).kind, "feedback-commit");
+  assert.equal((r.json as PlanetEvent).sha, "abc");
 });

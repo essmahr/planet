@@ -1,8 +1,8 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { paths } from "./store.ts";
 
-export type EventKind = "blocked" | "implemented" | "reviewed";
-export const EVENT_KINDS: readonly EventKind[] = ["blocked", "implemented", "reviewed"];
+export type EventKind = "blocked" | "implemented" | "reviewed" | "feedback-commit" | "triage";
+export const EVENT_KINDS: readonly EventKind[] = ["blocked", "implemented", "reviewed", "feedback-commit", "triage"];
 
 export interface PlanetEvent {
   ts: string;

@@ -24,6 +24,11 @@ only commits for items the reply put in do. Unpushed drafts may be rewritten.
 
 ## 2. Push
 
+A commit drafted this turn that needs a `choices:` line
+(`references/batch-format.md`) was never shown: list each with that line and
+ask with AskUserQuestion: `Push`, `Hold`. Hold pushes nothing and keeps the
+batch open.
+
 `git -C <path> push origin HEAD:<head_ref>`, when step 1 left a commit. A
 rejected push means the branch moved: repeat step 1, push again. Never force.
 

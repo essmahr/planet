@@ -76,7 +76,7 @@ With ownership enforced, one path would almost suffice. The suffix covers the wi
 
 ### CLI
 
-1. `cli/lib/pr-items.ts`: `Marks.owner`, `Marks.awaiting_reply: string | null` with `true` read as `null`, a `withMarksLock` helper used by every marks writer, `claimOwner`, `takeOwner`, `releaseOwner(session)`, and `liveOwner` (owner whose marker file exists).
+1. `cli/lib/pr-items.ts`: `Marks.owner`, `Marks.awaiting_reply: string | null` with `true` read as `null`, `updateMarks` used by every marks writer, `claimOwner`, `takeOwner`, `releaseOwner(session)`, and `liveOwner` (owner whose marker file exists).
 2. `cli/commands/pr.ts`: `--claim` on `pr feedback --new` (exit 3 when owned elsewhere); new `pr feedback take <slug> <N>`; `pr feedback await` stores the session id. Usage line and `cli/planet.ts` USAGE updated.
 3. `cli/commands/watch.ts`: pid file `<pid> <session>`; refuse when owned by another live session; replace a watcher of a different session; per-poll check of pid file and owner, silent exit lines `owned by session <id>` and `watcher handed to session <id>`.
 4. `cli/lib/pending-note.ts`: skip phases with a live owner other than the prompting session (`pendingNote` gains the session id).

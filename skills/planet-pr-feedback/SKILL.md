@@ -19,7 +19,7 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
 - Every edit and commit happens in the worktree from `references/worktree.md`, never in the user's checkout. Its prune and leftover cleanup run before every create.
 - A weigh item gets a two or three sentence assessment only: no edit, diff, or snippet, even for a one-line fix. It gets a commit only after the user moves it to do.
 - Chat shows the batch and short reports, never a diff; diffs live in the triage file.
-- A wake-up during other work (planning, implementing, a question to the user) shows the batch and ends the turn. Do not continue or answer the other work in the same turn.
+- A watcher wake-up in a session whose saved marker names another phase or epic triages nothing: it says in one line that phase <N> has review feedback, and ends the turn. A wake-up during other work on this phase shows the batch and ends the turn, leaving that work for later.
 - Store writes go only through `planet`; files only under `<dir>/research/`.
 
 ## Steps

@@ -22,6 +22,16 @@ Tested: planet-pr-feedback apply step 2 (Push / Hold): control 3/3 fail, variant
 - **C.** Control runs 2 and 3 put the new path in the commit summary (`move parseDate to src/lib/parse-date.ts`), so the choice was visible without a `choices:` line. Only run 1 (`move parseDate to its own module`) hid it. The scenario was too easy: the review comment itself named the target file. Every variant run added `choices: new src/lib/parse-date.ts; moves parseDate from src/date.ts to src/lib/parse-date.ts`.
 - **P.** Every control run pushed, recorded events, and cleaned up in one turn; the design choices appeared only in the after-push report. Every variant run stopped before the push with the `choices:` line and AskUserQuestion `Push` / `Hold`. Variant run 1 skipped the marker restore before ending the turn.
 
+## Retest: C2, `choices:` line on a harder scenario
+
+Same fixture. The review comment does not name the target: "this retry loop is copy-pasted from contacts.ts, can we dedupe?". The drafted fix adds `src/api/retry.ts` exporting `withRetry`. Prompts forbade Bash, Write, and Edit; no run touched the store.
+
+```
+Tested: planet-pr-feedback batch-format (choices line), retest: control 0/3 fail, variant 3/3 pass
+```
+
+Every control run named the new file in the commit line anyway (`dedupe retry loop into withRetry (new src/api/retry.ts, +2 callers)`, `add withRetry in new src/api/retry.ts, use it in leads.ts and contacts.ts`). Every variant run added a `choices:` line. Across both scenarios the control failed 1 of 6, so the batch-format edit fails the micro-test bar: the model already names new files in the commit line.
+
 ## Run hygiene
 
 Three runs executed real `planet` and `git` commands despite the dry-run instruction (the subagents had Bash). All failed before writing: `no epic 'e'`, `Unknown option '--claim'` (the installed CLI predates this branch), `no active planet session`, and missing worktree paths. The store's last commit stayed at `e29aa813` from another session. Future runs should use an agent with no Bash, or state that Bash is off limits.

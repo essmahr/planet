@@ -1,6 +1,6 @@
 # Planet PR feedback: one owner session per phase
 
-**Status:** approved 2026-11-05 with the decisions below. Stacked on `feedback-review/2026-11-05`; that branch does not merge to main until this lands.
+**Status:** implemented 2026-11-05 with the decisions below. Stacked on `feedback-review/2026-11-05`; that branch does not merge to main until this lands.
 
 **Goal:** One batch of review feedback is triaged, drafted, and applied by exactly one Claude session.
 
@@ -26,11 +26,11 @@ One concept: each phase with open PRs has at most one **feedback owner**, a Clau
 ### Ownership
 
 - Marks gain `owner: { session: string, since: string } | null`.
-- `planet-implement` takes ownership when it starts the watcher, so the session that opened the PR owns it by default.
+- `planet watch` claims the phase when it has no live owner. `planet-implement` starts the watcher, so the session that opened the PR owns it by default.
 - `planet pr feedback <slug> <N> --new --claim` returns items only to the owner, or to anyone when there is no owner (and then sets the owner). Another session gets exit 3 and `phase <N> feedback is owned by session <id>`.
-- `planet pr feedback take <slug> <N>` moves ownership to the calling session. The router's `pr feedback [N]` runs it when the user asks in a non-owner session, after one AskUserQuestion that warns it takes over session <id> and stops its watcher (`Take it here`, `Leave it`). Starting a new session is easy, so a take must never be silent.
-- Ownership ends on `SessionEnd` (capture hook clears every phase the ending session owns) and on merged or closed. An owner whose marker file is gone (crash, `/clear`) counts as no owner.
-- Claim and take write under a lock file (`<marks>.lock`, `open(..., "wx")`, retried briefly), and so do the other marks writers. This fixes failure mode 5.
+- `planet pr feedback take <slug> <N>` moves ownership to the calling session. `planet-pr-feedback` step 5 runs it when `--claim` exits 3, after one AskUserQuestion that warns it takes over session <id> and stops its watcher (`Take it here`, `Leave it`). Starting a new session is easy, so a take must never be silent.
+- Ownership ends on `SessionEnd` (capture hook clears every phase the ending session owns). An owner left on a merged or closed phase is harmless: nothing polls it. An owner whose marker file is gone (crash, `/clear`) counts as no owner.
+- Every marks write goes through `updateMarks`, under a lock file in the ignored `run/` folder (`open(..., "wx")`, retried for 2 s, broken after 10 s). This fixes failure mode 5.
 
 ### Watcher bound to the owner
 
@@ -53,7 +53,7 @@ One concept: each phase with open PRs has at most one **feedback owner**, a Clau
 Path: `<repo root>/../.planet-worktrees/<repo>-<slug>-<N>-<first 8 chars of session id>`.
 
 - Create removes only its own leftover path.
-- Other paths for the same phase whose session has no marker file are removed as stale. Paths of a live session are left alone, and a line says so.
+- Other sessions' paths are never removed during a batch; they wait for the merged or closed cleanup. Checking whether their session is live would mean reading the store by hand.
 - Merged or closed cleanup removes every path for that phase.
 
 With ownership enforced, one path would almost suffice. The suffix covers the window right after a take, when the old owner may be mid-draft in the same turn. It costs one glob and a longer path.
@@ -85,13 +85,11 @@ With ownership enforced, one path would almost suffice. The suffix covers the wi
 
 ### Skills
 
-1. `skills/planet-pr-feedback/SKILL.md`: step 5 uses `--new --claim`; exit 3 says the owner's session in one line and ends the turn. Rewrite the `d072471` critical rule in terms of ownership. Troubleshooting: the two new silent watcher exits get the same "do nothing, say nothing" as `watcher already running`. Version 0.3.0.
-2. `references/worktree.md`: per-session path, own-leftover removal, stale-path rule, merged cleanup by glob.
+1. `skills/planet-pr-feedback/SKILL.md`: owner rule; step 5 uses `--new --claim`, and exit 3 asks `Take it here` / `Leave it` with the takeover warning; step 7 reruns the claim and applies nothing when another session took the phase; the silent watcher exits join "do nothing, say nothing". Version 0.3.0; word budget 950 to 1020.
+2. `references/worktree.md`: per-session path; create removes only its own leftover; merged or closed removes every path for the phase.
 3. `references/batch-format.md`: the `choices:` line.
-4. `references/apply.md`: step-7 drafts with choices wait for `Push` / `Hold`.
-5. `skills/planet-implement/SKILL.md` step 7: take ownership before starting the watcher.
-6. `skills/go/references/pr-feedback.md`: in a non-owner session, AskUserQuestion warning that it takes over session <id>, `Take it here` / `Leave it`, before invoking the skill; `take` on yes.
-7. Skill tests per the repo's RED/GREEN micro-test practice for items 1, 3, 4, and 6.
+4. `references/apply.md`: unshown step-7 drafts with choices wait for `Push` / `Hold`.
+5. No change to `planet-implement` or the `go` router: the watcher claims, and the take question lives in the skill.
 
 ## Decisions
 

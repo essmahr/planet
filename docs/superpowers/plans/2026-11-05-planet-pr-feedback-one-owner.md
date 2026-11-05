@@ -1,6 +1,6 @@
 # Planet PR feedback: one owner session per phase
 
-**Status:** proposal, awaiting approval. No code changed yet.
+**Status:** approved 2026-11-05 with the decisions below. Stacked on `feedback-review/2026-11-05`; that branch does not merge to main until this lands.
 
 **Goal:** One batch of review feedback is triaged, drafted, and applied by exactly one Claude session.
 
@@ -28,7 +28,7 @@ One concept: each phase with open PRs has at most one **feedback owner**, a Clau
 - Marks gain `owner: { session: string, since: string } | null`.
 - `planet-implement` takes ownership when it starts the watcher, so the session that opened the PR owns it by default.
 - `planet pr feedback <slug> <N> --new --claim` returns items only to the owner, or to anyone when there is no owner (and then sets the owner). Another session gets exit 3 and `phase <N> feedback is owned by session <id>`.
-- `planet pr feedback take <slug> <N>` moves ownership to the calling session. The router's `pr feedback [N]` runs it when the user asks in a non-owner session, after one AskUserQuestion (`Take it here`, `Leave it`). An explicit request is the user's choice of session.
+- `planet pr feedback take <slug> <N>` moves ownership to the calling session. The router's `pr feedback [N]` runs it when the user asks in a non-owner session, after one AskUserQuestion that warns it takes over session <id> and stops its watcher (`Take it here`, `Leave it`). Starting a new session is easy, so a take must never be silent.
 - Ownership ends on `SessionEnd` (capture hook clears every phase the ending session owns) and on merged or closed. An owner whose marker file is gone (crash, `/clear`) counts as no owner.
 - Claim and take write under a lock file (`<marks>.lock`, `open(..., "wx")`, retried briefly), and so do the other marks writers. This fixes failure mode 5.
 
@@ -90,11 +90,11 @@ With ownership enforced, one path would almost suffice. The suffix covers the wi
 3. `references/batch-format.md`: the `choices:` line.
 4. `references/apply.md`: step-7 drafts with choices wait for `Push` / `Hold`.
 5. `skills/planet-implement/SKILL.md` step 7: take ownership before starting the watcher.
-6. `skills/go/references/pr-feedback.md`: in a non-owner session, AskUserQuestion `Take it here` / `Leave it` before invoking the skill; `take` on yes.
+6. `skills/go/references/pr-feedback.md`: in a non-owner session, AskUserQuestion warning that it takes over session <id>, `Take it here` / `Leave it`, before invoking the skill; `take` on yes.
 7. Skill tests per the repo's RED/GREEN micro-test practice for items 1, 3, 4, and 6.
 
-## Open questions
+## Decisions
 
-1. Should `pr feedback N` in a non-owner session take ownership without asking? The request is already explicit; the question guards against typing in the wrong chat.
-2. Is the `Push` / `Hold` stop at step 7 wanted, or should `choices:` lines only appear in the step-7 report after the push?
-3. Land `d072471` first as is, then this on top, or fold its rule rewrite into this change?
+1. A take always asks first and names the session it takes over. Starting a new session is easy, so taking over one by accident must not be.
+2. The `Push` / `Hold` stop for step-7 drafts with design choices ships in this change.
+3. `d072471` stays on `feedback-review/2026-11-05`, unmerged. This change builds on it and rewrites its rule in terms of ownership; both reach main together.

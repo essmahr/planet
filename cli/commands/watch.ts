@@ -5,8 +5,8 @@ import { need, needInt, optString, parse } from "../lib/args.ts";
 import type { PrFeedback } from "../lib/gh.ts";
 import { GhUnavailable } from "../lib/gh.ts";
 import { readPhase } from "../lib/phase.ts";
-import { feedbackItems, readMarks } from "../lib/pr-items.ts";
-import { paths } from "../lib/store.ts";
+import { claimOwner, feedbackItems, liveOwner, readMarks } from "../lib/pr-items.ts";
+import { commit, paths } from "../lib/store.ts";
 
 const MAX_FAILURES = 5;
 const MAX_BACKOFF_SECONDS = 900;
@@ -44,15 +44,46 @@ function ghReason(err: unknown): string {
   return `gh failed (${errorMessage(err)})`;
 }
 
-function runningWatcher(file: string, ctx: Ctx): number | null {
+interface PidLine {
+  pid: number;
+  session: string | null;
+}
+
+function readPidLine(file: string): PidLine | null {
   if (!existsSync(file)) return null;
-  const pid = Number(readFileSync(file, "utf8").trim());
-  if (!Number.isInteger(pid) || pid <= 0 || pid === ctx.pid) return null;
-  return ctx.isAlive(pid) ? pid : null;
+  const [pidText, session] = readFileSync(file, "utf8").trim().split(/\s+/);
+  const pid = Number(pidText);
+  if (!Number.isInteger(pid) || pid <= 0) return null;
+  return { pid, session: session ?? null };
+}
+
+function runningWatcher(file: string, ctx: Ctx): PidLine | null {
+  const line = readPidLine(file);
+  if (!line || line.pid === ctx.pid) return null;
+  return ctx.isAlive(line.pid) ? line : null;
 }
 
 function release(file: string, ctx: Ctx): void {
-  if (existsSync(file) && readFileSync(file, "utf8").trim() === String(ctx.pid)) rmSync(file);
+  if (readPidLine(file)?.pid === ctx.pid) rmSync(file);
+}
+
+/** An exit that wakes the session without naming the skill, so it does nothing there. */
+function quiet(epic: string, id: number, text: string, extra: Record<string, unknown> = {}): CommandResult {
+  return { json: { epic, phase: id, event: null, ...extra }, text };
+}
+
+/**
+ * Exits for a watcher that no longer belongs to its session, or null to keep polling.
+ *
+ * A take by another session hands the pid file to that session's watcher, or moves the owner before its watcher starts.
+ */
+function lostWatch(epic: string, id: number, pidFile: string, session: string | null, ctx: Ctx): CommandResult | null {
+  const line = readPidLine(pidFile);
+  if (line && line.pid !== ctx.pid) return quiet(epic, id, `phase ${id}: watcher handed to session ${line.session ?? "unknown"}`, { handed_to: line.session });
+  if (!session) return null;
+  const owner = liveOwner(ctx.home, readMarks(ctx.home, epic, id));
+  if (owner && owner.session !== session) return quiet(epic, id, `phase ${id}: owned by session ${owner.session}`, { owner: owner.session });
+  return null;
 }
 
 export const watchCommand: Command = async (args, ctx) => {
@@ -61,19 +92,31 @@ export const watchCommand: Command = async (args, ctx) => {
   const id = needInt(positionals, 1, "phase id");
   const interval = intOption(optString(values, "interval"), "interval", 60, 1);
   const maxPolls = intOption(optString(values, "max-polls"), "max-polls", 0, 0);
+  const session = ctx.env.CLAUDE_CODE_SESSION_ID ?? null;
   const pidFile = paths.watchPid(ctx.home, epic, id);
+  if (session) {
+    let claimed;
+    try {
+      readPhase(ctx.home, epic, id);
+      claimed = claimOwner(ctx.home, epic, id, session, ctx.now());
+    } catch (err) {
+      return storeStop(epic, id, err);
+    }
+    if (!claimed.ok) return quiet(epic, id, `phase ${id}: owned by session ${claimed.owner.session}`, { owner: claimed.owner.session });
+    commit(ctx.home, `${epic}: phase ${id} feedback owned by session ${session}`);
+  }
   const running = runningWatcher(pidFile, ctx);
-  if (running !== null) return { json: { epic, phase: id, event: null, running }, text: `phase ${id}: watcher already running (pid ${running})` };
+  if (running !== null && (!session || running.session === session)) return quiet(epic, id, `phase ${id}: watcher already running (pid ${running.pid})`, { running: running.pid });
   mkdirSync(dirname(pidFile), { recursive: true });
-  writeFileSync(pidFile, `${ctx.pid}\n`);
+  writeFileSync(pidFile, session ? `${ctx.pid} ${session}\n` : `${ctx.pid}\n`);
   try {
-    return await poll(epic, id, interval, maxPolls, ctx);
+    return await poll(epic, id, interval, maxPolls, pidFile, session, ctx);
   } finally {
     release(pidFile, ctx);
   }
 };
 
-async function poll(epic: string, id: number, interval: number, maxPolls: number, ctx: Ctx): Promise<CommandResult> {
+async function poll(epic: string, id: number, interval: number, maxPolls: number, pidFile: string, session: string | null, ctx: Ctx): Promise<CommandResult> {
   let urls: string[];
   try {
     urls = readPhase(ctx.home, epic, id).meta.prs.map((pr) => pr.url);
@@ -85,6 +128,12 @@ async function poll(epic: string, id: number, interval: number, maxPolls: number
   let failures = 0;
   let delaySeconds = interval;
   for (let poll = 1; ; poll++) {
+    try {
+      const lost = lostWatch(epic, id, pidFile, session, ctx);
+      if (lost) return lost;
+    } catch (err) {
+      return storeStop(epic, id, err);
+    }
     let prs: PrFeedback[] | null = null;
     try {
       prs = await pollAll(urls, ctx);

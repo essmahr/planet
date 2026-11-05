@@ -3,7 +3,7 @@ import type { Command, Ctx } from "../lib/context.ts";
 import type { SessionMarker } from "../schema/types.ts";
 import { pendingNote } from "../lib/pending-note.ts";
 import { listPhases } from "../lib/phase.ts";
-import { readMarks, setAwaitingReply } from "../lib/pr-items.ts";
+import { readMarks, releaseOwner, setAwaitingReply } from "../lib/pr-items.ts";
 import { PR_URL_RE, linkPrs } from "../lib/link.ts";
 import { createProposal, findProposalByToolUse, latestPending, latestProposalId, markApproved, markRejected, sameText } from "../lib/proposal.ts";
 import { endSession, readMarker } from "../lib/session.ts";
@@ -96,30 +96,45 @@ export function userText(prompt: string): string {
   return stripInjected(prompt).text;
 }
 
-function awaitingReply(home: string, epic: string, phase: number): boolean {
+function awaitsThisSession(home: string, epic: string, phase: number, session: string): boolean {
   try {
-    return readMarks(home, epic, phase).awaiting_reply === true;
+    return readMarks(home, epic, phase).awaiting_reply === session;
   } catch {
     return false;
   }
 }
 
+function epicPhases(home: string, epic: string): number[] {
+  try {
+    return listPhases(home, epic).map((p) => p.meta.id);
+  } catch {
+    return [];
+  }
+}
+
 /**
- * The phase whose batch is waiting for a reply, with its flag cleared, so only the next prompt counts as the reply.
+ * The phase whose batch this session showed and is waiting for a reply on, with its flag cleared, so only this session's next prompt counts as the reply.
  *
  * A broken phase or marks file means no awaited phase; the pending note already logs those.
  */
-function takeAwaitedPhase(home: string, epic: string): number | null {
-  let phases: number[];
-  try {
-    phases = listPhases(home, epic).map((p) => p.meta.id);
-  } catch {
-    return null;
-  }
-  const phase = phases.find((id) => awaitingReply(home, epic, id));
+function takeAwaitedPhase(home: string, epic: string, session: string): number | null {
+  const phase = epicPhases(home, epic).find((id) => awaitsThisSession(home, epic, id, session));
   if (phase === undefined) return null;
-  setAwaitingReply(home, epic, phase, false);
+  setAwaitingReply(home, epic, phase, null);
   return phase;
+}
+
+/** Releases the feedback ownership an ending session held on the epic's phases, so another session can claim them. */
+function releaseOwnership(home: string, epic: string, session: string): string[] {
+  const released: string[] = [];
+  for (const id of epicPhases(home, epic)) {
+    try {
+      if (releaseOwner(home, epic, id, session)) released.push(`released phase ${id} feedback`);
+    } catch {
+      // a corrupt marks file keeps its owner; liveOwner ignores it once the marker is gone
+    }
+  }
+  return released;
 }
 
 function promptKind(marker: SessionMarker): string {
@@ -134,8 +149,8 @@ async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): Prom
     if (!KNOWN_WRAPPERS.has(tag)) appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} stripped <${tag}> from a prompt in ${marker.epic}\n`);
   }
   if (!text) return { actions: ["empty prompt"], context: null };
-  const context = await pendingNote(ctx, marker.epic);
-  const awaited = takeAwaitedPhase(ctx.home, marker.epic);
+  const context = await pendingNote(ctx, marker.epic, input.session_id);
+  const awaited = takeAwaitedPhase(ctx.home, marker.epic, input.session_id);
   const line = {
     ts: ctx.now(),
     session: input.session_id,
@@ -245,9 +260,10 @@ function onOtherEvent(input: HookInput, marker: SessionMarker, ctx: Ctx): string
       if (input.tool_name === "Bash") return onBash(input, marker, ctx);
       return ["ignored"];
     case "SessionEnd":
+      const released = releaseOwnership(ctx.home, marker.epic, input.session_id);
       endSession(ctx.home, input.session_id);
       commit(ctx.home, `${marker.epic}: end session`);
-      return ["session ended"];
+      return ["session ended", ...released];
     case "PostToolUseFailure":
     case "PermissionDenied":
       if (input.tool_name !== "ExitPlanMode") return ["ignored"];

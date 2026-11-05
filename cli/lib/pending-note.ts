@@ -1,14 +1,16 @@
 import { appendFileSync } from "node:fs";
 import type { Ctx } from "./context.ts";
 import { listPhases } from "./phase.ts";
-import { feedbackItems, readMarks, recordCheck } from "./pr-items.ts";
+import { feedbackItems, liveOwner, readMarks, recordCheck } from "./pr-items.ts";
 import { paths } from "./store.ts";
 
 const FRESH_MS = 5 * 60 * 1000;
 const GH_TIMEOUT_MS = 4000;
 
-async function pendingCount(ctx: Ctx, epic: string, phase: number, urls: string[]): Promise<number> {
+async function pendingCount(ctx: Ctx, epic: string, phase: number, urls: string[], session: string): Promise<number> {
   const marks = readMarks(ctx.home, epic, phase);
+  const owner = liveOwner(ctx.home, marks);
+  if (owner && owner.session !== session) return 0;
   const age = marks.checked_at === null ? Infinity : Date.parse(ctx.now()) - Date.parse(marks.checked_at);
   if (age >= 0 && age < FRESH_MS) return marks.pending;
   const notified = new Set(marks.notified);
@@ -31,14 +33,16 @@ function logSkip(ctx: Ctx, what: string, err: unknown): void {
 /**
  * One line per phase whose open PRs have review items the user has not been told about, or null when there are none.
  *
+ * A phase another live session owns is skipped: that session's watcher brings its feedback.
+ *
  * Phases are checked concurrently so the whole check stays near one gh timeout, well inside the hook's own limit.
  * A failed check still records its time, so the next prompts within five minutes skip gh instead of re-paying the timeout.
  */
-export async function pendingNote(ctx: Ctx, epic: string): Promise<string | null> {
+export async function pendingNote(ctx: Ctx, epic: string, session: string): Promise<string | null> {
   try {
     const phases = listPhases(ctx.home, epic).filter((p) => p.meta.prs.some((pr) => pr.state === "open"));
     const counts = await Promise.allSettled(
-      phases.map((p) => pendingCount(ctx, epic, p.meta.id, p.meta.prs.filter((pr) => pr.state === "open").map((pr) => pr.url))),
+      phases.map((p) => pendingCount(ctx, epic, p.meta.id, p.meta.prs.filter((pr) => pr.state === "open").map((pr) => pr.url), session)),
     );
     const lines: string[] = [];
     counts.forEach((result, i) => {

@@ -6,7 +6,7 @@ import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, review,
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { addMarks, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
+import { addMarks, claimOwner, readMarks, recordCheck, setAwaitingReply } from "../cli/lib/pr-items.ts";
 import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { readProposal } from "../cli/lib/proposal.ts";
 import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
@@ -264,12 +264,12 @@ test("the reply to a shown batch is tagged review with the batch's phase, once",
   const home = setup();
   const r = await run(["pr", "feedback", "await", "e", "1"], ctx(home));
   assert.equal(r.code, 0, r.stderr);
-  assert.equal(readMarks(home, "e", 1).awaiting_reply, true);
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, SESSION);
   assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
   await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
   const reply = lastPrompt(home, "e") as { kind: string; phase: number | null };
   assert.deepEqual([reply.kind, reply.phase], ["review", 1]);
-  assert.equal(readMarks(home, "e", 1).awaiting_reply, false);
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, null);
   assert.equal(git(home, ["status", "--porcelain"]).trim(), "", "the cleared flag is committed with the prompt");
   await handleHook(hook("UserPromptSubmit", { user_input: "back to planning" }), ctx(home));
   const next = lastPrompt(home, "e") as { kind: string; phase: number | null };
@@ -383,4 +383,40 @@ test("only prompts and open prs produce a note", async () => {
   const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(closed, { gh }));
   assert.equal(r.context, null);
   assert.equal(gh.calls.length, 0);
+});
+
+const OTHER = "sess-2";
+
+test("another session's prompt does not take the reply to this session's batch", async () => {
+  const home = setup();
+  startSession(home, OTHER, "e", { phase: 1, step: "pr-feedback" }, NOW);
+  setAwaitingReply(home, "e", 1, OTHER);
+  await handleHook(hook("UserPromptSubmit", { user_input: "unrelated" }), ctx(home));
+  assert.equal(lastPrompt(home, "e").kind, "planning");
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, OTHER);
+});
+
+test("SessionEnd releases the feedback ownership the session held", async () => {
+  const home = setup(1);
+  claimOwner(home, "e", 1, SESSION, NOW);
+  const r = await handleHook(hook("SessionEnd", { reason: "exit" }), ctx(home));
+  assert.deepEqual(r.actions, ["session ended", "released phase 1 feedback"]);
+  assert.equal(readMarks(home, "e", 1).owner, null);
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+});
+
+test("no note for a phase another live session owns", async () => {
+  const { home, gh } = noteSetup();
+  startSession(home, OTHER, "e", { phase: 1, step: "implement" }, NOW);
+  claimOwner(home, "e", 1, OTHER, NOW);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
+  assert.equal(r.context, null);
+  assert.equal(gh.calls.length, 0);
+});
+
+test("a note for a phase whose owner's session is gone", async () => {
+  const { home, gh } = noteSetup();
+  claimOwner(home, "e", 1, OTHER, NOW);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
+  assert.match(r.context ?? "", /phase 1 PR has 2 new review items/);
 });

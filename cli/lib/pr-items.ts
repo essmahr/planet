@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { PrFeedback } from "./gh.ts";
 import { paths } from "./store.ts";
@@ -38,25 +38,67 @@ export function feedbackItems(f: PrFeedback): FeedbackItem[] {
   return items;
 }
 
+export interface Owner {
+  session: string;
+  since: string;
+}
+
 export interface Marks {
   notified: string[];
   handled: string[];
   checked_at: string | null;
   pending: number;
-  awaiting_reply: boolean;
+  awaiting_reply: string | null;
+  owner: Owner | null;
 }
 
+/** The marks file, with an `awaiting_reply` from before replies were tied to a session read as none. */
 export function readMarks(home: string, epic: string, phase: number): Marks {
   const file = paths.marks(home, epic, phase);
-  const empty: Marks = { notified: [], handled: [], checked_at: null, pending: 0, awaiting_reply: false };
+  const empty: Marks = { notified: [], handled: [], checked_at: null, pending: 0, awaiting_reply: null, owner: null };
   if (!existsSync(file)) return empty;
-  return { ...empty, ...JSON.parse(readFileSync(file, "utf8")) };
+  const marks: Marks = { ...empty, ...JSON.parse(readFileSync(file, "utf8")) };
+  if (typeof marks.awaiting_reply !== "string") marks.awaiting_reply = null;
+  return marks;
 }
 
-function writeMarks(home: string, epic: string, phase: number, marks: Marks): void {
+const LOCK_WAIT_MS = 2000;
+const LOCK_STALE_MS = 10_000;
+
+function takeLock(lock: string): void {
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      closeSync(openSync(lock, "wx"));
+      return;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    }
+    const held = statSync(lock, { throwIfNoEntry: false });
+    if (held && Date.now() - held.mtimeMs > LOCK_STALE_MS) rmSync(lock, { force: true });
+    if (Date.now() > deadline) throw new Error(`marks file locked: ${lock}`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+  }
+}
+
+/**
+ * Reads the marks file, applies `change`, and writes it back, all under a lock file.
+ *
+ * Sessions, their hooks, and watchers all write this file, so an unlocked read-modify-write could drop another writer's ids or owner.
+ */
+export function updateMarks(home: string, epic: string, phase: number, change: (marks: Marks) => Marks): Marks {
   const file = paths.marks(home, epic, phase);
+  const lock = paths.marksLock(home, epic, phase);
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(marks, null, 2)}\n`);
+  mkdirSync(dirname(lock), { recursive: true });
+  takeLock(lock);
+  try {
+    const next = change(readMarks(home, epic, phase));
+    writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);
+    return next;
+  } finally {
+    rmSync(lock, { force: true });
+  }
 }
 
 function union(a: string[], b: string[]): string[] {
@@ -64,21 +106,64 @@ function union(a: string[], b: string[]): string[] {
 }
 
 export function addMarks(home: string, epic: string, phase: number, mark: "notified" | "handled", ids: string[]): Marks {
-  const cur = readMarks(home, epic, phase);
-  const next: Marks = {
+  return updateMarks(home, epic, phase, (cur) => ({
     ...cur,
     notified: union(cur.notified, ids),
     handled: mark === "handled" ? union(cur.handled, ids) : cur.handled,
     checked_at: null,
-  };
-  writeMarks(home, epic, phase, next);
-  return next;
+  }));
 }
 
 export function recordCheck(home: string, epic: string, phase: number, pending: number, now: string): void {
-  writeMarks(home, epic, phase, { ...readMarks(home, epic, phase), pending, checked_at: now });
+  updateMarks(home, epic, phase, (cur) => ({ ...cur, pending, checked_at: now }));
 }
 
-export function setAwaitingReply(home: string, epic: string, phase: number, awaiting: boolean): void {
-  writeMarks(home, epic, phase, { ...readMarks(home, epic, phase), awaiting_reply: awaiting });
+export function setAwaitingReply(home: string, epic: string, phase: number, session: string | null): void {
+  updateMarks(home, epic, phase, (cur) => ({ ...cur, awaiting_reply: session }));
+}
+
+/** The phase's owner while that session's marker file exists. A crashed or cleared session leaves no live owner. */
+export function liveOwner(home: string, marks: Marks): Owner | null {
+  if (!marks.owner) return null;
+  return existsSync(paths.session(home, marks.owner.session)) ? marks.owner : null;
+}
+
+export type ClaimResult = { ok: true; owner: Owner } | { ok: false; owner: Owner };
+
+/** Makes `session` the phase's feedback owner unless another live session owns it. */
+export function claimOwner(home: string, epic: string, phase: number, session: string, now: string): ClaimResult {
+  let result!: ClaimResult;
+  updateMarks(home, epic, phase, (cur) => {
+    const owner = liveOwner(home, cur);
+    if (owner && owner.session !== session) {
+      result = { ok: false, owner };
+      return cur;
+    }
+    const next = owner ?? { session, since: now };
+    result = { ok: true, owner: next };
+    return { ...cur, owner: next };
+  });
+  return result;
+}
+
+/** Makes `session` the phase's feedback owner whoever held it, and returns the previous live owner. */
+export function takeOwner(home: string, epic: string, phase: number, session: string, now: string): Owner | null {
+  let previous: Owner | null = null;
+  updateMarks(home, epic, phase, (cur) => {
+    previous = liveOwner(home, cur);
+    if (previous?.session === session) return cur;
+    return { ...cur, owner: { session, since: now } };
+  });
+  return previous;
+}
+
+export function releaseOwner(home: string, epic: string, phase: number, session: string): boolean {
+  if (readMarks(home, epic, phase).owner?.session !== session) return false;
+  let released = false;
+  updateMarks(home, epic, phase, (cur) => {
+    if (cur.owner?.session !== session) return cur;
+    released = true;
+    return { ...cur, owner: null };
+  });
+  return released;
 }

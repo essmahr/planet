@@ -5,8 +5,11 @@ import type { PrFeedback } from "../cli/lib/gh.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
-import { addMarks, feedbackItems, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
-import { git } from "../cli/lib/store.ts";
+import { addMarks, claimOwner, feedbackItems, readMarks, recordCheck } from "../cli/lib/pr-items.ts";
+import { startSession } from "../cli/lib/session.ts";
+import { git, paths } from "../cli/lib/store.ts";
+import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
 function setup(feedback: PrFeedback = BASE): { home: string; gh: ReturnType<typeof fakeGh> } {
   const home = tmpHome();
@@ -41,7 +44,7 @@ test("handled implies notified and clears the hook cache", () => {
   const home = tmpHome();
   recordCheck(home, "e", 1, 3, NOW);
   const m = addMarks(home, "e", 1, "handled", ["C1", "C1"]);
-  assert.deepEqual(m, { notified: ["C1"], handled: ["C1"], checked_at: null, pending: 3, awaiting_reply: false });
+  assert.deepEqual(m, { notified: ["C1"], handled: ["C1"], checked_at: null, pending: 3, awaiting_reply: null, owner: null });
 });
 
 test("pr feedback --new hides handled items and flags notified ones", async () => {
@@ -71,4 +74,69 @@ test("pr feedback mark rejects an unknown kind", async () => {
   const r = await run(["pr", "feedback", "mark", "e", "1", "seen", "I2"], ctx(home));
   assert.notEqual(r.code, 0);
   assert.match(r.stderr, /notified or handled/);
+});
+
+const OTHER = "sess-2";
+
+test("an awaiting_reply of true from before sessions reads as none", () => {
+  const home = tmpHome();
+  mkdirSync(dirname(paths.marks(home, "e", 1)), { recursive: true });
+  writeFileSync(paths.marks(home, "e", 1), JSON.stringify({ notified: [], handled: [], awaiting_reply: true }));
+  assert.equal(readMarks(home, "e", 1).awaiting_reply, null);
+});
+
+test("a stale lock file is broken; a fresh one blocks", () => {
+  const home = tmpHome();
+  const lock = paths.marksLock(home, "e", 1);
+  mkdirSync(dirname(lock), { recursive: true });
+  writeFileSync(lock, "");
+  assert.throws(() => addMarks(home, "e", 1, "notified", ["C1"]), /marks file locked/);
+  const old = new Date(Date.now() - 60_000);
+  utimesSync(lock, old, old);
+  assert.deepEqual(addMarks(home, "e", 1, "notified", ["C1"]).notified, ["C1"]);
+});
+
+test("--claim makes this session the owner and returns the items", async () => {
+  const { home, gh } = setup({ ...BASE, conversation: [convo("I2", "bob")] });
+  const r = await run(["pr", "feedback", "e", "1", "--new", "--claim", "--json"], ctx(home, { gh }));
+  assert.equal(r.code, 0, r.stderr);
+  assert.deepEqual((r.json as { items: { id: string }[] }).items.map((i) => i.id), ["I2"]);
+  assert.deepEqual(readMarks(home, "e", 1).owner, { session: "sess-1", since: NOW });
+  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+});
+
+test("--claim refuses a phase another live session owns, with exit 3 and no gh call", async () => {
+  const { home, gh } = setup();
+  startSession(home, OTHER, "e", { phase: 1 }, NOW);
+  claimOwner(home, "e", 1, OTHER, NOW);
+  const r = await run(["pr", "feedback", "e", "1", "--new", "--claim"], ctx(home, { gh }));
+  assert.equal(r.code, 3);
+  assert.equal(r.stdout.trim(), "phase 1 feedback is owned by session sess-2");
+  assert.deepEqual(gh.calls, []);
+});
+
+test("--claim takes a phase whose owner's session is gone", async () => {
+  const { home, gh } = setup();
+  claimOwner(home, "e", 1, OTHER, NOW);
+  const r = await run(["pr", "feedback", "e", "1", "--new", "--claim"], ctx(home, { gh }));
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(readMarks(home, "e", 1).owner?.session, "sess-1");
+});
+
+test("take moves ownership and names the previous owner", async () => {
+  const { home } = setup();
+  startSession(home, OTHER, "e", { phase: 1 }, NOW);
+  claimOwner(home, "e", 1, OTHER, NOW);
+  const r = await run(["pr", "feedback", "take", "e", "1"], ctx(home));
+  assert.equal(r.code, 0, r.stderr);
+  assert.equal(r.stdout.trim(), "phase 1: feedback owned by this session (was session sess-2)");
+  assert.equal(readMarks(home, "e", 1).owner?.session, "sess-1");
+  assert.match(git(home, ["log", "-1", "--format=%s"]), /e: phase 1 feedback owned by session sess-1/);
+});
+
+test("--claim without --new is refused", async () => {
+  const { home } = setup();
+  const r = await run(["pr", "feedback", "e", "1", "--claim"], ctx(home));
+  assert.notEqual(r.code, 0);
+  assert.match(r.stderr, /--claim needs --new/);
 });

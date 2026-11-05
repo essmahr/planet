@@ -28,11 +28,6 @@ defer
 Reply e.g. "do 1 3, weigh 2 -> do, refute 4, defer 5". Full diffs: <triage file path>
 ```
 
-Under a do commit, add a `choices:` line when it adds or deletes a file,
-moves or renames an export, adds a dependency, or changes an exported
-signature, e.g. `choices: new src/hooks/useFoo.ts; moves fooBar from a.ts to
-b.ts`. The user should not need the triage file to see them.
-
 A CI item reads `ci, check <name>: failing`. A refute or defer on a CI item
 shows `no reply (CI)`. Omit empty buckets. When the batch interrupted other
 work, add one last line naming it and any question it was waiting on.

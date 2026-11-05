@@ -60,9 +60,7 @@ With ownership enforced, one path would almost suffice. The suffix covers the wi
 
 ### Design choices named in chat
 
-`batch-format.md`: under each do commit, add one `choices:` line when the commit adds or deletes a file, moves or renames an export, adds a dependency, or changes an exported signature. Example: `choices: new src/hooks/useFoo.ts; moves fooBar export from a.ts to b.ts`. Still never a diff.
-
-`apply.md`: a commit drafted at step 7 (weigh to do, merge into, free-text edit) that makes any such choice is shown with its `choices:` line, and the push waits for AskUserQuestion (`Push`, `Hold`). Commits with no choices push as today.
+`apply.md`: a commit drafted at step 7 (weigh to do, merge into, free-text edit) that adds or deletes a file, moves an export, adds a dependency, or changes an exported signature is shown with a `choices:` line naming those, and the push waits for AskUserQuestion (`Push`, `Hold`). Commits with no choices push as today.
 
 ## Trade-offs and alternatives
 
@@ -87,12 +85,12 @@ With ownership enforced, one path would almost suffice. The suffix covers the wi
 
 1. `skills/planet-pr-feedback/SKILL.md`: owner rule; step 5 uses `--new --claim`, and exit 3 asks `Take it here` / `Leave it` with the takeover warning; step 7 reruns the claim and applies nothing when another session took the phase; the silent watcher exits join "do nothing, say nothing". Version 0.3.0; word budget 950 to 1020.
 2. `references/worktree.md`: per-session path; create removes only its own leftover; merged or closed removes every path for the phase.
-3. `references/batch-format.md`: the `choices:` line.
-4. `references/apply.md`: unshown step-7 drafts with choices wait for `Push` / `Hold`.
-5. No change to `planet-implement` or the `go` router: the watcher claims, and the take question lives in the skill.
+3. `references/apply.md`: unshown step-7 drafts with choices wait for `Push` / `Hold`.
+4. No change to `planet-implement` or the `go` router: the watcher claims, and the take question lives in the skill.
 
 ## Decisions
 
 1. A take always asks first and names the session it takes over. Starting a new session is easy, so taking over one by accident must not be.
 2. The `Push` / `Hold` stop for step-7 drafts with design choices ships in this change.
 3. `d072471` stays on `feedback-review/2026-11-05`, unmerged. This change builds on it and rewrites its rule in terms of ownership; both reach main together.
+4. No `choices:` line in the batch itself. Micro-tests showed the batch already names new files in the commit line without it (`docs/superpowers/notes/2026-11-05-pr-feedback-one-owner-tests.md`).

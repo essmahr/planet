@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git *), Bash(gh pr view *), Bash(gh pr comment *), Bash(gh api repos/*/pulls/*/comments/*/replies *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Planet: PR feedback

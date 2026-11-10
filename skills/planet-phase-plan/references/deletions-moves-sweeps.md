@@ -38,5 +38,9 @@ removal phase: the old form stays until that phase; Decisions says so.
   paths, codegen inputs) for the old path and lists those files in the commit,
   saying whether each rule is deleted or repointed.
 - A moved function's comments are reread for staleness, not ported verbatim.
+- A rename of identifiers or keys also greps the old names in string positions
+  (`iconName:`, `icon=`), comments, and JSDoc, and renames locals that still
+  spell the old name. Before claiming no dynamic uses, it renames the keys in a
+  scratch checkout and runs typecheck.
 - A pure move's file count is exempt from the budget when the entry says so;
   content changes in the same phase are counted on their own.

@@ -2,6 +2,11 @@
 
 ## Shown in chat
 
+Leave out comments with nothing to review (Linear link-backs) and merge
+items that restate one issue (a bot's summary and its inline comment).
+Propose skip for an approval with no comment and for a thread the PR author
+already answered.
+
 Number items from 1. Items notified in an earlier batch and still unhandled
 come first, marked `(earlier)`. One line per item, one line under it for the
 commit, assessment, or reply. Never a diff. Quotes are cut to about 60

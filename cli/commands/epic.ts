@@ -3,6 +3,7 @@ import { need, needString, optList, optString, parse } from "../lib/args.ts";
 import { createEpic, listEpics, readEpic, resolveEpics, writeEpic } from "../lib/epic.ts";
 import { listPhases } from "../lib/phase.ts";
 import { commit } from "../lib/store.ts";
+import { assertRepos } from "../schema/validate.ts";
 import { epicBrief, epicView } from "../lib/view.ts";
 
 const MANUAL_STATUSES = ["paused", "abandoned", "active"] as const;
@@ -54,6 +55,21 @@ async function epicSet(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: epic, text: `updated ${slug}: ${changes.join(", ")}` };
 }
 
+async function epicRepo(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals } = parse(args, {});
+  if (need(positionals, 0, "subcommand") !== "add") throw new Error("usage: planet epic repo add <epic> <owner/name>");
+  const slug = need(positionals, 1, "epic slug");
+  const repo = need(positionals, 2, "repo");
+  const epic = readEpic(ctx.home, slug);
+  if (epic.repos.includes(repo)) return { json: epic, text: `${slug} already has ${repo}` };
+  assertRepos([...epic.repos, repo], "epic");
+  epic.repos.push(repo);
+  epic.updated = ctx.now();
+  writeEpic(ctx.home, epic);
+  commit(ctx.home, `${slug}: add repo ${repo}`);
+  return { json: epic, text: `added ${repo} to ${slug}` };
+}
+
 async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { brief: { type: "boolean" } });
   const slug = need(positionals, 0, "epic slug");
@@ -92,7 +108,8 @@ export const epicCommand: Command = async (args, ctx) => {
     case "new": return epicNew(rest, ctx);
     case "set": return epicSet(rest, ctx);
     case "show": return epicShow(rest, ctx);
+    case "repo": return epicRepo(rest, ctx);
     case "resolve": return epicResolve(rest, ctx);
-    default: throw new Error("usage: planet epic new|set|show|resolve");
+    default: throw new Error("usage: planet epic new|set|show|repo|resolve");
   }
 };

@@ -161,3 +161,17 @@ test("phase new and set take --repo; the brief resolves each phase's repo", asyn
   assert.equal(bad.code, 1);
   assert.match(bad.stderr, /not one of epic 'e' repos/);
 });
+
+test("epic repo add appends a repo once and commits", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/fe"], ctx(home));
+  const r = await run(["epic", "repo", "add", "e", "o/be"], ctx(home));
+  assert.equal(r.stdout, "added o/be to e\n");
+  assert.deepEqual(readEpic(home, "e").repos, ["o/fe", "o/be"]);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: add repo o/be");
+  const again = await run(["epic", "repo", "add", "e", "o/be"], ctx(home));
+  assert.equal(again.stdout, "e already has o/be\n");
+  const bad = await run(["epic", "repo", "add", "e", "nope"], ctx(home));
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /owner\/name/);
+});

@@ -43,6 +43,7 @@ commands:
   status [--all] [--no-sync] [--force]
   open <text> [--step <name>]
   epic new|set|show|resolve
+  epic repo add <epic> <owner/name>
   phase new|write|set|drop|event
   link <epic> <phase> <pr-url>...
   unlink <epic> <phase> <pr-url>

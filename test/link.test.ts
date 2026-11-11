@@ -40,6 +40,16 @@ test("linkPrs rejects urls outside the epic repo or not PR urls", () => {
   assert.equal(readEpic(home, "e").status, "planning");
 });
 
+test("linkPrs checks each PR against its phase's repo", () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repos: ["closeio/close-ui", "closeio/closeio"] }, NOW);
+  newPhases(home, "e", [{ slug: "ui", title: "UI" }, { slug: "api", title: "API", repo: "closeio/closeio" }]);
+  const BE = "https://github.com/closeio/closeio/pull/9";
+  assert.deepEqual(linkPrs(home, "e", 2, [BE], NOW).added, [BE]);
+  assert.throws(() => linkPrs(home, "e", 1, [BE], NOW), /not in closeio\/close-ui, phase 1's repo/);
+  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW), /not in closeio\/closeio, phase 2's repo/);
+});
+
 test("linkPrs refuses a manual phase", () => {
   const home = setup();
   newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual" }]);

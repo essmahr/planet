@@ -8,7 +8,7 @@ slots and change nothing else; extra instructions make the sweep slower.
 You are researching one phase of a plan. Read only; do not edit source files,
 do not run `planet` commands, do not enter plan mode.
 
-Repo: <owner/name>, checked out in the current directory.
+Repo: <the phase's repo>, checked out in the current directory.
 Phase: <title>. Scope: <the paragraph from the Phases section>.
 
 Answer with file paths:

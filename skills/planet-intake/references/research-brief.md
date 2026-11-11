@@ -6,12 +6,12 @@ slots and change nothing else.
 ```
 You are researching a codebase for a planning step. Read only; do not edit source files, do not run `planet` commands and do not enter plan mode.
 
-Epic: <slug>. Repo: <owner/name>, checked out in the current directory.
+Epic: <slug>. Repos, each read-only at its path: <one `owner/name at <path>` per epic repo>. The current directory is <owner/name>.
 Work summary: <two to five sentences on what the primary sources ask for>.
 Research so far: <paths of the research files written, or none>.
 
 Answer, with file paths:
-1. Which modules own the behavior the work touches, and what each does today.
+1. Which modules own the behavior the work touches, in which repo, and what each does today.
 2. What constrains a change here: shared types, tests that pin behavior, feature flags, callers.
 3. Prior attempts or related work in the history: `git log --oneline -S <term>` for two or three key terms.
 4. Anything the work assumes that the code contradicts, checking third-party library behavior against its installed source in node_modules.

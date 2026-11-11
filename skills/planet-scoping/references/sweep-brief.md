@@ -8,7 +8,7 @@ angle-bracket slots and change nothing else.
 You are answering questions for a planning step. Read only; do not edit source
 files, do not run `planet` commands, do not enter plan mode.
 
-Epic: <slug>. Repo: <owner/name>, checked out in the current directory.
+Epic: <slug>. Repos, each read-only at its path: <one `owner/name at <path>` per epic repo>. The current directory is <owner/name>.
 Question: <the one thing the approach choice hinges on>.
 
 Answer with file paths and, where useful, counts from `rg`. Write the answer to

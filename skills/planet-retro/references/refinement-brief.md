@@ -9,7 +9,7 @@ You are categorizing the changes made to a pull request after its author first
 called it done. Read only; do not edit files, do not run `planet` commands, do
 not enter plan mode.
 
-Repo: <owner/name>, checked out in the current directory.
+Repo: <the phase's repo>, checked out in the current directory.
 Range: <implemented_sha>..<head_sha>, PR <n>. Run `git diff --stat <range>`,
 `git diff <range>`, then `git log -p <range>`. If a sha is missing, run
 `git fetch origin pull/<n>/head` once and retry; if it is still missing, reply

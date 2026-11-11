@@ -6,7 +6,7 @@ import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic, listEpics, readEpic, resolveEpics, writeEpic, NotFound } from "../cli/lib/epic.ts";
 import type { PhaseMeta } from "../cli/schema/types.ts";
 
-const input = { slug: "gql-migration", title: "GQL migration", repo: "closeio/close-ui", linear: ["CRM-123"] };
+const input = { slug: "gql-migration", title: "GQL migration", repos: ["closeio/close-ui"], linear: ["CRM-123"] };
 
 test("createEpic writes epic.yaml and the directory layout", () => {
   const home = tmpHome();
@@ -25,7 +25,7 @@ test("createEpic rejects duplicates and bad input", () => {
   createEpic(home, input, NOW);
   assert.throws(() => createEpic(home, input, NOW), /already exists/);
   assert.throws(() => createEpic(home, { ...input, slug: "Bad Slug" }, NOW), /kebab-case/);
-  assert.throws(() => createEpic(home, { ...input, slug: "x", repo: "nope" }, NOW), /owner\/name/);
+  assert.throws(() => createEpic(home, { ...input, slug: "x", repos: ["nope"] }, NOW), /owner\/name/);
 });
 
 test("readEpic throws NotFound; writeEpic round trips", () => {
@@ -46,8 +46,8 @@ test("listEpics sorts by slug", () => {
 
 test("resolveEpics: exact slug, then substring, then linear id", () => {
   const home = tmpHome();
-  const a = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r", linear: ["CRM-1"] }, NOW);
-  const b = createEpic(home, { slug: "gql-cleanup", title: "Remove REST", repo: "o/r" }, NOW);
+  const a = createEpic(home, { slug: "gql-migration", title: "GQL migration", repos: ["o/r"], linear: ["CRM-1"] }, NOW);
+  const b = createEpic(home, { slug: "gql-cleanup", title: "Remove REST", repos: ["o/r"] }, NOW);
   const phasesOf = (slug: string): PhaseMeta[] => slug === "gql-cleanup"
     ? [{ id: 1, slug: "p", title: "P", status: "draft", linear: ["CRM-99"], prs: [], shipped_at: null, kind: "pr" }]
     : [];
@@ -62,9 +62,9 @@ test("resolveEpics: exact slug, then substring, then linear id", () => {
 
 test("resolveEpics: scores tokens and drops stopwords", () => {
   const home = tmpHome();
-  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r" }, NOW);
-  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repo: "o/r" }, NOW);
-  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repo: "o/r" }, NOW);
+  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repos: ["o/r"] }, NOW);
+  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repos: ["o/r"] }, NOW);
+  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repos: ["o/r"] }, NOW);
   const phasesOf = (): PhaseMeta[] => [];
   const epics = [gql, auth, db];
   assert.deepEqual(resolveEpics(epics, "the gql thing", phasesOf).map((e) => e.slug), ["gql-migration"]);
@@ -73,9 +73,9 @@ test("resolveEpics: scores tokens and drops stopwords", () => {
 
 test("resolveEpics: tokens split on punctuation, not just whitespace", () => {
   const home = tmpHome();
-  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r" }, NOW);
-  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repo: "o/r" }, NOW);
-  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repo: "o/r" }, NOW);
+  const gql = createEpic(home, { slug: "gql-migration", title: "GQL migration", repos: ["o/r"] }, NOW);
+  const auth = createEpic(home, { slug: "auth-refresh", title: "Authentication refresh", repos: ["o/r"] }, NOW);
+  const db = createEpic(home, { slug: "db-migration", title: "DB migration", repos: ["o/r"] }, NOW);
   const phasesOf = (): PhaseMeta[] => [];
   const epics = [gql, auth, db];
   assert.deepEqual(resolveEpics(epics, "what's up with gql?", phasesOf).map((e) => e.slug), ["gql-migration"]);

@@ -30,7 +30,7 @@ test("parseTags counts tags from notes.md", () => {
 
 test("buildReport aggregates per step with rejections, tags, and prompts", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
   const p1 = createProposal(home, "e", { ...base, step: "phasing", body: "# A\n1\n2\n" }, NOW);
   markRejected(home, "e", p1.meta.id, 'Comments on the plan:\n[Re: "1"] swap');
@@ -54,7 +54,7 @@ test("buildReport aggregates per step with rejections, tags, and prompts", () =>
 
 test("pr files sums per path across merged prs", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   linkPrs(home, "e", 1, [PR1, PR2], NOW);
   const gh = fakeGh(
@@ -76,7 +76,7 @@ test("pr files sums per path across merged prs", async () => {
 
 test("buildReport adds lessons, skill rejections, events, and reviews", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   const base = { phase: null, session: SESSION, toolUse: null, planFile: null };
   const p1 = createProposal(home, "e", { ...base, step: "phase-plan", body: "x" }, NOW);
@@ -103,7 +103,7 @@ test("buildReport adds lessons, skill rejections, events, and reviews", () => {
 
 test("feedback report command renders a summary", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   createProposal(home, "e", { step: "intake", phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" }, NOW);
   const r = await run(["feedback", "report", "e"], ctx(home));
   assert.equal(r.code, 0);

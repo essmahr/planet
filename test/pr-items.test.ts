@@ -13,7 +13,7 @@ import { dirname } from "node:path";
 
 function setup(feedback: PrFeedback = BASE): { home: string; gh: ReturnType<typeof fakeGh> } {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   linkPrs(home, "e", 1, [PR], NOW);
   return { home, gh: fakeGh({}, {}, false, undefined, { [PR]: feedback }) };

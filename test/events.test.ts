@@ -9,7 +9,7 @@ import { paths } from "../cli/lib/store.ts";
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
   return home;
 }

@@ -10,7 +10,7 @@ import type { EpicStatus } from "../schema/types.ts";
 export interface StatusRow {
   slug: string;
   title: string;
-  repo: string;
+  repos: string[];
   status: EpicStatus;
   shipped: number;
   total: number;
@@ -30,7 +30,7 @@ export function buildRows(home: string, stale: Set<string>): StatusRow[] {
     return {
       slug: epic.slug,
       title: epic.title,
-      repo: epic.repo,
+      repos: epic.repos,
       status: epic.status,
       shipped: metas.filter((m) => m.status === "shipped" || m.status === "reviewed").length,
       total: metas.length,
@@ -50,7 +50,7 @@ export function renderStatus(rows: StatusRow[]): string {
     ["EPIC", "REPO", "STATUS", "PHASES", "CURRENT", "OPEN", "REVIEW", "SYNCED"],
     rows.map((r) => [
       r.slug,
-      r.repo,
+      r.repos.join(", "),
       r.stale ? `${r.status} (stale)` : r.status,
       `${r.shipped}/${r.total}`,
       r.current ?? "-",

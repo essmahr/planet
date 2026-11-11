@@ -10,7 +10,7 @@ const PR2 = "https://github.com/closeio/close-ui/pull/1240";
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "closeio/close-ui" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["closeio/close-ui"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   return home;
 }

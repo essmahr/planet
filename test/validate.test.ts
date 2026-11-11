@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { validateEpic, validatePhaseMeta, validateProposalMeta, validateMarker, ValidationError, assertSlug } from "../cli/schema/validate.ts";
 
 const epic = {
-  slug: "gql-migration", title: "GQL migration", repo: "closeio/close-ui", status: "planning",
+  slug: "gql-migration", title: "GQL migration", repos: ["closeio/close-ui"], status: "planning",
   linear: ["CRM-123"], created: "2026-09-03T15:02:00Z", updated: "2026-09-03T15:02:00Z",
   synced_at: null, shipped_at: null, sessions: [],
 };
@@ -17,7 +17,16 @@ test("validateEpic accepts a full epic and fills defaults", () => {
 test("validateEpic rejects bad status, slug, and repo", () => {
   assert.throws(() => validateEpic({ ...epic, status: "done" }, "f"), ValidationError);
   assert.throws(() => validateEpic({ ...epic, slug: "GQL Migration" }, "f"), /kebab-case/);
-  assert.throws(() => validateEpic({ ...epic, repo: "close-ui" }, "f"), /owner\/name/);
+  assert.throws(() => validateEpic({ ...epic, repos: ["close-ui"] }, "f"), /owner\/name/);
+  assert.throws(() => validateEpic({ ...epic, repos: [] }, "f"), /at least one/);
+  assert.throws(() => validateEpic({ ...epic, repos: ["o/r", "o/r"] }, "f"), /must not repeat/);
+});
+
+test("validateEpic reads a legacy single repo as repos", () => {
+  const { repos: _, ...legacy } = epic;
+  const e = validateEpic({ ...legacy, repo: "closeio/close-ui" }, "f");
+  assert.deepEqual(e.repos, ["closeio/close-ui"]);
+  assert.equal("repo" in e, false);
 });
 
 test("validatePhaseMeta validates nested prs", () => {

@@ -19,7 +19,7 @@ const LATER = "2026-09-03T16:00:00.000Z";
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   linkPrs(home, "e", 1, [PR], NOW);
   return home;

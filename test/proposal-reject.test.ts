@@ -6,7 +6,7 @@ import { createProposal, readProposal } from "../cli/lib/proposal.ts";
 
 test("planet proposal reject marks a pending proposal rejected with feedback", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   const p = createProposal(home, "e", { step: "scoping", phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" }, NOW);
   const r = await run(["proposal", "reject", "e", "latest", "--feedback", "keep the current plan", "--json"], ctx(home));
   assert.equal(r.code, 0);
@@ -21,7 +21,7 @@ test("planet proposal reject marks a pending proposal rejected with feedback", a
 
 test("planet proposal reject refuses latest from another session, but a plain id bypasses the check", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   createProposal(home, "e", { step: "scoping", phase: null, session: "other", toolUse: null, planFile: null, body: "x" }, NOW);
   const refused = await run(["proposal", "reject", "e", "latest"], ctx(home));
   assert.equal(refused.code, 1);
@@ -32,7 +32,7 @@ test("planet proposal reject refuses latest from another session, but a plain id
 
 test("planet proposal tag accepts skill", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   createProposal(home, "e", { step: "scoping", phase: null, session: SESSION, toolUse: null, planFile: null, body: "x" }, NOW);
   const r = await run(["proposal", "tag", "e", "latest", "skill"], ctx(home));
   assert.equal(r.code, 0);

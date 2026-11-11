@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { parse, stringify } from "yaml";
 import type { Epic, PhaseMeta } from "../schema/types.ts";
-import { REPO_RE, ValidationError, assertSlug, validateEpic } from "../schema/validate.ts";
+import { assertRepos, assertSlug, validateEpic } from "../schema/validate.ts";
 import { REVIEW, paths } from "./store.ts";
 
 export class NotFound extends Error {
@@ -14,7 +14,7 @@ export class NotFound extends Error {
 export interface NewEpicInput {
   slug: string;
   title: string;
-  repo: string;
+  repos: string[];
   linear?: string[];
 }
 
@@ -31,7 +31,7 @@ export function writeEpic(home: string, epic: Epic): void {
 export function createEpic(home: string, input: NewEpicInput, now: string): Epic {
   if (input.slug === REVIEW) throw new Error(`'${REVIEW}' is reserved for feedback reviews`);
   assertSlug(input.slug, "epic slug");
-  if (!REPO_RE.test(input.repo)) throw new ValidationError("epic", "repo must be owner/name");
+  assertRepos(input.repos, "epic");
   if (existsSync(paths.epic(home, input.slug))) throw new Error(`epic '${input.slug}' already exists`);
   for (const dir of [paths.phases, paths.proposals, paths.feedback, paths.retros, paths.research]) {
     mkdirSync(dir(home, input.slug), { recursive: true });
@@ -39,7 +39,7 @@ export function createEpic(home: string, input: NewEpicInput, now: string): Epic
   const epic: Epic = {
     slug: input.slug,
     title: input.title,
-    repo: input.repo,
+    repos: input.repos,
     status: "planning",
     linear: input.linear ?? [],
     created: now,

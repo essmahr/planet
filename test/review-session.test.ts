@@ -58,7 +58,7 @@ test("proposal approve guards review destinations before mutating the proposal",
   assert.match(bad.stderr, /only approve --to review/);
   assert.equal(readProposal(home, REVIEW, 1).meta.outcome, "pending");
 
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   createProposal(home, "e", { step: "phasing", phase: null, session: SESSION, toolUse: null, planFile: null, body: "# Phases\n" }, NOW);
   const wrong = await run(["proposal", "approve", "e", "1", "--to", "review"], ctx(home));
   assert.equal(wrong.code, 1);

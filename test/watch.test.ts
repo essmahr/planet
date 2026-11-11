@@ -19,7 +19,7 @@ const withComment: PrFeedback = { ...BASE, comments: [comment("C1", "ana", false
 
 function setup(prs: string[] = [PR]): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   if (prs.length) linkPrs(home, "e", 1, prs, NOW);
   return home;

@@ -9,7 +9,7 @@ import type { Epic, PhaseMeta } from "../cli/schema/types.ts";
 
 function epicHome(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   return home;
 }
 
@@ -51,7 +51,7 @@ test("currentPhase prefers in-progress, then planned, then draft", () => {
 
 test("recomputeEpicStatus derives active and shipped", () => {
   const home = epicHome();
-  const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null };
   const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr" };
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), true);
@@ -64,7 +64,7 @@ test("recomputeEpicStatus derives active and shipped", () => {
 });
 
 test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed", () => {
-  const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
   assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b", status: "shipped" }], NOW), true, "a shipped manual phase activates the epic");
   assert.equal(epic.status, "active");
@@ -74,14 +74,14 @@ test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed
 });
 
 test("recomputeEpicStatus goes straight from planning to shipped when every phase is already reviewed", () => {
-  const epic = { slug: "e", title: "E", repo: "o/r", status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
   assert.equal(recomputeEpicStatus(epic, [manual], NOW), true);
   assert.equal(epic.status, "shipped");
 });
 
 test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () => {
-  const epic: Epic = { slug: "e", title: "E", repo: "o/r", status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [] };
+  const epic: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [] };
   const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
   const draft: PhaseMeta = { ...done, id: 2, slug: "b", status: "draft", shipped_at: null };
   assert.equal(recomputeEpicStatus(epic, [done], NOW), false, "still shipped while every phase is reviewed");
@@ -94,7 +94,7 @@ test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () =
 });
 
 test("recomputeEpicStatus leaves paused and abandoned alone", () => {
-  const base: Epic = { slug: "e", title: "E", repo: "o/r", status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const base: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
   for (const status of ["paused", "abandoned"] as const) {
     const epic: Epic = { ...base, status };

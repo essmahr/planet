@@ -12,10 +12,10 @@ const PR1 = "https://github.com/o/r/pull/1";
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "gql-migration", title: "GQL migration", repo: "o/r", linear: ["CRM-1"] }, NOW);
+  createEpic(home, { slug: "gql-migration", title: "GQL migration", repos: ["o/r"], linear: ["CRM-1"] }, NOW);
   newPhases(home, "gql-migration", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
   linkPrs(home, "gql-migration", 1, [PR1], NOW);
-  const done = createEpic(home, { slug: "old", title: "Old", repo: "o/r" }, NOW);
+  const done = createEpic(home, { slug: "old", title: "Old", repos: ["o/r"] }, NOW);
   done.status = "shipped";
   writeEpic(home, done);
   return home;
@@ -69,7 +69,7 @@ test("open with a unique match starts the session and returns the epic view", as
 
 test("open with zero or many matches sets nothing", async () => {
   const home = setup();
-  createEpic(home, { slug: "gql-cleanup", title: "Cleanup", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "gql-cleanup", title: "Cleanup", repos: ["o/r"] }, NOW);
   const gh = fakeGh({ [PR1]: { url: PR1, state: "open", merged_at: null } });
   const many = await run(["open", "gql", "--json"], ctx(home, { gh }));
   assert.deepEqual((many.json as { match: null; candidates: string[] }).candidates, ["gql-cleanup", "gql-migration"]);
@@ -81,7 +81,7 @@ test("open with zero or many matches sets nothing", async () => {
 
 test("status marks a manual current phase", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "m", title: "M", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "m", title: "M", repos: ["o/r"] }, NOW);
   newPhases(home, "m", [{ slug: "review", title: "Design review", kind: "manual" }]);
   const r = await run(["status", "--no-sync", "--json"], ctx(home));
   const rows = r.json as StatusRow[];

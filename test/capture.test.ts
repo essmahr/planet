@@ -24,7 +24,7 @@ function approvedResponse(plan: string): string {
 
 function setup(phase: number | null = null): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   startSession(home, SESSION, "e", { phase, step: "phase-plan" }, NOW);
   return home;

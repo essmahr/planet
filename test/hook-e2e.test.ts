@@ -25,7 +25,7 @@ test("planet-hook exits 0 and writes nothing without a marker", () => {
 
 test("planet-hook captures a prompt when the session has a marker", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   startSession(home, "sess-e2e", "e", {}, NOW);
   const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-e2e", user_input: "hello from the hook" });
   assert.equal(r.status, 0);
@@ -64,7 +64,7 @@ test("bin/planet fails clearly when no node exists", () => {
 
 test("planet-hook captures through nvm node when node is not on PATH", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   startSession(home, "sess-nvm", "e", {}, NOW);
   const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "sess-nvm", user_input: "via nvm" });
   const r = spawnSync("bin/planet-hook", { input: payload, encoding: "utf8", env: { ...process.env, PLANET_HOME: home, PATH: NO_NODE_PATH, PLANET_NODE: "", NVM_DIR: fakeNvm() } });
@@ -74,7 +74,7 @@ test("planet-hook captures through nvm node when node is not on PATH", () => {
 
 test("planet-hook exits 0 and logs when no node exists", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   startSession(home, "sess-nonode", "e", {}, NOW);
   const payload = JSON.stringify({ hook_event_name: "UserPromptSubmit", session_id: "sess-nonode", user_input: "lost" });
   const r = spawnSync("bin/planet-hook", { input: payload, encoding: "utf8", env: { ...process.env, PLANET_HOME: home, PATH: NO_NODE_PATH, PLANET_NODE: "", NVM_DIR: "/nonexistent" } });
@@ -98,7 +98,7 @@ test("bin/planet picks the numerically newest nvm node, not the lexically last",
 
 test("planet-hook prints the note on stdout", () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   linkPrs(home, "e", 1, [PR], NOW);
   writeFileSync(paths.marks(home, "e", 1), JSON.stringify({ notified: [], handled: [], checked_at: new Date().toISOString(), pending: 2 }));

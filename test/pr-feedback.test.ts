@@ -21,7 +21,7 @@ const FEEDBACK: PrFeedback = {
 
 test("planet pr feedback aggregates reviews, comments, and failed checks per linked pr", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   linkPrs(home, "e", 1, [PR], NOW);
   const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
@@ -37,7 +37,7 @@ test("planet pr feedback aggregates reviews, comments, and failed checks per lin
 
 test("planet pr feedback with no linked prs says so", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   const r = await run(["pr", "feedback", "e", "1"], ctx(home));
   assert.equal(r.code, 0);

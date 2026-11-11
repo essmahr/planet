@@ -11,7 +11,7 @@ const input = { step: "phasing" as const, phase: null, session: SESSION, toolUse
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
   return home;
 }
@@ -129,7 +129,7 @@ test("resolveProposalId accepts numbers, latest, and latest-N", () => {
   assert.throws(() => resolveProposalId(home, "e", "latest-3"), /no proposal 0/);
   assert.throws(() => resolveProposalId(home, "e", "newest"), /proposal id must be a number, latest, or latest-N/);
   const empty = tmpHome();
-  createEpic(empty, { slug: "x", title: "X", repo: "o/r" }, NOW);
+  createEpic(empty, { slug: "x", title: "X", repos: ["o/r"] }, NOW);
   assert.throws(() => resolveProposalId(empty, "x", "latest"), /no proposals/);
 });
 

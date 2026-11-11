@@ -38,6 +38,19 @@ test("epic new creates and commits; errors are one line or json", async () => {
   const missing = await run(["epic", "new", "other", "--repo", "o/r"], ctx(home));
   assert.equal(missing.code, 1);
   assert.match(missing.stderr, /missing --title/);
+
+  const noRepo = await run(["epic", "new", "other", "--title", "O"], ctx(home));
+  assert.equal(noRepo.code, 1);
+  assert.match(noRepo.stderr, /missing --repo/);
+});
+
+test("epic new takes --repo more than once, primary first", async () => {
+  const home = tmpHome();
+  const r = await run(["epic", "new", "mcp", "--title", "MCP", "--repo", "closeio/close-ui", "--repo", "closeio/closeio"], ctx(home));
+  assert.equal(r.code, 0);
+  assert.deepEqual(readEpic(home, "mcp").repos, ["closeio/close-ui", "closeio/closeio"]);
+  const show = await run(["epic", "show", "mcp", "--brief"], ctx(home));
+  assert.match(show.stdout, /closeio\/close-ui, closeio\/closeio/);
 });
 
 test("epic set changes status, linear, title with manual transitions only", async () => {
@@ -73,7 +86,7 @@ test("epic show --brief carries statuses and open PR urls only; the full view li
   linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7"], NOW);
   writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    apply: true\n  - text: taste\n    skill: not-planet\n    apply: false\n---\nbody\n", NOW, "head1");
   const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
-  assert.deepEqual(brief.epic, { slug: "e", title: "E", repo: "o/r", status: "active" });
+  assert.deepEqual(brief.epic, { slug: "e", title: "E", repos: ["o/r"], status: "active" });
   assert.deepEqual(brief.phases.map((p) => [p.id, p.slug, p.status, p.open_prs]), [[1, "a", "in-progress", ["https://github.com/o/r/pull/7"]], [2, "b", "draft", []]]);
   assert.equal(brief.last_approved_step, null);
   assert.match(brief.paths.dir, /epics\/e$/);

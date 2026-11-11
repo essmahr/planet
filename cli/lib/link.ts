@@ -19,7 +19,7 @@ export function linkPrs(home: string, epicSlug: string, phaseId: number, urls: s
   for (const raw of urls) {
     const m = PR_URL_RE.exec(raw);
     if (!m) throw new Error(`not a GitHub PR url: ${raw}`);
-    if (m[1] !== epic.repo) throw new Error(`${raw} is not in ${epic.repo}`);
+    if (m[1] !== epic.repos[0]) throw new Error(`${raw} is not in ${epic.repos[0]}`);
     const url = m[0];
     if (phase.meta.prs.some((pr) => pr.url === url)) continue;
     phase.meta.prs.push({ url, state: "open", merged_at: null });

@@ -11,11 +11,13 @@ type ManualStatus = (typeof MANUAL_STATUSES)[number];
 async function epicNew(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, {
     title: { type: "string" },
-    repo: { type: "string" },
+    repo: { type: "string", multiple: true },
     linear: { type: "string", multiple: true },
   });
   const slug = need(positionals, 0, "epic slug");
-  const epic = createEpic(ctx.home, { slug, title: needString(values, "title"), repo: needString(values, "repo"), linear: optList(values, "linear") }, ctx.now());
+  const repos = optList(values, "repo");
+  if (repos.length === 0) throw new Error("missing --repo");
+  const epic = createEpic(ctx.home, { slug, title: needString(values, "title"), repos, linear: optList(values, "linear") }, ctx.now());
   commit(ctx.home, `${slug}: create epic`);
   return { json: epic, text: `created epic ${slug}` };
 }
@@ -58,7 +60,7 @@ async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
   if (values.brief === true) {
     const brief = epicBrief(ctx.home, slug);
     const lines = [
-      `${brief.epic.slug}  ${brief.epic.title}  [${brief.epic.status}]  ${brief.epic.repo}`,
+      `${brief.epic.slug}  ${brief.epic.title}  [${brief.epic.status}]  ${brief.epic.repos.join(", ")}`,
       ...brief.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  open_prs=${p.open_prs.length}`),
       `  last approved step: ${brief.last_approved_step ?? "none"}`,
     ];
@@ -66,7 +68,7 @@ async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
   }
   const view = epicView(ctx.home, slug);
   const lines = [
-    `${view.epic.slug}  ${view.epic.title}  [${view.epic.status}]  ${view.epic.repo}`,
+    `${view.epic.slug}  ${view.epic.title}  [${view.epic.status}]  ${view.epic.repos.join(", ")}`,
     ...view.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  prs=${p.prs.length}`),
     `  plan: ${view.paths.plan ?? "none"}`,
   ];

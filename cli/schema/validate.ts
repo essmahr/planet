@@ -64,16 +64,32 @@ function oneOf<T extends string>(o: Obj, key: string, file: string, allowed: rea
   return v as T;
 }
 
+/** Checks a list of `owner/name` repos: at least one, each well formed, no duplicates. */
+export function assertRepos(repos: string[], file: string): void {
+  if (repos.length === 0) throw new ValidationError(file, "repos must list at least one owner/name");
+  for (const r of repos) if (!REPO_RE.test(r)) throw new ValidationError(file, `repo must be owner/name, got '${r}'`);
+  if (new Set(repos).size !== repos.length) throw new ValidationError(file, "repos must not repeat");
+}
+
+/**
+ * Reads `repos`, or a legacy single `repo` from epics created before multi-repo epics.
+ *
+ * The legacy form is never written back: the next `writeEpic` stores `repos`.
+ */
+function epicRepos(o: Obj, file: string): string[] {
+  const repos = o.repos === undefined && typeof o.repo === "string" ? [o.repo] : strList(o, "repos", file);
+  assertRepos(repos, file);
+  return repos;
+}
+
 export function validateEpic(v: unknown, file: string): Epic {
   const o = obj(v, file);
   const slug = str(o, "slug", file);
   assertSlug(slug, file);
-  const repo = str(o, "repo", file);
-  if (!REPO_RE.test(repo)) throw new ValidationError(file, "repo must be owner/name");
   return {
     slug,
     title: str(o, "title", file),
-    repo,
+    repos: epicRepos(o, file),
     status: oneOf(o, "status", file, EPIC_STATUSES),
     linear: strList(o, "linear", file),
     created: str(o, "created", file),

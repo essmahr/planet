@@ -13,7 +13,7 @@ const LATER = "2026-09-03T15:10:00.000Z";
 
 function setup(): string {
   const home = tmpHome();
-  createEpic(home, { slug: "e", title: "E", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
   linkPrs(home, "e", 1, [PR1, PR2], NOW);
   return home;
@@ -51,7 +51,7 @@ test("syncEpic skips fresh epics unless forced, and skips terminal epics", async
   assert.equal(aged.skipped, false);
   assert.equal(gh.calls.length, 3);
 
-  createEpic(home, { slug: "done", title: "Done", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "done", title: "Done", repos: ["o/r"] }, NOW);
   const doneEpic = readEpic(home, "done");
   doneEpic.status = "shipped";
   writeEpic(home, doneEpic);
@@ -97,7 +97,7 @@ test("closed prs are recorded without changing the phase", async () => {
 
 test("epic ships when every phase is reviewed", async () => {
   const home = tmpHome();
-  createEpic(home, { slug: "s", title: "S", repo: "o/r" }, NOW);
+  createEpic(home, { slug: "s", title: "S", repos: ["o/r"] }, NOW);
   newPhases(home, "s", [{ slug: "a", title: "A" }]);
   linkPrs(home, "s", 1, [PR1], NOW);
   const gh = fakeGh({ [PR1]: { url: PR1, state: "merged", merged_at: NOW } });

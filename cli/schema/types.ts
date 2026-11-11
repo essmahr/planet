@@ -21,7 +21,7 @@ export interface PrRef {
 export interface Epic {
   slug: string;
   title: string;
-  repo: string;
+  repos: string[];
   status: EpicStatus;
   linear: string[];
   created: string;

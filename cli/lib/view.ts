@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Epic, PhaseMeta, Step } from "../schema/types.ts";
 import { readEpic } from "./epic.ts";
-import { listPhases } from "./phase.ts";
+import { listPhases, phaseRepo } from "./phase.ts";
 import { listProposals } from "./proposal.ts";
 import { listRetros } from "./retro.ts";
 import type { RetroSkill } from "./retro.ts";
@@ -32,7 +32,7 @@ export interface EpicView {
 /** What the router needs to pick the next step: statuses and paths, no PR detail, no retro or proposal paths. */
 export interface EpicBrief {
   epic: Pick<Epic, "slug" | "title" | "repos" | "status">;
-  phases: Array<Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear"> & { open_prs: string[]; merged_prs: string[] }>;
+  phases: Array<Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear"> & { repo: string; open_prs: string[]; merged_prs: string[] }>;
   last_approved_step: Step | null;
   paths: { dir: string; plan: string | null };
 }
@@ -95,6 +95,7 @@ export function epicBrief(home: string, slug: string): EpicBrief {
       title: meta.title,
       status: meta.status,
       kind: meta.kind,
+      repo: phaseRepo(epic, meta),
       linear: meta.linear,
       open_prs: meta.prs.filter((pr) => pr.state === "open").map((pr) => pr.url),
       merged_prs: meta.prs.filter((pr) => pr.state === "merged").map((pr) => pr.url),

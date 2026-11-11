@@ -5,7 +5,7 @@ import { readEpic, writeEpic } from "../lib/epic.ts";
 import { EVENT_KINDS, appendEvent } from "../lib/events.ts";
 import type { EventKind } from "../lib/events.ts";
 import { recomputeEpicStatus } from "../lib/lifecycle.ts";
-import { dropPhase, listPhases, newPhases, readPhase, setPhaseLinear, setPhaseStatus, writeBody } from "../lib/phase.ts";
+import { dropPhase, listPhases, newPhases, readPhase, setPhaseLinear, setPhaseRepo, setPhaseStatus, writeBody } from "../lib/phase.ts";
 import type { NewPhaseInput } from "../lib/phase.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
@@ -16,17 +16,19 @@ async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
     linear: { type: "string", multiple: true },
     phase: { type: "string", multiple: true },
     manual: { type: "boolean" },
+    repo: { type: "string" },
   });
   const epic = need(positionals, 0, "epic slug");
   const inputs: NewPhaseInput[] = [];
   const slug = positionals[1];
   const manual = flag(values, "manual");
+  const repo = optString(values, "repo") ?? null;
   if (manual && optList(values, "phase").length > 0) throw new Error("--manual applies to the single form only");
-  if (slug !== undefined) inputs.push({ slug, title: needString(values, "title"), linear: optList(values, "linear"), kind: manual ? "manual" : "pr" });
+  if (slug !== undefined) inputs.push({ slug, title: needString(values, "title"), linear: optList(values, "linear"), kind: manual ? "manual" : "pr", repo });
   for (const pair of optList(values, "phase")) {
     const colon = pair.indexOf(":");
     if (colon <= 0 || colon === pair.length - 1) throw new Error(`--phase must be slug:title, got '${pair}'`);
-    inputs.push({ slug: pair.slice(0, colon), title: pair.slice(colon + 1) });
+    inputs.push({ slug: pair.slice(0, colon), title: pair.slice(colon + 1), repo });
   }
   if (inputs.length === 0) throw new Error("pass <slug> --title or --phase slug:title");
   readEpic(ctx.home, epic);
@@ -50,12 +52,13 @@ async function phaseWrite(args: string[], ctx: Ctx): Promise<CommandResult> {
 }
 
 async function phaseSet(args: string[], ctx: Ctx): Promise<CommandResult> {
-  const { positionals, values } = parse(args, { status: { type: "string" }, linear: { type: "string", multiple: true } });
+  const { positionals, values } = parse(args, { status: { type: "string" }, linear: { type: "string", multiple: true }, repo: { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");
   const status = optString(values, "status");
   const linear = optList(values, "linear");
-  if (status === undefined && linear.length === 0) throw new Error("nothing to set: pass --status or --linear");
+  const repo = optString(values, "repo");
+  if (status === undefined && linear.length === 0 && repo === undefined) throw new Error("nothing to set: pass --status, --linear, or --repo");
   const changes: string[] = [];
   if (status !== undefined) {
     if (status !== "planned" && status !== "reviewed" && status !== "shipped") throw new Error("--status must be planned, reviewed, or shipped");
@@ -65,6 +68,10 @@ async function phaseSet(args: string[], ctx: Ctx): Promise<CommandResult> {
   if (linear.length) {
     setPhaseLinear(ctx.home, epic, id, linear);
     changes.push("linear");
+  }
+  if (repo !== undefined) {
+    setPhaseRepo(ctx.home, epic, id, repo);
+    changes.push(`repo ${repo}`);
   }
   const epicDoc = readEpic(ctx.home, epic);
   epicDoc.updated = ctx.now();

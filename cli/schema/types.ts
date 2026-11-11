@@ -37,6 +37,8 @@ export interface PhaseMeta {
   title: string;
   status: PhaseStatus;
   kind: PhaseKind;
+  /** The repo this phase's PRs land in; null means the epic's primary repo. */
+  repo: string | null;
   linear: string[];
   prs: PrRef[];
   shipped_at: string | null;

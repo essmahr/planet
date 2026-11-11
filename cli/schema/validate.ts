@@ -105,6 +105,12 @@ function validatePr(v: unknown, file: string): PrRef {
   return { url: str(o, "url", file), state: oneOf(o, "state", file, PR_STATES), merged_at: nullableStr(o, "merged_at", file) };
 }
 
+function phaseRepoField(o: Obj, file: string): string | null {
+  const repo = nullableStr(o, "repo", file);
+  if (repo !== null && !REPO_RE.test(repo)) throw new ValidationError(file, "repo must be owner/name");
+  return repo;
+}
+
 export function validatePhaseMeta(v: unknown, file: string): PhaseMeta {
   const o = obj(v, file);
   const prs = o.prs ?? [];
@@ -117,6 +123,7 @@ export function validatePhaseMeta(v: unknown, file: string): PhaseMeta {
     title: str(o, "title", file),
     status: oneOf(o, "status", file, PHASE_STATUSES),
     kind: o.kind === undefined ? "pr" : oneOf(o, "kind", file, PHASE_KINDS),
+    repo: phaseRepoField(o, file),
     linear: strList(o, "linear", file),
     prs: prs.map((p) => validatePr(p, file)),
     shipped_at: nullableStr(o, "shipped_at", file),

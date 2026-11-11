@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
-import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, readPhase, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
+import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, phaseRepo, readPhase, setPhaseRepo, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
 import { recomputeEpicStatus } from "../cli/lib/lifecycle.ts";
 import type { Epic, PhaseMeta } from "../cli/schema/types.ts";
 
@@ -43,7 +43,7 @@ test("setPhaseStatus enforces manual transitions", () => {
 });
 
 test("currentPhase prefers in-progress, then planned, then draft", () => {
-  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr" });
+  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr", repo: null });
   assert.equal(currentPhase([mk(1, "reviewed"), mk(2, "draft"), mk(3, "planned")])?.id, 3);
   assert.equal(currentPhase([mk(1, "planned"), mk(2, "in-progress")])?.id, 2);
   assert.equal(currentPhase([mk(1, "reviewed")]), null);
@@ -53,7 +53,7 @@ test("recomputeEpicStatus derives active and shipped", () => {
   const home = epicHome();
   const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
   const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null };
-  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr" };
+  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr", repo: null };
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), true);
   assert.equal(epic.status, "active");
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), false);
@@ -65,7 +65,7 @@ test("recomputeEpicStatus derives active and shipped", () => {
 
 test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed", () => {
   const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null };
   assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b", status: "shipped" }], NOW), true, "a shipped manual phase activates the epic");
   assert.equal(epic.status, "active");
   assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b" }], "2026-10-01T00:00:00Z"), true);
@@ -75,14 +75,14 @@ test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed
 
 test("recomputeEpicStatus goes straight from planning to shipped when every phase is already reviewed", () => {
   const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual" };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null };
   assert.equal(recomputeEpicStatus(epic, [manual], NOW), true);
   assert.equal(epic.status, "shipped");
 });
 
 test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () => {
   const epic: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [] };
-  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null };
   const draft: PhaseMeta = { ...done, id: 2, slug: "b", status: "draft", shipped_at: null };
   assert.equal(recomputeEpicStatus(epic, [done], NOW), false, "still shipped while every phase is reviewed");
   assert.equal(recomputeEpicStatus(epic, [done, draft], "2026-10-01T00:00:00Z"), true);
@@ -95,7 +95,7 @@ test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () =
 
 test("recomputeEpicStatus leaves paused and abandoned alone", () => {
   const base: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr" };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null };
   for (const status of ["paused", "abandoned"] as const) {
     const epic: Epic = { ...base, status };
     assert.equal(recomputeEpicStatus(epic, [done], NOW), false);
@@ -111,7 +111,7 @@ test("newPhases validates all inputs before writing any", () => {
 
 test("manual phases ship by hand; pr phases and phases with prs do not", () => {
   const home = epicHome();
-  newPhases(home, "e", [{ slug: "review", title: "Design review", kind: "manual" }, { slug: "code", title: "Code" }]);
+  newPhases(home, "e", [{ slug: "review", title: "Design review", kind: "manual", repo: null }, { slug: "code", title: "Code" }]);
   assert.equal(readPhase(home, "e", 1).meta.kind, "manual");
   assert.equal(readPhase(home, "e", 2).meta.kind, "pr");
   const shipped = setPhaseStatus(home, "e", 1, "shipped", "2026-09-08T10:00:00Z");
@@ -123,7 +123,7 @@ test("manual phases ship by hand; pr phases and phases with prs do not", () => {
 // linkPrs refuses manual phases, so the linked PR goes into the file by hand.
 test("a manual phase with a linked PR does not ship by hand", () => {
   const home = epicHome();
-  newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual" }]);
+  newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual", repo: null }]);
   const phase = readPhase(home, "e", 1);
   phase.meta.prs.push({ url: "https://github.com/o/r/pull/9", state: "open", merged_at: null });
   writePhase(phase);
@@ -140,4 +140,27 @@ test("dropPhase removes a draft and refuses anything else", () => {
   assert.throws(() => dropPhase(home, "e", 1), /cannot drop phase 1: status is planned/);
   const [c] = newPhases(home, "e", [{ slug: "c", title: "C" }]);
   assert.equal(c.meta.id, 2, "ids continue from the highest remaining");
+});
+
+test("a phase repo defaults to null and resolves to the epic's primary repo", () => {
+  const home = tmpHome();
+  const epic = createEpic(home, { slug: "e", title: "E", repos: ["o/fe", "o/be"] }, NOW);
+  const [fe, be] = newPhases(home, "e", [{ slug: "ui", title: "UI" }, { slug: "api", title: "API", repo: "o/be" }]);
+  assert.equal(fe.meta.repo, null);
+  assert.equal(phaseRepo(epic, fe.meta), "o/fe");
+  assert.equal(readPhase(home, "e", 2).meta.repo, "o/be");
+  assert.equal(phaseRepo(epic, be.meta), "o/be");
+  assert.throws(() => newPhases(home, "e", [{ slug: "x", title: "X", repo: "o/other" }]), /not one of epic 'e' repos/);
+});
+
+test("setPhaseRepo moves only draft or planned phases with no prs", () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repos: ["o/fe", "o/be"] }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
+  assert.equal(setPhaseRepo(home, "e", 1, "o/be").meta.repo, "o/be");
+  assert.throws(() => setPhaseRepo(home, "e", 1, "o/other"), /not one of/);
+  const b = readPhase(home, "e", 2);
+  b.meta.status = "in-progress";
+  writePhase(b);
+  assert.throws(() => setPhaseRepo(home, "e", 2, "o/be"), /status is in-progress/);
 });

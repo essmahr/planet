@@ -145,3 +145,19 @@ test("epic show reports the last approved step", async () => {
     assert.equal((await view()).last_approved_step, "scoping", `an approved ${step} plan does not move the planning step`);
   }
 });
+
+test("phase new and set take --repo; the brief resolves each phase's repo", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/fe", "--repo", "o/be"], ctx(home));
+  await run(["phase", "new", "e", "--phase", "ui:UI"], ctx(home));
+  const api = await run(["phase", "new", "e", "--phase", "api:API", "--phase", "jobs:Jobs", "--repo", "o/be"], ctx(home));
+  assert.equal(api.code, 0);
+  const set = await run(["phase", "set", "e", "1", "--repo", "o/be"], ctx(home));
+  assert.equal(set.code, 0);
+  assert.match(set.stdout, /repo o\/be/);
+  const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
+  assert.deepEqual(brief.phases.map((p) => p.repo), ["o/be", "o/be", "o/be"]);
+  const bad = await run(["phase", "new", "e", "x", "--title", "X", "--repo", "o/nope"], ctx(home));
+  assert.equal(bad.code, 1);
+  assert.match(bad.stderr, /not one of epic 'e' repos/);
+});

@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Phase, PhaseKind, PhaseMeta, PhaseStatus } from "../schema/types.ts";
+import type { Epic, Phase, PhaseKind, PhaseMeta, PhaseStatus } from "../schema/types.ts";
 import { assertSlug, validatePhaseMeta } from "../schema/validate.ts";
-import { NotFound } from "./epic.ts";
+import { NotFound, readEpic } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
 import { paths } from "./store.ts";
 
@@ -11,6 +11,16 @@ export interface NewPhaseInput {
   title: string;
   linear?: string[];
   kind?: PhaseKind;
+  repo?: string | null;
+}
+
+/** The repo a phase's PRs land in: its own, else the epic's primary repo. */
+export function phaseRepo(epic: Epic, meta: PhaseMeta): string {
+  return meta.repo ?? epic.repos[0];
+}
+
+function assertEpicRepo(epic: Epic, repo: string): void {
+  if (!epic.repos.includes(repo)) throw new Error(`${repo} is not one of epic '${epic.slug}' repos: ${epic.repos.join(", ")}`);
 }
 
 export function phaseFileName(id: number, slug: string): string {
@@ -48,12 +58,14 @@ export function newPhases(home: string, epic: string, inputs: NewPhaseInput[]): 
   const dir = paths.phases(home, epic);
 
   // Validation pass: check all inputs before any writes
+  const epicDoc = readEpic(home, epic);
   const batchTaken = new Set<string>();
   for (const input of inputs) {
     assertSlug(input.slug, "phase slug");
     if (existingTaken.has(input.slug)) throw new Error(`phase '${input.slug}' already exists in epic '${epic}'`);
     if (batchTaken.has(input.slug)) throw new Error(`phase '${input.slug}' already exists in epic '${epic}'`);
     batchTaken.add(input.slug);
+    if (input.repo) assertEpicRepo(epicDoc, input.repo);
   }
 
   // Write pass: create directories and write files
@@ -66,6 +78,7 @@ export function newPhases(home: string, epic: string, inputs: NewPhaseInput[]): 
       title: input.title,
       status: "draft",
       kind: input.kind ?? "pr",
+      repo: input.repo ?? null,
       linear: input.linear ?? [],
       prs: [],
       shipped_at: null,
@@ -114,6 +127,17 @@ export function dropPhase(home: string, epic: string, id: number): Phase {
 export function setPhaseLinear(home: string, epic: string, id: number, linear: string[]): Phase {
   const phase = readPhase(home, epic, id);
   phase.meta.linear = linear;
+  writePhase(phase);
+  return phase;
+}
+
+/** Moves a phase to another of the epic's repos, only before any work or PR exists for it. */
+export function setPhaseRepo(home: string, epic: string, id: number, repo: string): Phase {
+  const phase = readPhase(home, epic, id);
+  assertEpicRepo(readEpic(home, epic), repo);
+  if (phase.meta.status !== "draft" && phase.meta.status !== "planned") throw new Error(`cannot move phase ${id} to ${repo}: status is ${phase.meta.status}`);
+  if (phase.meta.prs.length > 0) throw new Error(`cannot move phase ${id} to ${repo}: it has linked prs`);
+  phase.meta.repo = repo;
   writePhase(phase);
   return phase;
 }

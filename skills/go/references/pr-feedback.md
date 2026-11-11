@@ -1,7 +1,7 @@
 # PR feedback
 
 Two routes into `planet:planet-pr-feedback`. Each runs step 6 (repo check)
-first and passes `epic: <slug>`, `dir: <epic.paths.dir>`, and `phase: N`.
+for phase N first and passes `epic: <slug>`, `dir: <epic.paths.dir>`, and `phase: N`.
 
 ## The request `pr feedback [N]` (step 11)
 

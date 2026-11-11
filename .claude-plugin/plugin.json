@@ -1,6 +1,6 @@
 {
   "name": "planet",
   "description": "Epic planning across PRs: intake, scoping, phasing, phase plans through plan mode, implementation to a linked PR, PR feedback loop, retro, feedback review, PR sync, one-off plans",
-  "version": "0.19.0",
+  "version": "0.20.0",
   "author": { "name": "Scott Mahr" }
 }

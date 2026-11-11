@@ -12,6 +12,7 @@ approval, the `planet phase new` calls mirror these entries exactly.
 - Depends on: none | phase N
 - Size: small | medium | large, or about <files> files; phase-plan counts exactly | not applicable because <why>
 - Closes: <Linear ID> | none
+- Repo: <owner/name>
 
 ### 2. <Title> (<slug>), manual
 <what done means for this phase>
@@ -21,4 +22,5 @@ approval, the `planet phase new` calls mirror these entries exactly.
 ```
 
 Slugs are kebab-case and unique within the epic. "manual" after the slug marks
-a phase with no PR.
+a phase with no PR. The Repo line appears only when the epic spans more than one
+repo; without it, the phase lands in the epic's primary repo.

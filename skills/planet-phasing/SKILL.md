@@ -23,6 +23,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 ## Principles
 
 - Each phase is independently shippable and reviewable, and the epic's goal is visible in it.
+- A phase lands in one repo. Work that needs PRs in two repos is two phases, the one the other depends on first.
 - Order by dependency, then by uncertainty: the phase most likely to change the plan goes first.
 - Work that an investigate or measuring phase exists to define stays one unsized entry until it reports, and says so; the investigate phase's entry names the later phases its findings can change.
 - Each phase fits the budget by a rough count, about 20 files or 8 commits unless `plan.md` has a `PR budget:` line, or its entry says why the budget does not apply. A phase whose set is a small fraction of the budget merges into its neighbour unless a dependency keeps them apart.
@@ -31,12 +32,12 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line when 
 
 ## Steps
 
-1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
+1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints; and `epic.repos` from `planet epic show <epic> --json --brief`. With a `reason:` line, read it first; when it names a phase N, phases below N stay as they are and the section is redrawn from N onward. If `plan.md` already has an approved Phases section and the store has no phases, skip steps 2 to 4 and go to Create.
 2. **Cut** by the principles, starting from the pattern in `references/cut-patterns.md` for `plan.md`'s `Shape:` line; Spike then build applies to any shape when the approach is uncertain.
-3. **Draft** only the `## Phases` section, in the format of `references/phases-section.md`; nothing above it in `plan.md` is touched or shown. On a re-cut, entries below N are copied verbatim.
+3. **Draft** only the `## Phases` section, in the format of `references/phases-section.md`, with a Repo line on every entry when the epic has more than one repo or the cut needs a repo it does not list yet; nothing above it in `plan.md` is touched or shown. On a re-cut, entries below N are copied verbatim.
 4. **Propose.** A re-cut that only adds a placeholder entry, or renames or renumbers entries without changing any entry's scope, skips the dialog: write the section to a file in the scratch directory, run `planet propose <slug> phasing --file <path>` and `planet proposal approve <slug> latest --to phases`, say the change in one line, and go to Create. Otherwise invoke `planet:planet-proposal` with `epic: <slug>`, `to: phases`. On a re-cut, pass `changes:` naming the entries added, split, dropped, or renumbered, with a last bullet for the entries left untouched; a first cut passes none. On rejection, amend in place and propose again with `changes:` for the amendment; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phasing aborted: <message>`.
-5. **Create.** On a re-cut, first run `planet phase drop <epic> <id>` for every draft with id N or higher. Then run one `planet phase new <epic> <slug> --title "<title>"` per entry in section order, skipping entries below N on a re-cut since they already exist, adding `--manual` where the entry says manual and `--linear <ID>` where it names a ticket, all chained with `&&` in one Bash command. If the chain stops partway, drop the drafts it created, fix the failing entry, and rerun.
-6. **Verify** with `planet epic show <epic> --json` that `phases` lists the entries in order with the right kinds.
+5. **Create.** For a Repo line naming a repo not in `epic.repos`, first run `planet epic repo add <epic> <owner/name>`. On a re-cut, run `planet phase drop <epic> <id>` for every draft with id N or higher. Then run one `planet phase new <epic> <slug> --title "<title>"` per entry in section order, skipping entries below N on a re-cut since they already exist, adding `--manual` where the entry says manual, `--linear <ID>` where it names a ticket, and `--repo <owner/name>` where it has a Repo line, all chained with `&&` in one Bash command. If the chain stops partway, drop the drafts it created, fix the failing entry, and rerun.
+6. **Verify** with `planet epic show <epic> --json --brief` that `phases` lists the entries in order with the right kinds and repos.
 7. **Return** `phasing done, N phases drafted, next step phase-plan`.
 
 ## Example
@@ -47,5 +48,6 @@ Approach: alias first, then move SVGs, then rewrite imports. Cut: 1 add the path
 
 - Phases already exist and no `reason:` line was passed: say so and return; the user can pass `re-cut from phase 1` to redo everything.
 - `planet phase drop` refuses a phase: it is no longer a draft. Stop and report; re-cutting a planned or in-progress phase is a scoping decision.
+- `planet phase new` says a repo is not one of the epic's: the `planet epic repo add` for it was skipped; run it, then rerun the chain from that entry.
 - `planet phase new` reports a duplicate slug: an existing phase has it. On a re-cut, an entry below N is already in the store: skip it, do not recreate it. Otherwise rename in the section and propose the section again only if the change is visible to the user; otherwise fix the slug and rerun.
 - `planet-proposal` reports the hooks did not run: stop and return that message.

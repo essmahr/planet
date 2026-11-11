@@ -39,6 +39,7 @@ export const paths = {
   hookLog: (home: string) => join(home, "hook.log"),
   watchPid: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.pid`),
   marksLock: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.marks.lock`),
+  repos: (home: string) => join(home, "run", "repos.json"),
 };
 
 export function git(home: string, args: string[]): string {

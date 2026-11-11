@@ -11,6 +11,7 @@ import { linkCommand, unlinkCommand } from "./commands/link.ts";
 import { openCommand } from "./commands/open.ts";
 import { phaseCommand } from "./commands/phase.ts";
 import { prCommand } from "./commands/pr.ts";
+import { repoCommand } from "./commands/repo.ts";
 import { proposalCommand, proposeCommand } from "./commands/proposal.ts";
 import { retroCommand } from "./commands/retro.ts";
 import { sessionCommand } from "./commands/session.ts";
@@ -31,6 +32,7 @@ export const COMMANDS: Record<string, Command> = {
   sync: syncCommand,
   check: checkCommand,
   pr: prCommand,
+  repo: repoCommand,
   feedback: feedbackCommand,
   capture: captureCommand,
   retro: retroCommand,
@@ -55,6 +57,8 @@ commands:
   sync [epic] [--force]
   pr files|feedback <epic> <phase> [--new [--claim]] | pr feedback mark <epic> <phase> notified|handled <id>... | pr feedback await|take <epic> <phase>
   feedback report [epic]
+  repo path <owner/name> [--from <dir>]
+  repo seen [--path <dir>]
   retro inputs <epic> <phase>
   retro write <epic> <phase> --file <path> [--head <sha>]
   watch <epic> <phase> [--interval <s>] [--max-polls <n>]

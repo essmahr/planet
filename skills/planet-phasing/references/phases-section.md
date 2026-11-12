@@ -24,3 +24,22 @@ approval, the `planet phase new` calls mirror these entries exactly.
 Slugs are kebab-case and unique within the epic. "manual" after the slug marks
 a phase with no PR. The Repo line appears only when the epic spans more than one
 repo; without it, the phase lands in the epic's primary repo.
+
+## Collapsed entries on a re-cut
+
+A re-cut from phase N proposes the entries below N as one line each, so the
+user reads only the entries that can change:
+
+```
+### 1. <Title> (<slug>): shipped
+### 2. <Title> (<slug>), manual: in-progress
+
+### 3. <Title> (<slug>)
+<one paragraph of scope>
+```
+
+The status is the phase's status in the store, except that a `reviewed` phase
+says `shipped`. `planet proposal approve --to
+phases` swaps each collapsed line for the entry with the same number in
+plan.md, and refuses when that entry is missing or has another slug. plan.md
+never holds a collapsed line.

@@ -115,6 +115,43 @@ export function parseDestination(text: string): Destination {
 
 const PHASES_HEADING_RE = /^## Phases[ \t]*$/m;
 
+const ENTRY_HEADING_RE = /^### (\d+)\. .*$/gm;
+const ENTRY_SLUG_RE = /\(([a-z0-9-]+)\)(?:, manual)?[ \t]*$/;
+const COLLAPSED_ENTRY_RE = /^### (\d+)\. .*\(([a-z0-9-]+)\)(?:, manual)?: [a-z-]+[ \t]*\n*/gm;
+
+function phaseEntries(section: string): Map<number, string> {
+  const headings = [...section.matchAll(ENTRY_HEADING_RE)];
+  const entries = new Map<number, string>();
+  headings.forEach((heading, i) => {
+    const end = headings[i + 1]?.index ?? section.length;
+    entries.set(Number(heading[1]), section.slice(heading.index, end).trimEnd());
+  });
+  return entries;
+}
+
+/**
+ * Swaps each collapsed entry in a proposed Phases section for the full entry plan.md has.
+ *
+ * A collapsed entry is a lone heading ending in a status, like `### 3. Move (move): shipped`.
+ * A re-cut proposal uses them for the phases it can't change, so the user only reads the new ones.
+ */
+export function expandCollapsedEntries(home: string, epic: string, section: string): string {
+  if (!section.match(COLLAPSED_ENTRY_RE)) return section;
+  const file = paths.plan(home, epic);
+  if (!existsSync(file)) throw new Error("no plan.md to put a Phases section in; approve scoping first");
+  const plan = readFileSync(file, "utf8");
+  const at = plan.search(PHASES_HEADING_RE);
+  const existing = phaseEntries(at === -1 ? "" : plan.slice(at));
+  const expanded = section.replace(COLLAPSED_ENTRY_RE, (_line, number: string, slug: string) => {
+    const entry = existing.get(Number(number));
+    if (!entry) throw new Error(`plan.md has no entry ${number} to fill the collapsed one; write the entry in full`);
+    const existingSlug = ENTRY_SLUG_RE.exec(entry.split("\n")[0])?.[1];
+    if (existingSlug !== slug) throw new Error(`entry ${number} in plan.md is (${existingSlug}), not (${slug}); write the entry in full`);
+    return `${entry}\n\n`;
+  });
+  return expanded.replace(/\n+$/, "\n");
+}
+
 /**
  * Replaces plan.md's `## Phases` section with `section`, or appends it. The section is
  * always the last one in plan.md, so everything from its heading to the end goes.
@@ -148,8 +185,9 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
   const text = fromText ?? proposal.body;
   const body = text.endsWith("\n") ? text : `${text}\n`;
   if (dest.kind === "phases" && !PHASES_HEADING_RE.test(body)) throw new Error("a phases proposal must start with a '## Phases' heading");
+  const section = dest.kind === "phases" ? expandCollapsedEntries(home, epic, body) : body;
   if (proposal.meta.outcome !== "approved") proposal = markApproved(home, epic, id);
-  if (dest.kind === "phases") return { proposal, wrote: writePhasesSection(home, epic, body) };
+  if (dest.kind === "phases") return { proposal, wrote: writePhasesSection(home, epic, section) };
   if (dest.kind === "plan") {
     const file = paths.plan(home, epic);
     writeFileSync(file, body);

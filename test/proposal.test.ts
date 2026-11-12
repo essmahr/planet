@@ -109,6 +109,25 @@ test("approveTo --to phases replaces only the Phases section, or appends it", ()
   assert.throws(() => approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW), /no plan.md/);
 });
 
+test("approveTo --to phases fills collapsed entries from plan.md", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nAlias first.\n";
+  const alias = "### 1. Alias (alias)\nAdd the alias.\n- Depends on: none";
+  const spike = "### 2. Spike (spike), manual\nMeasure.\n- Depends on: phase 1";
+  writeFileSync(paths.plan(home, "e"), `${above}\n## Phases\n\n${alias}\n\n${spike}\n\n### 3. Move (move)\nOld scope.\n`);
+  const move = "### 3. Move (move)\nNew scope.\n\n### 4. Lint (lint)\nAdd the rule.\n";
+  const recut = createProposal(home, "e", { ...input, step: "phasing", body: `## Phases\n\n### 1. Alias (alias): shipped\n### 2. Spike (spike), manual: in-progress\n\n${move}` }, NOW);
+  approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n${alias}\n\n${spike}\n\n${move}`);
+  assert.match(readProposal(home, "e", recut.meta.id).body, /### 1\. Alias \(alias\): shipped/, "the proposal keeps the collapsed text");
+
+  const missing = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 5. Docs (docs): shipped\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", missing.meta.id, { kind: "phases" }, undefined, NOW), /plan\.md has no entry 5/);
+  assert.equal(readProposal(home, "e", missing.meta.id).meta.outcome, "pending", "a refused proposal stays pending");
+  const renamed = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (path-alias): shipped\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", renamed.meta.id, { kind: "phases" }, undefined, NOW), /entry 1 in plan\.md is \(alias\), not \(path-alias\)/);
+});
+
 test("approveTo refuses to flip a rejected proposal without --from", () => {
   const home = setup();
   const p = createProposal(home, "e", input, NOW);

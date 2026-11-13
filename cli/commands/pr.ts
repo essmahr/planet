@@ -1,9 +1,15 @@
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
-import { need, needInt, parse } from "../lib/args.ts";
-import type { PrFeedback, PrFile } from "../lib/gh.ts";
+import { need, needInt, optList, parse } from "../lib/args.ts";
+import { readDrafts, worktreePath } from "../lib/drafts.ts";
+import { readEpic } from "../lib/epic.ts";
+import type { PrFeedback, PrFile, Reaction } from "../lib/gh.ts";
 import { ownPrs } from "../lib/owner.ts";
-import { readPhase } from "../lib/phase.ts";
+import { phaseRepo, readPhase } from "../lib/phase.ts";
+import { findCheckout } from "../lib/repos.ts";
 import { sessionIdFrom } from "../lib/session.ts";
+import type { Signal } from "../lib/signals.ts";
+import { prSignals } from "../lib/signals.ts";
+import type { PrRef, PrState } from "../schema/types.ts";
 import { commit } from "../lib/store.ts";
 import { renderTable } from "../lib/table.ts";
 
@@ -51,11 +57,84 @@ async function prOwn(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: { phase: id, session, prs: urls }, text: `phase ${id}: feedback owned by this session` };
 }
 
+export interface PhasePrSignals {
+  url: string;
+  state: PrState;
+  session: string | null;
+  head_ref: string;
+  head_sha: string;
+  checkout: string | null;
+  worktree: string | null;
+  failed_checks: { name: string; url: string }[];
+  signals: Signal[];
+  orphans: string[];
+}
+
+/** The viewer's signals on each open PR of a phase, limited to the PRs `only` accepts. */
+export async function phaseSignals(ctx: Ctx, epic: string, phase: number, only: (pr: PrRef) => boolean = () => true): Promise<PhasePrSignals[]> {
+  const { meta } = readPhase(ctx.home, epic, phase);
+  const checkout = findCheckout(ctx.home, phaseRepo(readEpic(ctx.home, epic), meta), process.cwd());
+  const out: PhasePrSignals[] = [];
+  for (const ref of meta.prs.filter(only)) {
+    const f = await ctx.gh.prFeedback(ref.url);
+    if (f.state !== "open") continue;
+    const worktree = checkout ? worktreePath(checkout, epic, phase, ref.url) : null;
+    const drafts = checkout && worktree ? readDrafts(ctx, checkout, worktree, f.head_ref) : { drafted: [], pushed: [] };
+    out.push({
+      url: ref.url,
+      state: f.state,
+      session: ref.session,
+      head_ref: f.head_ref,
+      head_sha: f.head_sha,
+      checkout,
+      worktree,
+      failed_checks: f.failed_checks.map((c) => ({ name: c.name, url: c.url })),
+      ...prSignals(f, drafts),
+    });
+  }
+  return out;
+}
+
+function signalLine(s: Signal): string {
+  const where = s.path ? `${s.path}:${s.line ?? "-"}` : s.kind;
+  return `${s.signal} ${s.state} ${s.author} ${where} ${s.body.replace(/\s+/g, " ").slice(0, 60)}`;
+}
+
+async function prSignalsCommand(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals } = parse(args, {});
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  const prs = await phaseSignals(ctx, epic, id);
+  const lines = prs.flatMap((pr) => pr.signals.map(signalLine));
+  return { json: { phase: id, prs }, text: lines.length ? lines.join("\n") : "no signals" };
+}
+
+const REACTIONS: Record<string, Reaction> = { thumbs_up: "THUMBS_UP", eyes: "EYES", rocket: "ROCKET" };
+
+function reactionNamed(name: string): Reaction {
+  const reaction = REACTIONS[name];
+  if (!reaction) throw new Error(`unknown reaction '${name}': use ${Object.keys(REACTIONS).join(", ")}`);
+  return reaction;
+}
+
+async function prReact(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals, values } = parse(args, { add: { type: "string", multiple: true }, remove: { type: "string", multiple: true } });
+  const id = need(positionals, 0, "item id");
+  const add = optList(values, "add").map(reactionNamed);
+  const remove = optList(values, "remove").map(reactionNamed);
+  if (!add.length && !remove.length) throw new Error("pass --add or --remove");
+  for (const reaction of remove) await ctx.gh.react(id, reaction, false);
+  for (const reaction of add) await ctx.gh.react(id, reaction, true);
+  return { json: { id, added: add, removed: remove }, text: "reactions updated" };
+}
+
 export const prCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   if (sub === "feedback") return prFeedback(rest, ctx);
   if (sub === "own") return prOwn(rest, ctx);
-  if (sub !== "files") throw new Error("usage: planet pr files|feedback|own <epic> <phase>");
+  if (sub === "signals") return prSignalsCommand(rest, ctx);
+  if (sub === "react") return prReact(rest, ctx);
+  if (sub !== "files") throw new Error("usage: planet pr files|feedback|own|signals <epic> <phase> | pr react <item-id>");
   const { positionals } = parse(rest, {});
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");

@@ -7,7 +7,7 @@ for phase N first and passes `epic: <slug>`, `dir: <epic.paths.dir>`, and `phase
 
 1. Default N: the lowest phase with a non-empty `open_prs`. None: say so, stop.
 2. Pick `event` from phase N in the payload's `phases`:
-   - non-empty `open_prs`: say the PR is open and nothing is pending, stop.
+   - non-empty `open_prs`: run `planet pr own <slug> <N>`, then `feedback`.
    - else non-empty `merged_prs`: `merged`.
    - else run `planet pr feedback <slug> <N> --json`. Empty `prs`: say no PR
      is linked to phase N, stop. Otherwise `closed`.

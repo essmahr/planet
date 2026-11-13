@@ -3,25 +3,28 @@
 Drafts live in a detached worktree on the PR branch, so the user's checkout is
 never touched, whatever branch it is on.
 
-Path: `<repo root>/../.planet-worktrees/<repo name>-<slug>-<N>-<sid>`, where
-`<sid>` is `${CLAUDE_CODE_SESSION_ID:0:8}`. Each session drafts in its own
-path, so a session that took the phase over never touches the old owner's
-drafts. The repo root
-is the parent of `git rev-parse --path-format=absolute --git-common-dir`, so a
-session running in a linked worktree still gets the main checkout's root, not
-its own. Never inside the repo's working tree. No local branch is created. Run git there with `git -C <path>`.
+Path: `<repo root>/../.planet-worktrees/<repo name>-<slug>-<N>-pr<number>`.
+This is the `worktree` field of `planet pr signals`; use that value. A phase
+with several open PRs has one worktree per PR. Never inside the repo's working
+tree. No local branch is created. Run git there with `git -C <path>`.
 
-## Create, at the start of every batch
+The worktree lives across wakes while drafts are unpushed.
 
-1. `git worktree prune`.
-2. When this session's path still exists, a crash left it: `git worktree remove --force <path>`.
-   Its edits and unpushed commits were drafts; the batch redrafts them.
-   Never remove another session's path here.
-3. `git fetch origin <head_ref>`.
-4. `git worktree add --detach <path> origin/<head_ref>`.
+## Set up, at the start of every wake
 
-Never reuse a worktree left from an earlier batch, and never create a second
-one beside a leftover.
+- Path missing: `git worktree prune`, `git fetch origin <head_ref>`, then
+  `git worktree add --detach <path> origin/<head_ref>`.
+- Path present: `git -C <path> fetch origin <head_ref>`, then
+  `git -C <path> rebase origin/<head_ref>`. On a conflict,
+  `git -C <path> rebase --skip` drops that draft. Repeat until the rebase ends.
+
+## Drafts
+
+- Drop a draft: `git -C <path> rebase --onto <sha>^ <sha>`. Every 👍 named by
+  its `Feedback` trailers is open again unless the user removed it.
+- Revise a draft: make the change, `git -C <path> commit --fixup <sha>`, then
+  `git -C <path> rebase --autosquash origin/<head_ref>`.
+- List drafts: `git -C <path> log --format='%h %s' origin/<head_ref>..HEAD`.
 
 ## After the push
 
@@ -32,13 +35,17 @@ one beside a leftover.
      finds it: `git fetch origin <head_ref>:<head_ref>` to fast-forward it.
      When that fails because the local branch diverged, say so and leave it.
    - No local branch: nothing to do.
-2. `git worktree remove <path>`.
+2. Remove the worktree with `git worktree remove <path>` only when
+   `git -C <path> log origin/<head_ref>..HEAD` is empty. Kept drafts stay.
 
 ## Merged or closed
 
 1. Every path in `git worktree list --porcelain` under `.planet-worktrees/`
-   named `<repo name>-<slug>-<N>`, with or without a `-<sid>` suffix:
-   `git worktree remove --force <path>`. Then `git worktree prune`.
+   named `<repo name>-<slug>-<N>`, with any suffix (old session-suffixed paths
+   included): first count its unpushed drafts with
+   `git -C <path> log --oneline origin/<head_ref>..HEAD`, then
+   `git worktree remove --force <path>`. Then `git worktree prune`. Those
+   drafts are discarded.
 2. Merged only, for the local `<head_ref>`: delete it with
    `git branch -D <head_ref>` only when it is not checked out (step 1 of After
    the push) and `git merge-base --is-ancestor <head_ref> <head_sha>` succeeds,

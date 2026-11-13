@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Hook entry for Claude Code. Exits before starting Node unless this session has a Planet marker
-# or is named as the owner of a PR in some phase file.
+# or is named as the owner of a PR in some phase file and fired a prompt.
 input="$(cat)"
 sid="$(printf '%s' "$input" | grep -o '"session_id": *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')"
 home="${PLANET_HOME:-$HOME/.planet}"
@@ -13,6 +13,10 @@ if [ ! -f "$home/sessions/$sid" ]; then
   phase_files=("$home"/epics/*/phases/*.md)
   shopt -u nullglob
   if [ "${#phase_files[@]}" -eq 0 ] || ! grep -qsF -- "$sid" "${phase_files[@]}"; then
+    exit 0
+  fi
+  event="$(printf '%s' "$input" | grep -o '"hook_event_name": *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')"
+  if [ "$event" != "UserPromptSubmit" ]; then
     exit 0
   fi
 fi

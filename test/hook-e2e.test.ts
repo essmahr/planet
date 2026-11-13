@@ -141,3 +141,11 @@ test("bin/planet picks the numerically newest nvm node, not the lexically last",
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /usage: planet/);
 });
+
+test("planet-hook skips node for a markerless owning session on a non-prompt event", () => {
+  const home = ownerHome("sess-owner");
+  const r = fire(home, { hook_event_name: "Stop", session_id: "sess-owner" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
+  assert.ok(!existsSync(paths.hookLog(home)));
+});

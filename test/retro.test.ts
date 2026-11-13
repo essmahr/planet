@@ -131,7 +131,7 @@ test("retro write falls back to the draft's frontmatter head_sha when --head is 
   assert.equal((r2.json as { meta: { head_sha: string } }).meta.head_sha, "cli1");
 });
 
-test("retro inputs separate loop commits, triage, and review prompts", async () => {
+test("retro inputs ignore old triage events and separate loop commits from review prompts", async () => {
   const home = setup();
   appendEvent(home, "e", { phase: 1, kind: "feedback-commit", text: "C1 I2", sha: "f1", session: SESSION }, NOW);
   appendEvent(home, "e", { phase: 1, kind: "triage", text: JSON.stringify([

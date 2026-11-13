@@ -35,7 +35,7 @@ export function ownedOpenPrs(home: string, session: string): OwnedPr[] {
     try {
       owned.push(...openPrsOf(home, slug, session));
     } catch {
-      continue;
+      // an unreadable epic owns nothing
     }
   }
   return owned;

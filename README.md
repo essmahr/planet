@@ -30,7 +30,7 @@ Each phase then gets its _own_ plan, where you refine technical decisions, a com
 
 ### Review loop
 
-After the PR opens, Planet watches it in the background. When a review comment or a CI failure arrives, or the PR merges, the chat that opened it wakes up.
+After the PR opens, Planet watches it in the background. You triage on GitHub: a 👍 on a comment drafts the fix, a 👀 brings the comment into the chat for a recommendation, and your own reply needs nothing from Planet. Drafts wait in a separate worktree until you read the diffs and say `push`.
 
 ### Status tracking
 
@@ -59,7 +59,7 @@ You call two skills. The router calls the rest.
 | `planet-phasing` | Cuts the epic into phases. |
 | `planet-phase-plan` | A commit-by-commit plan for one phase. |
 | `planet-implement` | Builds the phase and opens a PR. |
-| `planet-pr-feedback` | Sorts review feedback and drafts fixes for approval. |
+| `planet-pr-feedback` | Drafts fixes for the review comments you 👍 and weighs the ones you 👀. |
 | `planet-retro` | Plan vs. shipped, and lessons. |
 | `planet-feedback-review` | Turns recurring lessons into skill edits. |
 | `planet-proposal` | Runs each draft through Plan Mode. |

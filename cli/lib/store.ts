@@ -28,7 +28,6 @@ export const paths = {
   prompts: (home: string, slug: string) => join(feedbackDir(home, slug), "prompts.jsonl"),
   notes: (home: string, slug: string) => join(feedbackDir(home, slug), "notes.md"),
   events: (home: string, slug: string) => join(home, "epics", slug, "feedback", "events.jsonl"),
-  marks: (home: string, slug: string, phase: number) => join(home, "epics", slug, "feedback", `phase-${String(phase).padStart(2, "0")}-marks.json`),
   retros: (home: string, slug: string) => join(home, "epics", slug, "retros"),
   retroFile: (home: string, slug: string, id: number, phaseSlug: string) => join(home, "epics", slug, "retros", `${String(id).padStart(2, "0")}-${phaseSlug}.md`),
   research: (home: string, slug: string) => join(home, "epics", slug, "research"),
@@ -38,7 +37,6 @@ export const paths = {
   session: (home: string, id: string) => join(home, "sessions", id),
   hookLog: (home: string) => join(home, "hook.log"),
   watchPid: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.pid`),
-  marksLock: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.marks.lock`),
   repos: (home: string) => join(home, "run", "repos.json"),
 };
 

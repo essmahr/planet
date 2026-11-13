@@ -30,7 +30,7 @@ Each phase then gets its _own_ plan, where you refine technical decisions, a com
 
 ### Review loop
 
-After the PR opens, Planet watches it in the background. When a review comment or a CI failure arrives, or the PR merges, the chat that opened it wakes up. Planet sorts each comment into do, weigh, refute, or defer, and drafts the fix for the do items in a separate worktree. You answer the whole batch with one reply, like `do 1 3, refute 4`. Nothing is pushed and no reply is posted until you say so.
+After the PR opens, Planet watches it in the background. When a review comment or a CI failure arrives, or the PR merges, the chat that opened it wakes up.
 
 ### Status tracking
 

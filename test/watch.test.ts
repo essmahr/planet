@@ -6,9 +6,7 @@ import { GhUnavailable } from "../cli/lib/gh.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
-import { addMarks, claimOwner, readMarks, takeOwner } from "../cli/lib/pr-items.ts";
-import { startSession } from "../cli/lib/session.ts";
-import { git, paths } from "../cli/lib/store.ts";
+import { paths } from "../cli/lib/store.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
@@ -25,28 +23,16 @@ function setup(prs: string[] = [PR]): string {
   return home;
 }
 
-test("watch exits on the first poll with an item not yet notified", async () => {
-  const home = setup();
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
-  const sleeps: number[] = [];
-  const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async (ms) => { sleeps.push(ms); } }));
-  assert.equal(r.code, 0);
-  assert.deepEqual(sleeps, [60000]);
-  const lines = r.stdout.trim().split("\n");
-  assert.equal(lines[0], `phase 1: 1 new feedback items on ${PR}`);
-  assert.equal(lines.at(-1), "invoke planet:planet-pr-feedback epic: e phase: 1 event: feedback");
-});
-
-test("notified items do not wake; max polls stops", async () => {
-  const home = setup();
-  addMarks(home, "e", 1, "notified", ["C1"]);
-  const r = await run(["watch", "e", "1", "--max-polls", "2"], ctx(home, { gh: fakeGh({}, {}, false, undefined, { [PR]: withComment }) }));
-  assert.match(r.stdout, /max polls reached\ninvoke planet:planet-pr-feedback epic: e phase: 1 event: stopped\n$/);
-});
-
 test("a phase with no linked pr stops", async () => {
   const r = await run(["watch", "e", "1"], ctx(setup([])));
   assert.match(r.stdout, /^phase 1: no linked pr\ninvoke .* event: stopped\n$/);
+});
+
+test("an open PR with new comments does not wake the watcher", async () => {
+  const home = setup();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
+  const r = await run(["watch", "e", "1", "--max-polls", "2", "--json"], ctx(home, { gh }));
+  assert.equal((r.json as { event: string }).event, "stopped");
 });
 
 test("one merged pr next to an open one keeps polling; all merged reports merged", async () => {
@@ -78,22 +64,11 @@ test("gh unavailable backs off and stops after five failures", async () => {
 test("a successful poll resets the failure count", async () => {
   const home = setup();
   const down = new GhUnavailable("offline");
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [down, down, quiet, down, down, down, down, withComment] });
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [down, down, quiet, down, down, down, down, { ...BASE, state: "merged" }] });
   const sleeps: number[] = [];
   const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async (ms) => { sleeps.push(ms); } }));
   assert.deepEqual(sleeps, [60000, 120000, 60000, 60000, 120000, 240000, 480000]);
-  assert.match(r.stdout, /event: feedback\n$/);
-});
-
-test("watch claims the phase once and otherwise writes nothing to the store", async () => {
-  const home = setup();
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
-  await run(["watch", "e", "1"], ctx(home, { gh }));
-  assert.equal(readMarks(home, "e", 1).owner?.session, SESSION);
-  const before = git(home, ["rev-list", "--count", "HEAD"]);
-  await run(["watch", "e", "1"], ctx(home, { gh }));
-  assert.equal(git(home, ["rev-list", "--count", "HEAD"]), before);
-  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
+  assert.match(r.stdout, /event: merged\n$/);
 });
 
 test("any gh error backs off and stops after five failures", async () => {
@@ -104,18 +79,6 @@ test("any gh error backs off and stops after five failures", async () => {
   assert.equal(r.code, 0);
   assert.deepEqual(sleeps, [60000, 120000, 240000, 480000]);
   assert.match(r.stdout, /phase 1: gh failed \(bad json\)\ninvoke .* event: stopped\n$/);
-});
-
-test("a corrupt marks file stops at once", async () => {
-  const home = setup();
-  mkdirSync(dirname(paths.marks(home, "e", 1)), { recursive: true });
-  writeFileSync(paths.marks(home, "e", 1), "{not json");
-  const sleeps: number[] = [];
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
-  const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async (ms) => { sleeps.push(ms); } }));
-  assert.equal(r.code, 0);
-  assert.deepEqual(sleeps, []);
-  assert.match(r.stdout, /^phase 1: store error \(.+\)\ninvoke .* event: stopped\n$/);
 });
 
 test("a missing phase stops at once", async () => {
@@ -142,20 +105,11 @@ test("a dead pid file is taken over, held while polling, and removed on exit", a
   mkdirSync(dirname(pidFile), { recursive: true });
   writeFileSync(pidFile, "999\n");
   const held: string[] = [];
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, { ...BASE, state: "merged" }] });
   const r = await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, isAlive: () => false, sleep: async () => { held.push(readFileSync(pidFile, "utf8")); } }));
-  assert.match(r.stdout, /event: feedback\n$/);
+  assert.match(r.stdout, /event: merged\n$/);
   assert.deepEqual(held, [`1000 ${SESSION}\n`]);
   assert.equal(existsSync(pidFile), false);
-});
-
-test("a pid file another watcher took over is left in place", async () => {
-  const home = setup();
-  const pidFile = paths.watchPid(home, "e", 1);
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
-  const r = await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, sleep: async () => { writeFileSync(pidFile, `2000 ${OTHER}\n`); } }));
-  assert.equal(readFileSync(pidFile, "utf8"), `2000 ${OTHER}\n`);
-  assert.equal(r.stdout, `phase 1: watcher handed to session ${OTHER}\n`);
 });
 
 test("an interval below one second is refused", async () => {
@@ -174,32 +128,15 @@ test("feedback on a merged sibling pr does not wake the watcher", async () => {
   assert.match(r.stdout, /^phase 1: max polls reached\ninvoke .* event: stopped\n$/);
 });
 
-test("a session that does not own the phase gets a line with no invoke and polls nothing", async () => {
-  const home = setup();
-  startSession(home, OTHER, "e", { phase: 1 }, NOW);
-  claimOwner(home, "e", 1, OTHER, NOW);
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: withComment });
-  const r = await run(["watch", "e", "1"], ctx(home, { gh }));
-  assert.equal(r.stdout, `phase 1: owned by session ${OTHER}\n`);
-  assert.deepEqual(gh.calls, []);
-});
-
-test("the owner's watcher replaces a live watcher from another session", async () => {
+test("a watcher replaces a live watcher from another session", async () => {
   const home = setup();
   const pidFile = paths.watchPid(home, "e", 1);
   mkdirSync(dirname(pidFile), { recursive: true });
   writeFileSync(pidFile, `999 ${OTHER}\n`);
   const held: string[] = [];
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, { ...BASE, state: "merged" }] });
   const r = await run(["watch", "e", "1"], ctx(home, { gh, pid: 1000, isAlive: (pid) => pid === 999, sleep: async () => { held.push(readFileSync(pidFile, "utf8")); } }));
   assert.deepEqual(held, [`1000 ${SESSION}\n`]);
-  assert.match(r.stdout, /event: feedback\n$/);
+  assert.match(r.stdout, /event: merged\n$/);
 });
 
-test("a take by another session mid-watch exits with no invoke line", async () => {
-  const home = setup();
-  startSession(home, OTHER, "e", { phase: 1 }, NOW);
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, withComment] });
-  const r = await run(["watch", "e", "1"], ctx(home, { gh, sleep: async () => { takeOwner(home, "e", 1, OTHER, NOW); } }));
-  assert.equal(r.stdout, `phase 1: owned by session ${OTHER}\n`);
-});

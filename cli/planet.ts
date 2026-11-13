@@ -55,7 +55,7 @@ commands:
   proposal reject <epic> <id|latest|latest-N> [--feedback <text>]
   proposal tag <epic> <id|latest|latest-N> <tag>
   sync [epic] [--force]
-  pr files|feedback <epic> <phase> [--new [--claim]] | pr feedback mark <epic> <phase> notified|handled <id>... | pr feedback await|take <epic> <phase>
+  pr files|feedback <epic> <phase>
   feedback report [epic]
   repo path <owner/name> [--from <dir>]
   repo seen [--path <dir>]

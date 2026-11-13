@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, review, run, tmpHome } from "./helpers.ts";
+import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { addMarks, claimOwner, readMarks, recordCheck, setAwaitingReply } from "../cli/lib/pr-items.ts";
-import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
+import { newPhases, readPhase } from "../cli/lib/phase.ts";
 import { readProposal } from "../cli/lib/proposal.ts";
 import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
@@ -256,167 +255,9 @@ function lastPrompt(home: string, epic: string): { kind: string } {
 test("a prompt during a pr-feedback step is captured as review", async () => {
   const home = setup(1);
   setSessionStep(home, SESSION, "pr-feedback", 1);
-  await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
+  linkPrs(home, "e", 1, [OPEN_PR], NOW);
+  const gh = fakeGh({}, {}, false, undefined, { [OPEN_PR]: { ...BASE, comments: [comment("c1", "bob", false)] } });
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home, { gh }));
+  assert.equal(r.context, null);
   assert.equal(lastPrompt(home, "e").kind, "review");
-});
-
-test("the reply to a shown batch is tagged review with the batch's phase, once", async () => {
-  const home = setup();
-  const r = await run(["pr", "feedback", "await", "e", "1"], ctx(home));
-  assert.equal(r.code, 0, r.stderr);
-  assert.equal(readMarks(home, "e", 1).awaiting_reply, SESSION);
-  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
-  await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home));
-  const reply = lastPrompt(home, "e") as { kind: string; phase: number | null };
-  assert.deepEqual([reply.kind, reply.phase], ["review", 1]);
-  assert.equal(readMarks(home, "e", 1).awaiting_reply, null);
-  assert.equal(git(home, ["status", "--porcelain"]).trim(), "", "the cleared flag is committed with the prompt");
-  await handleHook(hook("UserPromptSubmit", { user_input: "back to planning" }), ctx(home));
-  const next = lastPrompt(home, "e") as { kind: string; phase: number | null };
-  assert.deepEqual([next.kind, next.phase], ["planning", null]);
-});
-
-function noteSetup(): { home: string; gh: ReturnType<typeof fakeGh> } {
-  const home = setup(1);
-  linkPrs(home, "e", 1, [OPEN_PR], NOW);
-  const gh = fakeGh({}, {}, false, undefined, { [OPEN_PR]: { ...BASE, reviews: [review("r1", "bob", "fix it")], comments: [comment("c1", "bob", false)] } });
-  return { home, gh };
-}
-
-test("a prompt gets a note when a phase has items not yet notified", async () => {
-  const { home, gh } = noteSetup();
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.match(r.context ?? "", /^Planet: phase 1 PR has 2 new review items\. Mention this in one line; handle them only when the user asks \(\/planet:go e pr feedback 1\)\.$/);
-  assert.deepEqual(r.actions, ["prompt captured"]);
-  assert.equal(git(home, ["status", "--porcelain"]).trim(), "", "the check write is committed with the prompt");
-});
-
-test("no note once every item is notified", async () => {
-  const { home, gh } = noteSetup();
-  addMarks(home, "e", 1, "notified", ["r1", "c1"]);
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(r.context, null);
-});
-
-test("a fresh check is reused without calling gh", async () => {
-  const { home, gh } = noteSetup();
-  recordCheck(home, "e", 1, 2, NOW);
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(gh.calls.filter((c) => c.startsWith("prFeedback")).length, 0);
-  assert.match(r.context ?? "", /2 new review items/);
-});
-
-test("a stale check calls gh again", async () => {
-  const { home, gh } = noteSetup();
-  recordCheck(home, "e", 1, 0, "2026-09-03T14:50:00.000Z");
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(gh.calls.filter((c) => c.startsWith("prFeedback")).length, 1);
-  assert.match(r.context ?? "", /2 new review items/);
-});
-
-test("a gh failure gives no note, logs one line, and still captures the prompt", async () => {
-  const { home } = noteSetup();
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh: fakeGh({}, {}, true) }));
-  assert.equal(r.context, null);
-  assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hi/);
-  assert.equal(readFileSync(paths.hookLog(home), "utf8").trim().split("\n").length, 1);
-});
-
-test("a corrupt marks file skips the phase and still captures the prompt", async () => {
-  const { home, gh } = noteSetup();
-  writeFileSync(paths.marks(home, "e", 1), "{{{");
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(r.context, null);
-  assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hi/);
-  assert.equal(readFileSync(paths.hookLog(home), "utf8").trim().split("\n").length, 1);
-});
-
-test("a malformed phase file gives no note, logs one line, and still captures the prompt", async () => {
-  const { home, gh } = noteSetup();
-  writeFileSync(join(home, "epics", "e", "phases", readdirSync(join(home, "epics", "e", "phases"))[0]), "---\n: : [\n---\n");
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(r.context, null);
-  assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hi/);
-  assert.equal(readFileSync(paths.hookLog(home), "utf8").trim().split("\n").length, 1);
-});
-
-test("phases are polled concurrently", async () => {
-  const home = setup(1);
-  newPhases(home, "e", [{ slug: "b", title: "B" }]);
-  const PR2 = "https://github.com/o/r/pull/8";
-  linkPrs(home, "e", 1, [OPEN_PR], NOW);
-  linkPrs(home, "e", 2, [PR2], NOW);
-  let started = 0;
-  let release!: () => void;
-  const both = new Promise<void>((resolve) => { release = resolve; });
-  const gh = fakeGh();
-  gh.prFeedback = async (url) => {
-    started++;
-    if (started === 2) release();
-    await both;
-    return { ...BASE, url, reviews: [review(`r-${url}`, "bob", "x")] };
-  };
-  const r = await Promise.race([
-    handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh })),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("phases were polled one after another")), 2000)),
-  ]);
-  assert.match(r.context ?? "", /phase 1 PR has 1 new review items\.[^\n]*\nPlanet: phase 2 PR has 1 new review items\./);
-});
-
-test("a gh failure is remembered so the next prompt makes no gh call", async () => {
-  const { home } = noteSetup();
-  const down = fakeGh({}, {}, true);
-  await handleHook(hook("UserPromptSubmit", { user_input: "one" }), ctx(home, { gh: down }));
-  await handleHook(hook("UserPromptSubmit", { user_input: "two" }), ctx(home, { gh: down }));
-  assert.equal(down.calls.filter((c) => c.startsWith("prFeedback")).length, 1);
-});
-
-test("only prompts and open prs produce a note", async () => {
-  const { home, gh } = noteSetup();
-  const post = await handleHook(hook("PostToolUse", { tool_name: "Read" }), ctx(home, { gh }));
-  assert.equal(post.context, null);
-  const closed = setup(1);
-  linkPrs(closed, "e", 1, [OPEN_PR], NOW);
-  const phase = readPhase(closed, "e", 1);
-  phase.meta.prs[0].state = "merged";
-  writePhase(phase);
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(closed, { gh }));
-  assert.equal(r.context, null);
-  assert.equal(gh.calls.length, 0);
-});
-
-const OTHER = "sess-2";
-
-test("another session's prompt does not take the reply to this session's batch", async () => {
-  const home = setup();
-  startSession(home, OTHER, "e", { phase: 1, step: "pr-feedback" }, NOW);
-  setAwaitingReply(home, "e", 1, OTHER);
-  await handleHook(hook("UserPromptSubmit", { user_input: "unrelated" }), ctx(home));
-  assert.equal(lastPrompt(home, "e").kind, "planning");
-  assert.equal(readMarks(home, "e", 1).awaiting_reply, OTHER);
-});
-
-test("SessionEnd releases the feedback ownership the session held", async () => {
-  const home = setup(1);
-  claimOwner(home, "e", 1, SESSION, NOW);
-  const r = await handleHook(hook("SessionEnd", { reason: "exit" }), ctx(home));
-  assert.deepEqual(r.actions, ["session ended", "released phase 1 feedback"]);
-  assert.equal(readMarks(home, "e", 1).owner, null);
-  assert.equal(git(home, ["status", "--porcelain"]).trim(), "");
-});
-
-test("no note for a phase another live session owns", async () => {
-  const { home, gh } = noteSetup();
-  startSession(home, OTHER, "e", { phase: 1, step: "implement" }, NOW);
-  claimOwner(home, "e", 1, OTHER, NOW);
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.equal(r.context, null);
-  assert.equal(gh.calls.length, 0);
-});
-
-test("a note for a phase whose owner's session is gone", async () => {
-  const { home, gh } = noteSetup();
-  claimOwner(home, "e", 1, OTHER, NOW);
-  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
-  assert.match(r.context ?? "", /phase 1 PR has 2 new review items/);
 });

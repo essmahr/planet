@@ -9,7 +9,7 @@ export function repoFromRemote(url: string): string | null {
   return m ? m[1] : null;
 }
 
-function gitIn(dir: string, args: string[]): string | null {
+export function gitIn(dir: string, args: string[]): string | null {
   try {
     return execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {

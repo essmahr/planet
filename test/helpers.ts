@@ -64,6 +64,7 @@ export function ctx(home: string, overrides: Partial<Ctx> = {}): Ctx {
   return {
     home,
     gh: fakeGh(),
+    git: () => null,
     now: () => NOW,
     env: { CLAUDE_CODE_SESSION_ID: SESSION },
     stdin: () => "",

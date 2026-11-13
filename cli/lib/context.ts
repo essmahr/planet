@@ -3,6 +3,7 @@ import type { Gh } from "./gh.ts";
 export interface Ctx {
   home: string;
   gh: Gh;
+  git: (dir: string, args: string[]) => string | null;
   now: () => string;
   env: NodeJS.ProcessEnv;
   stdin: () => string;

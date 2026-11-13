@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { Command, Ctx } from "./lib/context.ts";
 import { realGh } from "./lib/gh.ts";
+import { gitIn } from "./lib/repos.ts";
 import { ensureStore, planetHome } from "./lib/store.ts";
 import { captureCommand } from "./commands/capture.ts";
 import { checkCommand } from "./commands/check.ts";
@@ -84,6 +85,7 @@ export function defaultCtx(): Ctx {
   return {
     home: planetHome(),
     gh: realGh(),
+    git: gitIn,
     now: () => new Date().toISOString(),
     env: process.env,
     stdin: () => readFileSync(0, "utf8"),

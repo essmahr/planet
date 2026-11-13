@@ -1,5 +1,7 @@
-import { listEpics } from "./epic.ts";
+import { existsSync, readdirSync } from "node:fs";
+import { readEpic } from "./epic.ts";
 import { listPhases, readPhase, writePhase } from "./phase.ts";
+import { paths } from "./store.ts";
 
 export interface OwnedPr {
   epic: string;
@@ -14,25 +16,26 @@ export function ownPrs(home: string, epic: string, phase: number, session: strin
   return p.meta.prs.map((pr) => pr.url);
 }
 
+function epicSlugs(home: string): string[] {
+  const root = paths.epics(home);
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();
+}
+
+function openPrsOf(home: string, slug: string, session: string): OwnedPr[] {
+  readEpic(home, slug);
+  return listPhases(home, slug).flatMap((phase) =>
+    phase.meta.prs.filter((pr) => pr.state === "open" && pr.session === session).map((pr) => ({ epic: slug, phase: phase.meta.id, url: pr.url })),
+  );
+}
+
 export function ownedOpenPrs(home: string, session: string): OwnedPr[] {
   const owned: OwnedPr[] = [];
-  let epics: ReturnType<typeof listEpics> = [];
-  try {
-    epics = listEpics(home);
-  } catch {
-    return owned;
-  }
-  for (const epic of epics) {
-    let phases: ReturnType<typeof listPhases> = [];
+  for (const slug of epicSlugs(home)) {
     try {
-      phases = listPhases(home, epic.slug);
+      owned.push(...openPrsOf(home, slug, session));
     } catch {
       continue;
-    }
-    for (const phase of phases) {
-      for (const pr of phase.meta.prs) {
-        if (pr.state === "open" && pr.session === session) owned.push({ epic: epic.slug, phase: phase.meta.id, url: pr.url });
-      }
     }
   }
   return owned;

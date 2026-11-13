@@ -1,4 +1,6 @@
+import { writeFileSync } from "node:fs";
 import { test } from "node:test";
+import { paths } from "../cli/lib/store.ts";
 import assert from "node:assert/strict";
 import { NOW, PR, SESSION, ctx, run, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
@@ -35,6 +37,14 @@ test("ownedOpenPrs skips merged PRs", () => {
   phase.meta.prs[0].state = "merged";
   writePhase(phase);
   assert.deepEqual(ownedOpenPrs(home, SESSION), []);
+});
+
+test("ownedOpenPrs skips an epic with a corrupt epic file and still returns the others", () => {
+  const home = setup();
+  linkPrs(home, "e", 1, [PR], NOW, SESSION);
+  createEpic(home, { slug: "bad", title: "Bad", repos: ["o/r"] }, NOW);
+  writeFileSync(paths.epicFile(home, "bad"), "title: [unterminated\n");
+  assert.deepEqual(ownedOpenPrs(home, SESSION), [{ epic: "e", phase: 1, url: PR }]);
 });
 
 test("ownPrs sets the session on every PR of the phase and returns their urls", () => {

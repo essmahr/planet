@@ -92,12 +92,12 @@ export function prSignalsFor(ctx: Ctx, epic: string, phase: number, checkout: st
   };
 }
 
-/** The viewer's signals on each open PR of a phase, limited to the PRs `only` accepts. */
-export async function phaseSignals(ctx: Ctx, epic: string, phase: number, only: (pr: PrRef) => boolean = () => true): Promise<PhasePrSignals[]> {
+/** The viewer's signals on each open PR of a phase. */
+export async function phaseSignals(ctx: Ctx, epic: string, phase: number): Promise<PhasePrSignals[]> {
   const { meta } = readPhase(ctx.home, epic, phase);
   const checkout = phaseCheckout(ctx, epic, meta);
   const out: PhasePrSignals[] = [];
-  for (const ref of meta.prs.filter(only)) {
+  for (const ref of meta.prs) {
     const f = await ctx.gh.prFeedback(ref.url);
     if (f.state !== "open") continue;
     out.push(prSignalsFor(ctx, epic, phase, checkout, ref, f));
@@ -133,8 +133,8 @@ async function prReact(args: string[], ctx: Ctx): Promise<CommandResult> {
   const add = optList(values, "add").map(reactionNamed);
   const remove = optList(values, "remove").map(reactionNamed);
   if (!add.length && !remove.length) throw new Error("pass --add or --remove");
-  for (const reaction of remove) await ctx.gh.react(id, reaction, false);
   for (const reaction of add) await ctx.gh.react(id, reaction, true);
+  for (const reaction of remove) await ctx.gh.react(id, reaction, false);
   return { json: { id, added: add, removed: remove }, text: "reactions updated" };
 }
 

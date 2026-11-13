@@ -103,12 +103,12 @@ test("pr signals reads every linked pr", async () => {
   assert.deepEqual(j.prs.map((p) => [p.url, p.signals.length]), [[PR, 0], [OTHER, 1]]);
 });
 
-test("pr react removes before it adds", async () => {
+test("pr react adds before it removes", async () => {
   const gh = fakeGh();
   const r = await run(["pr", "react", "C1", "--add", "rocket", "--remove", "thumbs_up"], ctx(tmpHome(), { gh }));
   assert.equal(r.code, 0);
   assert.equal(r.stdout.trim(), "reactions updated");
-  assert.deepEqual(gh.calls, ["react:-THUMBS_UP:C1", "react:+ROCKET:C1"]);
+  assert.deepEqual(gh.calls, ["react:+ROCKET:C1", "react:-THUMBS_UP:C1"]);
 });
 
 test("pr react rejects an unknown reaction", async () => {

@@ -91,14 +91,29 @@ export const watchCommand: Command = async (args, ctx) => {
   }
 };
 
+/** Every watched PR's feedback, or null when gh fails. */
+async function fetchAll(refs: PrRef[], ctx: Ctx): Promise<[PrRef, PrFeedback][] | null> {
+  try {
+    const fetched: [PrRef, PrFeedback][] = [];
+    for (const ref of refs) fetched.push([ref, await ctx.gh.prFeedback(ref.url)]);
+    return fetched;
+  } catch {
+    return null;
+  }
+}
+
 async function poll(epic: string, id: number, refs: PrRef[], checkout: string | null, interval: number, maxPolls: number, ctx: Ctx): Promise<CommandResult> {
   let failures = 0;
   let delaySeconds = interval;
   let previous: string | null = null;
   for (let poll = 1; ; poll++) {
-    try {
-      const fetched: [PrRef, PrFeedback][] = [];
-      for (const ref of refs) fetched.push([ref, await ctx.gh.prFeedback(ref.url)]);
+    const fetched = await fetchAll(refs, ctx);
+    if (!fetched) {
+      failures++;
+      previous = null;
+      delaySeconds = Math.min(interval * 2 ** (failures - 1), MAX_BACKOFF_SECONDS);
+    }
+    if (fetched) {
       failures = 0;
       delaySeconds = interval;
       const open = fetched.filter(([, f]) => f.state === "open");
@@ -106,17 +121,18 @@ async function poll(epic: string, id: number, refs: PrRef[], checkout: string | 
         const event = fetched.some(([, f]) => f.state === "merged") ? "merged" : "closed";
         return finish(epic, id, event, [`phase ${id}: ${event}`]);
       }
-      const perPr = open.map(([ref, f]) => ({ url: ref.url, keys: openKeys(prSignalsFor(ctx, epic, id, checkout, ref, f)) }));
+      let perPr: { url: string; keys: string[] }[];
+      try {
+        perPr = open.map(([ref, f]) => ({ url: ref.url, keys: openKeys(prSignalsFor(ctx, epic, id, checkout, ref, f)) }));
+      } catch (err) {
+        return finish(epic, id, "stopped", [`phase ${id}: signal error (${errorMessage(err)})`]);
+      }
       const current = perPr.flatMap((p) => p.keys).sort().join("\n");
       if (current && current === previous) {
         const lines = perPr.filter((p) => p.keys.length).map((p) => `phase ${id}: ${p.keys.length} open signals on ${p.url}`);
         return finish(epic, id, "feedback", lines);
       }
       previous = current;
-    } catch {
-      failures++;
-      previous = null;
-      delaySeconds = Math.min(interval * 2 ** (failures - 1), MAX_BACKOFF_SECONDS);
     }
     if (maxPolls && poll >= maxPolls) return finish(epic, id, "stopped", [`phase ${id}: max polls reached`]);
     await ctx.sleep(delaySeconds * 1000);

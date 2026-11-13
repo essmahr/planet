@@ -224,6 +224,17 @@ test("an orphan draft wakes", async () => {
   assert.match(r.stdout, /event: feedback\n$/);
 });
 
+test("a signal computation error stops the watcher instead of backing off", async () => {
+  const { home } = setupWithCheckout();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: up });
+  const { sleeps, sleep } = sleeper();
+  const git = () => { throw new Error("git exploded"); };
+  const r = await run(["watch", "e", "1"], ctx(home, { gh, git, sleep }));
+  assert.equal(r.code, 0);
+  assert.deepEqual(sleeps, []);
+  assert.match(r.stdout, /^phase 1: signal error \(git exploded\)\ninvoke .* event: stopped\n$/);
+});
+
 test("a failing check alone never wakes", async () => {
   const home = setup();
   const gh = fakeGh({}, {}, false, undefined, { [PR]: { ...BASE, failed_checks: [LINT] } });

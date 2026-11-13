@@ -4,7 +4,7 @@ Drafts live in a detached worktree on the PR branch, so the user's checkout is
 never touched, whatever branch it is on.
 
 Path: `<repo root>/../.planet-worktrees/<repo name>-<slug>-<N>-pr<number>`.
-This is the `worktree` field of `planet pr signals`; use that value. A phase
+It is the `worktree` field of `planet pr signals`. A phase
 with several open PRs has one worktree per PR. Never inside the repo's working
 tree. No local branch is created. Run git there with `git -C <path>`.
 
@@ -28,7 +28,7 @@ The worktree lives across wakes while drafts are unpushed.
 - Revise a draft: make the change, `git -C <path> add -A`,
   `git -C <path> commit --fixup <sha>`, then
   `git -C <path> rebase --autosquash origin/<head_ref>`.
-- List drafts: `git -C <path> log --format='%h %s' origin/<head_ref>..HEAD`.
+- Map commits to comment urls: `git -C <path> log --format='%h %(trailers:key=Feedback,valueonly)' origin/<head_ref>..HEAD`. For pushed commits, use the range just pushed.
 
 ## After the push
 

@@ -16,6 +16,10 @@ export interface PrFile {
   deletions: number;
 }
 
+export type Reaction = "THUMBS_UP" | "EYES" | "ROCKET";
+
+const REACTIONS: readonly string[] = ["THUMBS_UP", "EYES", "ROCKET"];
+
 export interface PrReview {
   id: string;
   author: string;
@@ -23,6 +27,7 @@ export interface PrReview {
   body: string;
   created_at: string;
   url: string;
+  viewer_reactions: Reaction[];
 }
 
 export interface PrComment {
@@ -34,6 +39,8 @@ export interface PrComment {
   resolved: boolean;
   created_at: string;
   url: string;
+  viewer_reactions: Reaction[];
+  viewer_reply: string | null;
 }
 
 export interface PrConversationComment {
@@ -42,6 +49,7 @@ export interface PrConversationComment {
   body: string;
   created_at: string;
   url: string;
+  viewer_reactions: Reaction[];
 }
 
 export interface PrCheck {
@@ -54,6 +62,7 @@ export interface PrFeedback {
   url: string;
   state: PrState;
   author: string;
+  viewer: string;
   head_ref: string;
   head_sha: string;
   reviews: PrReview[];
@@ -66,6 +75,7 @@ export interface Gh {
   prStates(urls: string[]): Promise<PrInfo[]>;
   prFiles(url: string): Promise<PrFile[]>;
   prFeedback(url: string, opts?: { timeoutMs?: number }): Promise<PrFeedback>;
+  react(subjectId: string, content: Reaction, on: boolean): Promise<void>;
 }
 
 export class GhUnavailable extends Error {
@@ -106,14 +116,19 @@ export type GraphqlContext =
   | { name: string; conclusion: string | null; detailsUrl: string | null }
   | { context: string; state: string; targetUrl: string | null };
 
+export interface GraphqlReactionGroup {
+  content: string;
+  viewerHasReacted: boolean;
+}
+
 export interface GraphqlFeedback {
   state: "OPEN" | "MERGED" | "CLOSED";
   author: { login: string } | null;
   headRefName: string;
   headRefOid: string;
-  reviews: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; state: string; body: string }[] };
-  reviewThreads: { nodes: { isResolved: boolean; comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; path: string; line: number | null; body: string }[] } }[] };
-  comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; body: string }[] };
+  reviews: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; state: string; body: string; reactionGroups: GraphqlReactionGroup[] }[] };
+  reviewThreads: { nodes: { isResolved: boolean; comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; path: string; line: number | null; body: string; reactionGroups: GraphqlReactionGroup[] }[] } }[] };
+  comments: { nodes: { id: string; url: string; createdAt: string; author: { login: string } | null; body: string; reactionGroups: GraphqlReactionGroup[] }[] };
   commits: { nodes: { commit: { statusCheckRollup: { contexts: { nodes: GraphqlContext[] } } | null } }[] };
 }
 
@@ -135,17 +150,34 @@ export function failedChecks(contexts: GraphqlContext[]): PrCheck[] {
     .filter((c) => !PASSING_OR_PENDING.has(c.state));
 }
 
-export function parseFeedback(url: string, pr: GraphqlFeedback): PrFeedback {
-  const reviews = pr.reviews.nodes.map((r) => ({ id: r.id, author: reviewAuthor(r.author), state: r.state, body: r.body, created_at: r.createdAt, url: r.url }));
+/** Keeps the reactions the viewer has left that Planet reads (thumbs up, eyes, rocket). */
+export function viewerReactions(groups: GraphqlReactionGroup[]): Reaction[] {
+  return groups.filter((g) => g.viewerHasReacted && REACTIONS.includes(g.content)).map((g) => g.content as Reaction);
+}
+
+export function parseFeedback(url: string, pr: GraphqlFeedback, viewer: string): PrFeedback {
+  const reviews = pr.reviews.nodes.map((r) => ({ id: r.id, author: reviewAuthor(r.author), state: r.state, body: r.body, created_at: r.createdAt, url: r.url, viewer_reactions: viewerReactions(r.reactionGroups) }));
   const comments = pr.reviewThreads.nodes.flatMap((t) =>
-    t.comments.nodes.map((c) => ({ id: c.id, author: reviewAuthor(c.author), path: c.path, line: c.line, body: c.body, resolved: t.isResolved, created_at: c.createdAt, url: c.url })),
+    t.comments.nodes.map((c, i) => ({
+      id: c.id,
+      author: reviewAuthor(c.author),
+      path: c.path,
+      line: c.line,
+      body: c.body,
+      resolved: t.isResolved,
+      created_at: c.createdAt,
+      url: c.url,
+      viewer_reactions: viewerReactions(c.reactionGroups),
+      viewer_reply: t.comments.nodes.slice(i + 1).filter((later) => later.author?.login === viewer).at(-1)?.body ?? null,
+    })),
   );
-  const conversation = pr.comments.nodes.map((c) => ({ id: c.id, author: reviewAuthor(c.author), body: c.body, created_at: c.createdAt, url: c.url }));
+  const conversation = pr.comments.nodes.map((c) => ({ id: c.id, author: reviewAuthor(c.author), body: c.body, created_at: c.createdAt, url: c.url, viewer_reactions: viewerReactions(c.reactionGroups) }));
   const contexts = pr.commits.nodes[0]?.commit.statusCheckRollup?.contexts.nodes ?? [];
   return {
     url,
     state: pr.state.toLowerCase() as PrState,
     author: reviewAuthor(pr.author),
+    viewer,
     head_ref: pr.headRefName,
     head_sha: pr.headRefOid,
     reviews,
@@ -178,19 +210,23 @@ export function realGh(): Gh {
       return raw.files.map((f) => ({ path: f.path, additions: f.additions, deletions: f.deletions }));
     },
     async prFeedback(url, opts) {
-      const query = `query { resource(url: ${JSON.stringify(url)}) { ... on PullRequest {
+      const query = `query { viewer { login } resource(url: ${JSON.stringify(url)}) { ... on PullRequest {
         state author { login } headRefName headRefOid
-        reviews(last: 50) { nodes { id url createdAt author { login } state body } }
-        reviewThreads(last: 100) { nodes { isResolved comments(first: 50) { nodes { id url createdAt author { login } path line body } } } }
-        comments(last: 100) { nodes { id url createdAt author { login } body } }
+        reviews(last: 50) { nodes { id url createdAt author { login } state body reactionGroups { content viewerHasReacted } } }
+        reviewThreads(last: 100) { nodes { isResolved comments(first: 50) { nodes { id url createdAt author { login } path line body reactionGroups { content viewerHasReacted } } } } }
+        comments(last: 100) { nodes { id url createdAt author { login } body reactionGroups { content viewerHasReacted } } }
         commits(last: 1) { nodes { commit { statusCheckRollup { contexts(last: 100) { nodes {
           ... on CheckRun { name conclusion detailsUrl }
           ... on StatusContext { context state targetUrl } } } } } } }
       } } }`;
-      const raw = JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`], opts?.timeoutMs)) as { data: { resource: GraphqlFeedback | null } };
+      const raw = JSON.parse(await gh(["api", "graphql", "-f", `query=${query}`], opts?.timeoutMs)) as { data: { viewer: { login: string }; resource: GraphqlFeedback | null } };
       const pr = raw.data.resource;
       if (!pr) throw new Error(`no pull request at ${url}`);
-      return parseFeedback(url, pr);
+      return parseFeedback(url, pr, raw.data.viewer.login);
+    },
+    async react(subjectId, content, on) {
+      const mutation = on ? "addReaction" : "removeReaction";
+      await gh(["api", "graphql", "-f", `query=mutation { ${mutation}(input: {subjectId: ${JSON.stringify(subjectId)}, content: ${content}}) { clientMutationId } }`]);
     },
   };
 }

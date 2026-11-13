@@ -17,12 +17,12 @@ export function tmpHome(): string {
 }
 
 export const PR = "https://github.com/o/r/pull/7";
-export const BASE: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "sha1", reviews: [], comments: [], conversation: [], failed_checks: [] };
+export const BASE: PrFeedback = { url: PR, state: "open", author: "me", viewer: "me", head_ref: "me/x", head_sha: "sha1", reviews: [], comments: [], conversation: [], failed_checks: [] };
 export const LINT: PrCheck = { name: "lint", state: "FAILURE", url: "u/lint" };
 
-export const review = (id: string, author: string, body: string): PrReview => ({ id, author, state: "COMMENTED", body, created_at: NOW, url: `u/${id}` });
-export const comment = (id: string, author: string, resolved: boolean): PrComment => ({ id, author, path: "a.ts", line: 3, body: "nit", resolved, created_at: NOW, url: `u/${id}` });
-export const convo = (id: string, author: string): PrConversationComment => ({ id, author, body: "hello", created_at: NOW, url: `u/${id}` });
+export const review = (id: string, author: string, body: string): PrReview => ({ id, author, state: "COMMENTED", body, created_at: NOW, url: `u/${id}`, viewer_reactions: [] });
+export const comment = (id: string, author: string, resolved: boolean): PrComment => ({ id, author, path: "a.ts", line: 3, body: "nit", resolved, created_at: NOW, url: `u/${id}`, viewer_reactions: [], viewer_reply: null });
+export const convo = (id: string, author: string): PrConversationComment => ({ id, author, body: "hello", created_at: NOW, url: `u/${id}`, viewer_reactions: [] });
 
 export type FakeGh = Gh & { calls: string[] };
 
@@ -53,6 +53,9 @@ export function fakeGh(states: Record<string, PrInfo> = {}, files: Record<string
       const entry = f[Math.min(i, f.length - 1)];
       if (entry instanceof Error) throw entry;
       return entry;
+    },
+    async react(subjectId, content, on) {
+      calls.push(`react:${on ? "+" : "-"}${content}:${subjectId}`);
     },
   };
 }

@@ -14,7 +14,7 @@ import type { PrFeedback } from "../cli/lib/gh.ts";
 import type { RetroInputs } from "../cli/commands/retro.ts";
 
 const PR = "https://github.com/o/r/pull/7";
-const FEEDBACK: PrFeedback = { url: PR, state: "open", author: "me", head_ref: "me/x", head_sha: "head777", reviews: [], comments: [], conversation: [], failed_checks: [] };
+const FEEDBACK: PrFeedback = { url: PR, state: "open", author: "me", viewer: "me", head_ref: "me/x", head_sha: "head777", reviews: [], comments: [], conversation: [], failed_checks: [] };
 const LATER = "2026-09-03T16:00:00.000Z";
 
 function setup(): string {

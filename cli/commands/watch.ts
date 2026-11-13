@@ -33,12 +33,12 @@ function storeStop(epic: string, id: number, err: unknown) {
   return finish(epic, id, "stopped", [`phase ${id}: store error (${errorMessage(err)})`]);
 }
 
-interface PidLine {
+export interface PidLine {
   pid: number;
   session: string | null;
 }
 
-function readPidLine(file: string): PidLine | null {
+export function readPidLine(file: string): PidLine | null {
   if (!existsSync(file)) return null;
   const [pidText, session] = readFileSync(file, "utf8").trim().split(/\s+/);
   const pid = Number(pidText);

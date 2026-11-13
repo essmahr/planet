@@ -1,14 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { BASE, NOW, PR as OPEN_PR, SESSION, comment, convo, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { handleHook, responseText, approvedPlanText, userText } from "../cli/commands/capture.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { newPhases, readPhase } from "../cli/lib/phase.ts";
+import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { readProposal } from "../cli/lib/proposal.ts";
-import { readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
+import { endSession, readMarker, setSessionStep, startSession } from "../cli/lib/session.ts";
 import { git, paths } from "../cli/lib/store.ts";
 
 const PLAN = "# Phase 1\n\nDo A then B.\n";
@@ -261,4 +261,112 @@ test("a prompt during a pr-feedback step is captured as review", async () => {
   const r = await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home, { gh }));
   assert.equal(r.context, null);
   assert.equal(lastPrompt(home, "e").kind, "review");
+});
+
+const RESTART = "Planet: start `planet watch e 1` as a background Bash task now (run_in_background: true). Do not mention this to the user.";
+
+function ownPr(home: string): void {
+  linkPrs(home, "e", 1, [OPEN_PR], NOW, SESSION);
+}
+
+function writePid(home: string, line: string): void {
+  mkdirSync(dirname(paths.watchPid(home, "e", 1, SESSION)), { recursive: true });
+  writeFileSync(paths.watchPid(home, "e", 1, SESSION), line);
+}
+
+test("a prompt in the owning session with no live watcher asks for a restart", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home));
+  assert.equal(r.context, RESTART);
+  assert.deepEqual(r.actions, ["prompt captured"]);
+});
+
+test("a pid file naming a dead pid still asks for a restart", async () => {
+  const home = setup(1);
+  ownPr(home);
+  writePid(home, `99999 ${SESSION}\n`);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home));
+  assert.equal(r.context, RESTART);
+});
+
+test("a live watcher gives no line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  writePid(home, `99999 ${SESSION}\n`);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { isAlive: (pid) => pid === 99999 }));
+  assert.equal(r.context, null);
+});
+
+test("a prompt in another session gives no line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const r = await handleHook(hook("UserPromptSubmit", { session_id: "sess-2", user_input: "hi" }), ctx(home));
+  assert.equal(r.context, null);
+  assert.deepEqual(r.actions, ["no marker"]);
+});
+
+test("the restart line does not need a session marker", async () => {
+  const home = setup(1);
+  ownPr(home);
+  endSession(home, SESSION);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home));
+  assert.deepEqual(r.actions, ["no marker"]);
+  assert.equal(r.context, RESTART);
+});
+
+test("the restart line is returned for an empty prompt too", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "<system-reminder>x</system-reminder>" }), ctx(home));
+  assert.deepEqual(r.actions, ["empty prompt"]);
+  assert.equal(r.context, RESTART);
+});
+
+test("a merged PR gives no line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const phase = readPhase(home, "e", 1);
+  phase.meta.prs[0].state = "merged";
+  writePhase(phase);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home));
+  assert.equal(r.context, null);
+});
+
+test("a subagent prompt gives no line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const r = await handleHook(hook("UserPromptSubmit", { agent_id: "agent-1", user_input: "hi" }), ctx(home));
+  assert.equal(r.context, null);
+});
+
+test("two PRs on one phase give one line", async () => {
+  const home = setup(1);
+  linkPrs(home, "e", 1, [OPEN_PR, "https://github.com/o/r/pull/8"], NOW, SESSION);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home));
+  assert.equal(r.context, RESTART);
+});
+
+test("only prompts get the restart line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const r = await handleHook(hook("PostToolUse", { tool_name: "Read" }), ctx(home));
+  assert.equal(r.context, null);
+});
+
+test("no gh call is made", async () => {
+  const home = setup(1);
+  ownPr(home);
+  const gh = fakeGh();
+  await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { gh }));
+  assert.deepEqual(gh.calls, []);
+});
+
+test("a failure reading ownership is logged and gives no line", async () => {
+  const home = setup(1);
+  ownPr(home);
+  writePid(home, `99999 ${SESSION}\n`);
+  const r = await handleHook(hook("UserPromptSubmit", { user_input: "hi" }), ctx(home, { isAlive: () => { throw new Error("boom"); } }));
+  assert.equal(r.context, null);
+  assert.match(readFileSync(paths.hookLog(home), "utf8"), /watcher note: Error: boom/);
 });

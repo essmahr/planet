@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Hook entry for Claude Code. Exits before starting Node unless this session has a Planet marker.
+# Hook entry for Claude Code. Exits before starting Node unless this session has a Planet marker
+# or is named as the owner of a PR in some phase file.
 input="$(cat)"
 sid="$(printf '%s' "$input" | grep -o '"session_id": *"[^"]*"' | head -1 | sed 's/.*: *"\(.*\)"/\1/')"
 home="${PLANET_HOME:-$HOME/.planet}"
-if [ -z "$sid" ] || [ ! -f "$home/sessions/$sid" ]; then
+if [ -z "$sid" ]; then
+  exit 0
+fi
+if [ ! -f "$home/sessions/$sid" ] && ! grep -rqsF -- "$sid" "$home/epics"; then
   exit 0
 fi
 self="${BASH_SOURCE[0]}"

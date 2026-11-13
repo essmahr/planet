@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
+import { linkPrs } from "../cli/lib/link.ts";
+import { newPhases } from "../cli/lib/phase.ts";
 import { startSession } from "../cli/lib/session.ts";
 import { paths } from "../cli/lib/store.ts";
 
@@ -29,6 +31,39 @@ test("planet-hook captures a prompt when the session has a marker", () => {
   assert.equal(r.status, 0);
   assert.equal(r.stdout, "", "stdout would be injected into Claude's context");
   assert.match(readFileSync(paths.prompts(home, "e"), "utf8"), /hello from the hook/);
+});
+
+const RESTART_LINE = "Planet: start `planet watch e 1` as a background Bash task now (run_in_background: true). Do not mention this to the user.\n";
+
+function ownerHome(session: string): string {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7"], NOW, session);
+  return home;
+}
+
+test("planet-hook prints the restart line for an owning session with no live watcher", () => {
+  const home = ownerHome("sess-owner");
+  startSession(home, "sess-owner", "e", { phase: 1, step: "pr-feedback" }, NOW);
+  const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-owner", user_input: "hi" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, RESTART_LINE);
+});
+
+test("planet-hook prints the restart line for an owning session whose marker is gone", () => {
+  const home = ownerHome("sess-owner");
+  const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-owner", user_input: "hi" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, RESTART_LINE);
+});
+
+test("planet-hook prints nothing for a session that owns nothing", () => {
+  const home = ownerHome("sess-owner");
+  startSession(home, "sess-other", "e", {}, NOW);
+  const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-other", user_input: "hi" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
 });
 
 test("planet-hook exits 0 on garbage input", () => {

@@ -6,6 +6,7 @@ import { createProposal, findProposalByToolUse, latestPending, latestProposalId,
 import { endSession, readMarker } from "../lib/session.ts";
 import { commit, paths } from "../lib/store.ts";
 import { rejectionFeedback } from "../lib/transcript.ts";
+import { watcherNote } from "../lib/watcher-note.ts";
 
 export interface HookInput {
   hook_event_name: string;
@@ -99,12 +100,12 @@ function promptKind(marker: SessionMarker): string {
   return "planning";
 }
 
-async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): Promise<HookResult> {
+async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx, note: string | null): Promise<HookResult> {
   const { text, stripped } = stripInjected(input.user_input ?? input.prompt ?? "");
   for (const tag of stripped) {
     if (!KNOWN_WRAPPERS.has(tag)) appendFileSync(paths.hookLog(ctx.home), `${ctx.now()} stripped <${tag}> from a prompt in ${marker.epic}\n`);
   }
-  if (!text) return { actions: ["empty prompt"], context: null };
+  if (!text) return { actions: ["empty prompt"], context: note };
   const line = {
     ts: ctx.now(),
     session: input.session_id,
@@ -116,7 +117,7 @@ async function onPrompt(input: HookInput, marker: SessionMarker, ctx: Ctx): Prom
   mkdirSync(paths.feedback(ctx.home, marker.epic), { recursive: true });
   appendFileSync(paths.prompts(ctx.home, marker.epic), `${JSON.stringify(line)}\n`);
   commit(ctx.home, `${marker.epic}: capture prompt`);
-  return { actions: ["prompt captured"], context: null };
+  return { actions: ["prompt captured"], context: note };
 }
 
 /**
@@ -200,8 +201,9 @@ export interface HookResult {
 export async function handleHook(raw: string, ctx: Ctx): Promise<HookResult> {
   const input = JSON.parse(raw) as HookInput;
   const marker = readMarker(ctx.home, input.session_id);
-  if (!marker) return { actions: ["no marker"], context: null };
-  if (input.hook_event_name === "UserPromptSubmit") return onPrompt(input, marker, ctx);
+  const note = input.hook_event_name === "UserPromptSubmit" && !input.agent_id ? watcherNote(ctx, input.session_id) : null;
+  if (!marker) return { actions: ["no marker"], context: note };
+  if (input.hook_event_name === "UserPromptSubmit") return onPrompt(input, marker, ctx, note);
   return { actions: onOtherEvent(input, marker, ctx), context: null };
 }
 

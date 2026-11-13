@@ -83,7 +83,7 @@ test("epic show --brief carries statuses and open PR urls only; the full view li
   const home = tmpHome();
   await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
   newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
-  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7"], NOW);
+  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7"], NOW, null);
   writeRetro(home, "e", 1, "---\nphase: 1\nlessons:\n  - text: name the spec file\n    skill: planet-phase-plan\n    apply: true\n  - text: taste\n    skill: not-planet\n    apply: false\n---\nbody\n", NOW, "head1");
   const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
   assert.deepEqual(brief.epic, { slug: "e", title: "E", repos: ["o/r"], status: "active" });
@@ -102,7 +102,7 @@ test("epic show --brief lists merged PR urls per phase", async () => {
   const home = tmpHome();
   await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
-  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7", "https://github.com/o/r/pull/8"], NOW);
+  linkPrs(home, "e", 1, ["https://github.com/o/r/pull/7", "https://github.com/o/r/pull/8"], NOW, null);
   const phase = readPhase(home, "e", 1);
   phase.meta.prs[0].state = "merged";
   phase.meta.prs[1].state = "closed";

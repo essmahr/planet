@@ -149,6 +149,7 @@ test("gh pr create output links the PR to the session phase", async () => {
   const phase = readPhase(home, "e", 1);
   assert.equal(phase.meta.status, "in-progress");
   assert.equal(phase.meta.prs[0].url, PR);
+  assert.equal(phase.meta.prs[0].session, SESSION);
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), `e: link phase 1 to ${PR}`);
   assert.deepEqual((await handleHook(hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "gh pr create" }, tool_response: { stdout: PR, stderr: "" } }), ctx(home))).actions, ["already linked"]);
 });
@@ -255,7 +256,7 @@ function lastPrompt(home: string, epic: string): { kind: string } {
 test("a prompt during a pr-feedback step is captured as review", async () => {
   const home = setup(1);
   setSessionStep(home, SESSION, "pr-feedback", 1);
-  linkPrs(home, "e", 1, [OPEN_PR], NOW);
+  linkPrs(home, "e", 1, [OPEN_PR], NOW, null);
   const gh = fakeGh({}, {}, false, undefined, { [OPEN_PR]: { ...BASE, comments: [comment("c1", "bob", false)] } });
   const r = await handleHook(hook("UserPromptSubmit", { user_input: "do 1 3" }), ctx(home, { gh }));
   assert.equal(r.context, null);

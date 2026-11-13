@@ -23,7 +23,7 @@ test("planet pr feedback aggregates reviews, comments, and failed checks per lin
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
-  linkPrs(home, "e", 1, [PR], NOW);
+  linkPrs(home, "e", 1, [PR], NOW, null);
   const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
   const r = await run(["pr", "feedback", "e", "1", "--json"], ctx(home, { gh }));
   assert.equal(r.code, 0);

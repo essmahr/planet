@@ -35,6 +35,7 @@ test("validatePhaseMeta validates nested prs", () => {
     prs: [{ url: "https://github.com/closeio/close-ui/pull/1", state: "open", merged_at: null }], shipped_at: null,
   }, "01-codegen.md");
   assert.equal(meta.prs[0].state, "open");
+  assert.equal(meta.prs[0].session, null);
   assert.throws(() => validatePhaseMeta({ id: "1", slug: "a", title: "A", status: "draft" }, "f"), /id must be an integer/);
   assert.throws(() => validatePhaseMeta({ id: 1, slug: "a", title: "A", status: "draft", prs: [{ url: "u", state: "nope" }] }, "f"), /state must be one of/);
 });

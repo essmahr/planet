@@ -16,6 +16,7 @@ export interface PrRef {
   url: string;
   state: PrState;
   merged_at: string | null;
+  session: string | null;
 }
 
 export interface Epic {

@@ -102,7 +102,7 @@ export function validateEpic(v: unknown, file: string): Epic {
 
 function validatePr(v: unknown, file: string): PrRef {
   const o = obj(v, file);
-  return { url: str(o, "url", file), state: oneOf(o, "state", file, PR_STATES), merged_at: nullableStr(o, "merged_at", file) };
+  return { url: str(o, "url", file), state: oneOf(o, "state", file, PR_STATES), merged_at: nullableStr(o, "merged_at", file), session: nullableStr(o, "session", file) };
 }
 
 function phaseRepoField(o: Obj, file: string): string | null {

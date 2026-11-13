@@ -52,7 +52,7 @@ test("currentPhase prefers in-progress, then planned, then draft", () => {
 test("recomputeEpicStatus derives active and shipped", () => {
   const home = epicHome();
   const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null };
+  const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null, session: null };
   const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr", repo: null };
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), true);
   assert.equal(epic.status, "active");
@@ -125,7 +125,7 @@ test("a manual phase with a linked PR does not ship by hand", () => {
   const home = epicHome();
   newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual", repo: null }]);
   const phase = readPhase(home, "e", 1);
-  phase.meta.prs.push({ url: "https://github.com/o/r/pull/9", state: "open", merged_at: null });
+  phase.meta.prs.push({ url: "https://github.com/o/r/pull/9", state: "open", merged_at: null, session: null });
   writePhase(phase);
   assert.throws(() => setPhaseStatus(home, "e", 1, "shipped", NOW), /only a manual phase with no linked prs can be shipped by hand/);
 });

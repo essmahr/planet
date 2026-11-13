@@ -1,7 +1,10 @@
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, parse } from "../lib/args.ts";
 import type { PrFeedback, PrFile } from "../lib/gh.ts";
+import { ownPrs } from "../lib/owner.ts";
 import { readPhase } from "../lib/phase.ts";
+import { sessionIdFrom } from "../lib/session.ts";
+import { commit } from "../lib/store.ts";
 import { renderTable } from "../lib/table.ts";
 
 export async function phasePrFiles(ctx: Ctx, epic: string, id: number): Promise<{ source: "merged" | "all"; prs: string[]; files: PrFile[] }> {
@@ -38,10 +41,21 @@ async function prFeedback(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: { phase: id, prs }, text: prs.length ? lines.join("\n") : "no linked prs" };
 }
 
+async function prOwn(args: string[], ctx: Ctx): Promise<CommandResult> {
+  const { positionals } = parse(args, {});
+  const epic = need(positionals, 0, "epic slug");
+  const id = needInt(positionals, 1, "phase id");
+  const session = sessionIdFrom(ctx.env);
+  const urls = ownPrs(ctx.home, epic, id, session);
+  commit(ctx.home, `${epic}: phase ${id} feedback owned by session ${session}`);
+  return { json: { phase: id, session, prs: urls }, text: `phase ${id}: feedback owned by this session` };
+}
+
 export const prCommand: Command = async (args, ctx) => {
   const [sub, ...rest] = args;
   if (sub === "feedback") return prFeedback(rest, ctx);
-  if (sub !== "files") throw new Error("usage: planet pr files|feedback <epic> <phase>");
+  if (sub === "own") return prOwn(rest, ctx);
+  if (sub !== "files") throw new Error("usage: planet pr files|feedback|own <epic> <phase>");
   const { positionals } = parse(rest, {});
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");

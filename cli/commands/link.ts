@@ -9,7 +9,7 @@ export const linkCommand: Command = async (args, ctx) => {
   const id = needInt(positionals, 1, "phase id");
   const urls = positionals.slice(2);
   if (urls.length === 0) throw new Error("missing pr url");
-  const result = linkPrs(ctx.home, epic, id, urls, ctx.now());
+  const result = linkPrs(ctx.home, epic, id, urls, ctx.now(), ctx.env.CLAUDE_CODE_SESSION_ID ?? null);
   if (result.added.length) commit(ctx.home, `${epic}: link phase ${id} to ${result.added.join(", ")}`);
   return {
     json: { phase: result.phase.meta, epic: result.epic, added: result.added },

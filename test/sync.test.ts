@@ -15,7 +15,7 @@ function setup(): string {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
-  linkPrs(home, "e", 1, [PR1, PR2], NOW);
+  linkPrs(home, "e", 1, [PR1, PR2], NOW, null);
   return home;
 }
 
@@ -99,7 +99,7 @@ test("epic ships when every phase is reviewed", async () => {
   const home = tmpHome();
   createEpic(home, { slug: "s", title: "S", repos: ["o/r"] }, NOW);
   newPhases(home, "s", [{ slug: "a", title: "A" }]);
-  linkPrs(home, "s", 1, [PR1], NOW);
+  linkPrs(home, "s", 1, [PR1], NOW, null);
   const gh = fakeGh({ [PR1]: { url: PR1, state: "merged", merged_at: NOW } });
   await syncEpic(home, "s", gh, NOW);
   assert.equal(readPhase(home, "s", 1).meta.status, "shipped");
@@ -121,4 +121,15 @@ test("sync command commits once and names changed epics", async () => {
   const quiet = await run(["sync", "e", "--force"], ctx(home, { gh }));
   assert.equal(quiet.stdout, "e: no changes\n");
   assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "sync: e", "no commit without changes");
+});
+
+test("a sync that changes a pr's state keeps its session", async () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  linkPrs(home, "e", 1, [PR1], NOW, "sess-9");
+  await syncEpic(home, "e", fakeGh({ [PR1]: { url: PR1, state: "merged", merged_at: NOW } }), NOW);
+  const pr = readPhase(home, "e", 1).meta.prs[0];
+  assert.equal(pr.state, "merged");
+  assert.equal(pr.session, "sess-9");
 });

@@ -56,7 +56,7 @@ test("pr files sums per path across merged prs", async () => {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
-  linkPrs(home, "e", 1, [PR1, PR2], NOW);
+  linkPrs(home, "e", 1, [PR1, PR2], NOW, null);
   const gh = fakeGh(
     { [PR1]: { url: PR1, state: "merged", merged_at: NOW }, [PR2]: { url: PR2, state: "open", merged_at: null } },
     { [PR1]: [{ path: "b.ts", additions: 2, deletions: 1 }, { path: "a.ts", additions: 5, deletions: 0 }], [PR2]: [{ path: "a.ts", additions: 1, deletions: 1 }] },

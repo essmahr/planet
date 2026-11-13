@@ -186,7 +186,7 @@ function onBash(input: HookInput, marker: SessionMarker, ctx: Ctx): string[] {
   const match = PR_URL_RE.exec(responseText(input.tool_response));
   if (!match) return ["no PR url in output"];
   const url = match[0];
-  const result = linkPrs(ctx.home, marker.epic, marker.phase, [url], ctx.now());
+  const result = linkPrs(ctx.home, marker.epic, marker.phase, [url], ctx.now(), input.session_id);
   if (result.added.length === 0) return ["already linked"];
   commit(ctx.home, `${marker.epic}: link phase ${marker.phase} to ${url}`);
   return [`linked ${url} to phase ${marker.phase}`];

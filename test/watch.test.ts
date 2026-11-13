@@ -19,7 +19,7 @@ function setup(prs: string[] = [PR]): string {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
-  if (prs.length) linkPrs(home, "e", 1, prs, NOW);
+  if (prs.length) linkPrs(home, "e", 1, prs, NOW, null);
   return home;
 }
 

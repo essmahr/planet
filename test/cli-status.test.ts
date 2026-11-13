@@ -14,7 +14,7 @@ function setup(): string {
   const home = tmpHome();
   createEpic(home, { slug: "gql-migration", title: "GQL migration", repos: ["o/r"], linear: ["CRM-1"] }, NOW);
   newPhases(home, "gql-migration", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }]);
-  linkPrs(home, "gql-migration", 1, [PR1], NOW);
+  linkPrs(home, "gql-migration", 1, [PR1], NOW, null);
   const done = createEpic(home, { slug: "old", title: "Old", repos: ["o/r"] }, NOW);
   done.status = "shipped";
   writeEpic(home, done);

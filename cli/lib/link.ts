@@ -11,7 +11,7 @@ export interface LinkResult {
   added: string[];
 }
 
-export function linkPrs(home: string, epicSlug: string, phaseId: number, urls: string[], now: string): LinkResult {
+export function linkPrs(home: string, epicSlug: string, phaseId: number, urls: string[], now: string, session: string | null): LinkResult {
   const epic = readEpic(home, epicSlug);
   const phase = readPhase(home, epicSlug, phaseId);
   if (phase.meta.kind === "manual") throw new Error(`cannot link a PR to manual phase ${phaseId}`);
@@ -23,7 +23,7 @@ export function linkPrs(home: string, epicSlug: string, phaseId: number, urls: s
     if (m[1] !== repo) throw new Error(`${raw} is not in ${repo}, phase ${phaseId}'s repo`);
     const url = m[0];
     if (phase.meta.prs.some((pr) => pr.url === url)) continue;
-    phase.meta.prs.push({ url, state: "open", merged_at: null });
+    phase.meta.prs.push({ url, state: "open", merged_at: null, session });
     added.push(url);
   }
   if (added.length === 0) return { epic, phase, added };

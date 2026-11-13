@@ -23,20 +23,20 @@ test("PR_URL_RE extracts owner/repo and tolerates trailing text", () => {
 
 test("linkPrs adds PRs, moves the phase to in-progress and the epic to active", () => {
   const home = setup();
-  const r = linkPrs(home, "e", 1, [PR1, PR2], NOW);
+  const r = linkPrs(home, "e", 1, [PR1, PR2], NOW, null);
   assert.deepEqual(r.added, [PR1, PR2]);
   assert.equal(r.phase.meta.status, "in-progress");
-  assert.deepEqual(r.phase.meta.prs[0], { url: PR1, state: "open", merged_at: null });
+  assert.deepEqual(r.phase.meta.prs[0], { url: PR1, state: "open", merged_at: null, session: null });
   assert.equal(readEpic(home, "e").status, "active");
-  const again = linkPrs(home, "e", 1, [PR1], NOW);
+  const again = linkPrs(home, "e", 1, [PR1], NOW, null);
   assert.deepEqual(again.added, []);
   assert.equal(readPhase(home, "e", 1).meta.prs.length, 2);
 });
 
 test("linkPrs rejects urls outside the epic repo or not PR urls", () => {
   const home = setup();
-  assert.throws(() => linkPrs(home, "e", 1, ["https://github.com/other/repo/pull/1"], NOW), /not in closeio\/close-ui/);
-  assert.throws(() => linkPrs(home, "e", 1, ["https://github.com/closeio/close-ui/issues/1"], NOW), /not a GitHub PR url/);
+  assert.throws(() => linkPrs(home, "e", 1, ["https://github.com/other/repo/pull/1"], NOW, null), /not in closeio\/close-ui/);
+  assert.throws(() => linkPrs(home, "e", 1, ["https://github.com/closeio/close-ui/issues/1"], NOW, null), /not a GitHub PR url/);
   assert.equal(readEpic(home, "e").status, "planning");
 });
 
@@ -45,21 +45,21 @@ test("linkPrs checks each PR against its phase's repo", () => {
   createEpic(home, { slug: "e", title: "E", repos: ["closeio/close-ui", "closeio/closeio"] }, NOW);
   newPhases(home, "e", [{ slug: "ui", title: "UI" }, { slug: "api", title: "API", repo: "closeio/closeio" }]);
   const BE = "https://github.com/closeio/closeio/pull/9";
-  assert.deepEqual(linkPrs(home, "e", 2, [BE], NOW).added, [BE]);
-  assert.throws(() => linkPrs(home, "e", 1, [BE], NOW), /not in closeio\/close-ui, phase 1's repo/);
-  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW), /not in closeio\/closeio, phase 2's repo/);
+  assert.deepEqual(linkPrs(home, "e", 2, [BE], NOW, null).added, [BE]);
+  assert.throws(() => linkPrs(home, "e", 1, [BE], NOW, null), /not in closeio\/close-ui, phase 1's repo/);
+  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW, null), /not in closeio\/closeio, phase 2's repo/);
 });
 
 test("linkPrs refuses a manual phase", () => {
   const home = setup();
   newPhases(home, "e", [{ slug: "rollout", title: "Rollout", kind: "manual" }]);
-  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW), /cannot link a PR to manual phase 2/);
+  assert.throws(() => linkPrs(home, "e", 2, [PR1], NOW, null), /cannot link a PR to manual phase 2/);
   assert.deepEqual(readPhase(home, "e", 2).meta.prs, []);
 });
 
 test("unlinkPr removes the PR and returns an in-progress phase with no PRs to planned", () => {
   const home = setup();
-  linkPrs(home, "e", 1, [PR1], NOW);
+  linkPrs(home, "e", 1, [PR1], NOW, null);
   const r = unlinkPr(home, "e", 1, PR1, NOW);
   assert.deepEqual(r.phase.meta.prs, []);
   assert.equal(r.phase.meta.status, "planned");

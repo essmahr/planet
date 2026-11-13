@@ -21,7 +21,7 @@ function setup(): string {
   const home = tmpHome();
   createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
   newPhases(home, "e", [{ slug: "a", title: "A" }]);
-  linkPrs(home, "e", 1, [PR], NOW);
+  linkPrs(home, "e", 1, [PR], NOW, null);
   return home;
 }
 

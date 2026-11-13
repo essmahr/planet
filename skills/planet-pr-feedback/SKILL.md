@@ -29,17 +29,17 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
 2. **Signals.** `git fetch origin`, then `planet pr signals <slug> <N> --json`. Handle only PRs whose `session` is this session. A `do` signal is a 👍; a `weigh` signal is a 👀.
 3. **Pushed.** For each `do` signal in state `pushed`: `planet pr react <id> --remove thumbs_up --add rocket`.
 4. **Orphans.** Each url in `orphans` is a draft whose 👍 was removed. Drop its commit per `references/worktree.md` (Drafts).
-5. **Worktree.** Set up the PR's `worktree` per `references/worktree.md`. A draft that does not rebase onto the moved branch is dropped; its 👍 is then open and is redrafted in step 6.
-6. **Drafts.** For each `do` signal in state `open`: make the change, using `instruction` as direction when set. Run the narrowest relevant check. Commit with `git -C <worktree> commit -m "<one-line subject>" --trailer "Feedback: <signal url>"`. Signals that need the same change share one commit, one `--trailer` each.
+5. **Worktree.** Set up the PR's `worktree` per `references/worktree.md`. A draft that does not rebase onto the moved branch is dropped. Then run `planet pr signals <slug> <N> --json` again, so 👍 signals of dropped drafts read as `open`.
+6. **Drafts.** For each `do` signal in state `open`: make the change, using `instruction` as direction when set. Run the narrowest relevant check. Stage with `git -C <worktree> add -A`, then commit with `git -C <worktree> commit -m "<one-line subject>" --trailer "Feedback: <signal url>"`. Signals that need the same change share one commit, one `--trailer` each.
    - Already on the branch: `planet pr react <id> --remove thumbs_up --add rocket`.
    - Not actionable, or the check cannot pass: discard the attempt, `planet pr react <id> --remove thumbs_up`, and keep the reason for the report.
 7. **Takes.** For each `weigh` signal: a two or three sentence take and a recommendation, then `planet pr react <id> --remove eyes`. No edit and no commit.
-8. **Report.** Write the patch file and show the report per `references/report.md`.
+8. **Report.** Write the patch file and show the report per `references/report.md`. Failing checks come from each PR's `failed_checks`.
 9. **Watch.** Start `planet watch <slug> <N>` as a background Bash task (`run_in_background: true`). Return `phase <N> feedback reported` and end the turn.
-10. **Reply.** Handle the user's reply per `references/report.md` (Replies): `push`, `push except <name>`, `drop <name>`, free text to revise a draft, "do it" after a take, or a request to fix a failing check.
-11. **After a push.** Per pushed commit: `planet phase event <slug> <N> feedback-commit '<space-separated signal ids>' --sha <sha>`, then `planet pr react <id> --remove thumbs_up --add rocket` for each of its signals. Then `references/worktree.md` (After the push).
-12. **merged.** `planet sync <slug> --force`. `planet pr feedback <slug> <N> --json`; take `head_ref` and `head_sha` from the merged entry in `prs`. Clean up per `references/worktree.md` (Merged or closed), and say how many unpushed drafts it discarded. With `retro: router`, restore the marker and return `phase <N> merged`. Else ask with AskUserQuestion: `Retro now`, `Retro later`. Now: `planet session step retro --phase <N>`, invoke `planet:planet-retro` with `epic`, `dir`, `phase`, and leave the marker on retro. Later: say the router shows retro pending, and restore the marker. Return `phase <N> merged`.
-13. **closed.** Clean up per `references/worktree.md` (Merged or closed, step 1 only). Say the PR closed without a merge, and how many unpushed drafts it discarded. Restore the marker; return `phase <N> closed`.
+10. **Reply.** Handle the user's reply to the report per `references/report.md` (Replies).
+11. **After a push.** Per pushed commit, with its sha read from `git -C <worktree> log` after the push: `planet phase event <slug> <N> feedback-commit '<space-separated signal ids>' --sha <sha>`, then `planet pr react <id> --remove thumbs_up --add rocket` for each of its signals. Then `references/worktree.md` (After the push).
+12. **merged.** `planet sync <slug> --force`. `planet pr feedback <slug> <N> --json`; take `head_ref` and `head_sha` from the merged entry in `prs`. Clean up per `references/worktree.md` (Merged or closed), and say how many unpushed drafts it discarded. With `retro: router`, restore the marker and return `phase <N> merged`. Else ask with AskUserQuestion: `Retro now`, `Retro later`. Now: `planet session step retro --phase <N>`, invoke `planet:planet-retro` with `epic`, `dir`, `phase`, and leave the marker on retro. Later: say retro is pending, and restore the marker. Return `phase <N> merged`.
+13. **closed.** Clean up per `references/worktree.md` (Merged or closed, step 1 only). Say the PR closed unmerged and how many unpushed drafts it discarded. Restore the marker; return `phase <N> closed`.
 14. **stopped.** Say the watcher's reason. For `signal error (<message>)`, when `git fetch origin` or the worktree setup fixes it, do that and start the watcher as in step 9. Restore the marker; return `watcher stopped for phase <N>: <why>`.
 
 ## Troubleshooting
@@ -48,4 +48,3 @@ Input: `epic: <slug>`, `phase: <N>`, `event: <feedback|merged|closed|stopped>`, 
 - No signal needs action: say so in one line, then run step 9.
 - A PR's `worktree` is null: no checkout of the phase's repo is known. Say so and skip that PR.
 - Several PRs: each has its own worktree, `head_ref`, and patch file section.
-- A check needs setup the worktree lacks (dependencies, codegen): run the repo's setup there first.

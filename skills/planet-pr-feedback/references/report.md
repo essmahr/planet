@@ -37,10 +37,9 @@ block.
 
 ## Replies
 
-After any reply that changes a draft, rewrite the patch file and show the
-report again.
+After any change, rewrite the patch file and show the report again.
 
-- `push`: `git -C <worktree> push origin HEAD:<head_ref>` pushes every draft.
+- `push`: `git -C <worktree> push origin HEAD:<head_ref>`.
 - `push except <name>`: keep the named drafts unpushed on top. Note `HEAD` and
   the draft shas, run `git -C <worktree> reset --hard origin/<head_ref>`,
   then `git -C <worktree> cherry-pick` the drafts to push, in order, then the
@@ -49,13 +48,13 @@ report again.
   `git -C <worktree> cherry-pick --abort` and `git -C <worktree> reset --hard <old HEAD>`,
   say the drafts depend on each other. Push nothing.
 - `drop <name>`: remove the commit per `references/worktree.md` (Drafts), then
-  `planet pr react <id> --remove thumbs_up`. Redraft any other signal that
-  commit had.
+  `planet pr react <id> --remove thumbs_up`. Run `planet pr signals` again and
+  redraft any other signal that commit had.
 - Free text naming a draft: revise it per `references/worktree.md` (Drafts).
 - "Do it" after a take: `planet pr react <id> --add thumbs_up`, then draft it
   like any open 👍.
-- A request to fix a failing check: draft a commit with no trailer. Name it
-  after the check.
+- A request to fix a failing check: stage with `git -C <worktree> add -A` and
+  commit with no trailer. Name it after the check.
 - An unclear reply: ask, and apply nothing.
 
 A push rejected because the branch moved: set up the worktree again per

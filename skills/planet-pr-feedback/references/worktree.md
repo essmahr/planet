@@ -17,12 +17,16 @@ The worktree lives across wakes while drafts are unpushed.
 - Path present: `git -C <path> fetch origin <head_ref>`, then
   `git -C <path> rebase origin/<head_ref>`. On a conflict,
   `git -C <path> rebase --skip` drops that draft. Repeat until the rebase ends.
+- A check needs setup the worktree lacks (dependencies, codegen): run the
+  repo's setup there first.
 
 ## Drafts
 
 - Drop a draft: `git -C <path> rebase --onto <sha>^ <sha>`. Every 👍 named by
-  its `Feedback` trailers is open again unless the user removed it.
-- Revise a draft: make the change, `git -C <path> commit --fixup <sha>`, then
+  its `Feedback` trailers is open again unless the user removed it. On a
+  conflict, `git -C <path> rebase --abort` and tell the user.
+- Revise a draft: make the change, `git -C <path> add -A`,
+  `git -C <path> commit --fixup <sha>`, then
   `git -C <path> rebase --autosquash origin/<head_ref>`.
 - List drafts: `git -C <path> log --format='%h %s' origin/<head_ref>..HEAD`.
 

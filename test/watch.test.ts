@@ -6,6 +6,7 @@ import { GhUnavailable } from "../cli/lib/gh.ts";
 import { worktreePath } from "../cli/lib/drafts.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
+import { ownPrs } from "../cli/lib/owner.ts";
 import { newPhases } from "../cli/lib/phase.ts";
 import { recordCheckout } from "../cli/lib/repos.ts";
 import { paths } from "../cli/lib/store.ts";
@@ -274,4 +275,38 @@ test("each PR is fetched once per poll", async () => {
   const gh = fakeGh({}, {}, false, undefined, { [PR]: [up, up] });
   await run(["watch", "e", "1"], ctx(home, { gh }));
   assert.deepEqual(gh.calls, [`prFeedback:${PR}`, `prFeedback:${PR}`]);
+});
+
+test("a skipped orphan key never wakes", async () => {
+  const { home, worktree } = setupWithCheckout();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: quiet });
+  const git = (dir: string) => (dir === worktree ? "u/C1" : null);
+  const r = await run(["watch", "e", "1", "--max-polls", "3", "--skip", "orphan:u/C1"], ctx(home, { gh, git }));
+  assert.match(r.stdout, /^phase 1: max polls reached\ninvoke .* event: stopped\n$/);
+});
+
+test("a skipped key is left out of the open signal count", async () => {
+  const { home, worktree } = setupWithCheckout();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: up });
+  const git = (dir: string) => (dir === worktree ? "u/C9" : null);
+  const r = await run(["watch", "e", "1", "--skip", "orphan:u/C9"], ctx(home, { gh, git }));
+  assert.equal(r.stdout.split("\n")[0], `phase 1: 1 open signals on ${PR}`);
+  assert.match(r.stdout, /event: feedback\n$/);
+});
+
+test("--skip given twice skips both keys", async () => {
+  const { home, worktree } = setupWithCheckout();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: up });
+  const git = (dir: string) => (dir === worktree ? "u/C9" : null);
+  const r = await run(["watch", "e", "1", "--max-polls", "3", "--skip", "orphan:u/C9", "--skip", "C1:do"], ctx(home, { gh, git }));
+  assert.match(r.stdout, /^phase 1: max polls reached\ninvoke .* event: stopped\n$/);
+});
+
+test("a watcher whose PR moved to another session mid-run exits quietly", async () => {
+  const home = setup();
+  const gh = fakeGh({}, {}, false, undefined, { [PR]: [quiet, quiet, quiet] });
+  const sleep = async () => { ownPrs(home, "e", 1, OTHER); };
+  const r = await run(["watch", "e", "1", "--max-polls", "5"], ctx(home, { gh, sleep }));
+  assert.equal(r.stdout, "phase 1: no PR owned by this session\n");
+  assert.equal(gh.calls.length, 1);
 });

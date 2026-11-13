@@ -63,7 +63,7 @@ commands:
   repo seen [--path <dir>]
   retro inputs <epic> <phase>
   retro write <epic> <phase> --file <path> [--head <sha>]
-  watch <epic> <phase> [--interval <s>] [--max-polls <n>]
+  watch <epic> <phase> [--interval <s>] [--max-polls <n>] [--skip <key>]...
   check
   capture   (hook entry, reads Claude Code json on stdin)
 `;

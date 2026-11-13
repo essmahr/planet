@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
 import { newPhases } from "../cli/lib/phase.ts";
-import { startSession } from "../cli/lib/session.ts";
+import { endSession, startSession } from "../cli/lib/session.ts";
 import { paths } from "../cli/lib/store.ts";
 
 function fire(home: string, payload: Record<string, unknown>) {
@@ -64,6 +64,19 @@ test("planet-hook prints nothing for a session that owns nothing", () => {
   const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-other", user_input: "hi" });
   assert.equal(r.status, 0);
   assert.equal(r.stdout, "");
+});
+
+test("planet-hook ignores a markerless session named only outside phase files", () => {
+  const home = ownerHome("sess-owner");
+  startSession(home, "sess-listed", "e", {}, NOW);
+  endSession(home, "sess-listed");
+  const prompts = paths.prompts(home, "e");
+  mkdirSync(dirname(prompts), { recursive: true });
+  writeFileSync(prompts, `${JSON.stringify({ session: "sess-listed", text: "x" })}\n`);
+  const r = fire(home, { hook_event_name: "UserPromptSubmit", session_id: "sess-listed", user_input: "hi" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
+  assert.ok(!existsSync(paths.hookLog(home)));
 });
 
 test("planet-hook exits 0 on garbage input", () => {

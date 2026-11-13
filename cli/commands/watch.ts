@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, optString, parse } from "../lib/args.ts";
@@ -8,6 +8,7 @@ import { openKeys } from "../lib/signals.ts";
 import type { PrRef } from "../schema/types.ts";
 import { phaseCheckout, prSignalsFor } from "./pr.ts";
 import { paths } from "../lib/store.ts";
+import { readPidLine, type PidLine } from "../lib/watch-pid.ts";
 
 const MAX_BACKOFF_SECONDS = 900;
 
@@ -31,19 +32,6 @@ function errorMessage(err: unknown): string {
 
 function storeStop(epic: string, id: number, err: unknown) {
   return finish(epic, id, "stopped", [`phase ${id}: store error (${errorMessage(err)})`]);
-}
-
-export interface PidLine {
-  pid: number;
-  session: string | null;
-}
-
-export function readPidLine(file: string): PidLine | null {
-  if (!existsSync(file)) return null;
-  const [pidText, session] = readFileSync(file, "utf8").trim().split(/\s+/);
-  const pid = Number(pidText);
-  if (!Number.isInteger(pid) || pid <= 0) return null;
-  return { pid, session: session ?? null };
 }
 
 function runningWatcher(file: string, ctx: Ctx): PidLine | null {

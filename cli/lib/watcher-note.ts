@@ -1,8 +1,8 @@
 import { appendFileSync } from "node:fs";
-import { readPidLine } from "../commands/watch.ts";
 import type { Ctx } from "./context.ts";
 import { ownedOpenPrs } from "./owner.ts";
 import { paths } from "./store.ts";
+import { readPidLine } from "./watch-pid.ts";
 
 /**
  * One line per phase this session owns an open PR on and has no live watcher for, telling the

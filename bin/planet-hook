@@ -7,8 +7,14 @@ home="${PLANET_HOME:-$HOME/.planet}"
 if [ -z "$sid" ]; then
   exit 0
 fi
-if [ ! -f "$home/sessions/$sid" ] && ! grep -rqsF -- "$sid" "$home/epics"; then
-  exit 0
+if [ ! -f "$home/sessions/$sid" ]; then
+  # Only phase files hold PR links with their owning session. nullglob keeps a missing epics dir quiet.
+  shopt -s nullglob
+  phase_files=("$home"/epics/*/phases/*.md)
+  shopt -u nullglob
+  if [ "${#phase_files[@]}" -eq 0 ] || ! grep -qsF -- "$sid" "${phase_files[@]}"; then
+    exit 0
+  fi
 fi
 self="${BASH_SOURCE[0]}"
 while [ -L "$self" ]; do self="$(readlink "$self")"; done

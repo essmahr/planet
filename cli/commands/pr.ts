@@ -9,7 +9,7 @@ import { findCheckout } from "../lib/repos.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import type { Signal } from "../lib/signals.ts";
 import { prSignals } from "../lib/signals.ts";
-import type { PrRef, PrState } from "../schema/types.ts";
+import type { PhaseMeta, PrRef, PrState } from "../schema/types.ts";
 import { commit } from "../lib/store.ts";
 import { renderTable } from "../lib/table.ts";
 
@@ -70,27 +70,37 @@ export interface PhasePrSignals {
   orphans: string[];
 }
 
+/** The checkout a phase's PRs are worked in, if one is registered for the phase's repo. */
+export function phaseCheckout(ctx: Ctx, epic: string, meta: PhaseMeta): string | null {
+  return findCheckout(ctx.home, phaseRepo(readEpic(ctx.home, epic), meta), process.cwd());
+}
+
+/** The signals on one already-fetched open PR. */
+export function prSignalsFor(ctx: Ctx, epic: string, phase: number, checkout: string | null, ref: PrRef, f: PrFeedback): PhasePrSignals {
+  const worktree = checkout ? worktreePath(checkout, epic, phase, ref.url) : null;
+  const drafts = checkout && worktree ? readDrafts(ctx, checkout, worktree, f.head_ref) : { drafted: [], pushed: [] };
+  return {
+    url: ref.url,
+    state: f.state,
+    session: ref.session,
+    head_ref: f.head_ref,
+    head_sha: f.head_sha,
+    checkout,
+    worktree,
+    failed_checks: f.failed_checks.map((c) => ({ name: c.name, url: c.url })),
+    ...prSignals(f, drafts),
+  };
+}
+
 /** The viewer's signals on each open PR of a phase, limited to the PRs `only` accepts. */
 export async function phaseSignals(ctx: Ctx, epic: string, phase: number, only: (pr: PrRef) => boolean = () => true): Promise<PhasePrSignals[]> {
   const { meta } = readPhase(ctx.home, epic, phase);
-  const checkout = findCheckout(ctx.home, phaseRepo(readEpic(ctx.home, epic), meta), process.cwd());
+  const checkout = phaseCheckout(ctx, epic, meta);
   const out: PhasePrSignals[] = [];
   for (const ref of meta.prs.filter(only)) {
     const f = await ctx.gh.prFeedback(ref.url);
     if (f.state !== "open") continue;
-    const worktree = checkout ? worktreePath(checkout, epic, phase, ref.url) : null;
-    const drafts = checkout && worktree ? readDrafts(ctx, checkout, worktree, f.head_ref) : { drafted: [], pushed: [] };
-    out.push({
-      url: ref.url,
-      state: f.state,
-      session: ref.session,
-      head_ref: f.head_ref,
-      head_sha: f.head_sha,
-      checkout,
-      worktree,
-      failed_checks: f.failed_checks.map((c) => ({ name: c.name, url: c.url })),
-      ...prSignals(f, drafts),
-    });
+    out.push(prSignalsFor(ctx, epic, phase, checkout, ref, f));
   }
   return out;
 }

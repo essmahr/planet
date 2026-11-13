@@ -3,14 +3,15 @@ import { dirname } from "node:path";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { need, needInt, optString, parse } from "../lib/args.ts";
 import type { PrFeedback } from "../lib/gh.ts";
-import { GhUnavailable } from "../lib/gh.ts";
 import { readPhase } from "../lib/phase.ts";
+import { openKeys } from "../lib/signals.ts";
+import type { PrRef } from "../schema/types.ts";
+import { phaseCheckout, prSignalsFor } from "./pr.ts";
 import { paths } from "../lib/store.ts";
 
-const MAX_FAILURES = 5;
 const MAX_BACKOFF_SECONDS = 900;
 
-type Event = "merged" | "closed" | "stopped";
+type Event = "feedback" | "merged" | "closed" | "stopped";
 
 function intOption(value: string | undefined, name: string, fallback: number, min: number): number {
   if (value === undefined) return fallback;
@@ -24,23 +25,12 @@ function finish(epic: string, id: number, event: Event, lines: string[]) {
   return { json: { epic, phase: id, event, lines }, text };
 }
 
-async function pollAll(urls: string[], ctx: Ctx): Promise<PrFeedback[]> {
-  const all: PrFeedback[] = [];
-  for (const url of urls) all.push(await ctx.gh.prFeedback(url));
-  return all;
-}
-
 function errorMessage(err: unknown): string {
   return (err instanceof Error ? err.message : String(err)).split("\n")[0];
 }
 
 function storeStop(epic: string, id: number, err: unknown) {
   return finish(epic, id, "stopped", [`phase ${id}: store error (${errorMessage(err)})`]);
-}
-
-function ghReason(err: unknown): string {
-  if (err instanceof GhUnavailable) return `gh unavailable (${errorMessage(err)})`;
-  return `gh failed (${errorMessage(err)})`;
 }
 
 interface PidLine {
@@ -78,46 +68,55 @@ export const watchCommand: Command = async (args, ctx) => {
   const interval = intOption(optString(values, "interval"), "interval", 60, 1);
   const maxPolls = intOption(optString(values, "max-polls"), "max-polls", 0, 0);
   const session = ctx.env.CLAUDE_CODE_SESSION_ID ?? null;
-  const pidFile = paths.watchPid(ctx.home, epic, id);
+  let refs: PrRef[];
+  let checkout: string | null;
+  try {
+    const { meta } = readPhase(ctx.home, epic, id);
+    if (!meta.prs.length) return finish(epic, id, "stopped", [`phase ${id}: no linked pr`]);
+    refs = session ? meta.prs.filter((pr) => pr.session === session) : meta.prs;
+    checkout = phaseCheckout(ctx, epic, meta);
+  } catch (err) {
+    return storeStop(epic, id, err);
+  }
+  if (!refs.length) return quiet(epic, id, `phase ${id}: no PR owned by this session`);
+  const pidFile = paths.watchPid(ctx.home, epic, id, session);
   const running = runningWatcher(pidFile, ctx);
   if (running !== null && (!session || running.session === session)) return quiet(epic, id, `phase ${id}: watcher already running (pid ${running.pid})`, { running: running.pid });
   mkdirSync(dirname(pidFile), { recursive: true });
   writeFileSync(pidFile, session ? `${ctx.pid} ${session}\n` : `${ctx.pid}\n`);
   try {
-    return await poll(epic, id, interval, maxPolls, ctx);
+    return await poll(epic, id, refs, checkout, interval, maxPolls, ctx);
   } finally {
     release(pidFile, ctx);
   }
 };
 
-async function poll(epic: string, id: number, interval: number, maxPolls: number, ctx: Ctx): Promise<CommandResult> {
-  let urls: string[];
-  try {
-    urls = readPhase(ctx.home, epic, id).meta.prs.map((pr) => pr.url);
-  } catch (err) {
-    return storeStop(epic, id, err);
-  }
-  if (!urls.length) return finish(epic, id, "stopped", [`phase ${id}: no linked pr`]);
-
+async function poll(epic: string, id: number, refs: PrRef[], checkout: string | null, interval: number, maxPolls: number, ctx: Ctx): Promise<CommandResult> {
   let failures = 0;
   let delaySeconds = interval;
+  let previous: string | null = null;
   for (let poll = 1; ; poll++) {
-    let prs: PrFeedback[] | null = null;
     try {
-      prs = await pollAll(urls, ctx);
-    } catch (err) {
-      failures++;
-      if (failures >= MAX_FAILURES) return finish(epic, id, "stopped", [`phase ${id}: ${ghReason(err)}`]);
-      delaySeconds = Math.min(interval * 2 ** (failures - 1), MAX_BACKOFF_SECONDS);
-    }
-    if (prs) {
+      const fetched: [PrRef, PrFeedback][] = [];
+      for (const ref of refs) fetched.push([ref, await ctx.gh.prFeedback(ref.url)]);
       failures = 0;
       delaySeconds = interval;
-      if (prs.every((f) => f.state !== "open")) {
-        const merged = prs.some((f) => f.state === "merged");
-        const event = merged ? "merged" : "closed";
+      const open = fetched.filter(([, f]) => f.state === "open");
+      if (!open.length) {
+        const event = fetched.some(([, f]) => f.state === "merged") ? "merged" : "closed";
         return finish(epic, id, event, [`phase ${id}: ${event}`]);
       }
+      const perPr = open.map(([ref, f]) => ({ url: ref.url, keys: openKeys(prSignalsFor(ctx, epic, id, checkout, ref, f)) }));
+      const current = perPr.flatMap((p) => p.keys).sort().join("\n");
+      if (current && current === previous) {
+        const lines = perPr.filter((p) => p.keys.length).map((p) => `phase ${id}: ${p.keys.length} open signals on ${p.url}`);
+        return finish(epic, id, "feedback", lines);
+      }
+      previous = current;
+    } catch {
+      failures++;
+      previous = null;
+      delaySeconds = Math.min(interval * 2 ** (failures - 1), MAX_BACKOFF_SECONDS);
     }
     if (maxPolls && poll >= maxPolls) return finish(epic, id, "stopped", [`phase ${id}: max polls reached`]);
     await ctx.sleep(delaySeconds * 1000);

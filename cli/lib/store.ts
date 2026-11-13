@@ -36,7 +36,8 @@ export const paths = {
   sessions: (home: string) => join(home, "sessions"),
   session: (home: string, id: string) => join(home, "sessions", id),
   hookLog: (home: string) => join(home, "hook.log"),
-  watchPid: (home: string, slug: string, phase: number) => join(home, "run", `${slug}-${phase}.pid`),
+  watchPid: (home: string, slug: string, phase: number, session: string | null = null) =>
+    join(home, "run", session ? `${slug}-${phase}-${session.slice(0, 8)}.pid` : `${slug}-${phase}.pid`),
   repos: (home: string) => join(home, "run", "repos.json"),
 };
 

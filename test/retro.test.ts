@@ -142,31 +142,10 @@ test("retro inputs separate loop commits, triage, and review prompts", async () 
   const r = await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }));
   const j = r.json as RetroInputs;
   assert.deepEqual(j.loop_commits, [{ sha: "f1", items: ["C1", "I2"] }]);
-  assert.equal(j.triage.length, 2);
-  assert.equal(j.triage_errors, 0);
+  assert.equal("triage" in j, false);
+  assert.equal("triage_errors" in j, false);
   const text = await run(["retro", "inputs", "e", "1"], ctx(home, { gh }));
-  assert.match(text.stdout, /loop commits 1, triage overrides 1/);
-});
-
-test("a malformed triage event is skipped and counted", async () => {
-  const home = setup();
-  appendEvent(home, "e", { phase: 1, kind: "triage", text: "not json", session: SESSION }, NOW);
-  appendEvent(home, "e", { phase: 1, kind: "triage", text: "{}", session: SESSION }, NOW);
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
-  const j = (await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }))).json as RetroInputs;
-  assert.deepEqual(j.triage, []);
-  assert.equal(j.triage_errors, 2);
-});
-
-test("triage records are normalized and non-object entries are dropped and counted", async () => {
-  const home = setup();
-  appendEvent(home, "e", { phase: 1, kind: "triage", text: JSON.stringify([null, { id: "C1", proposed: "weigh", final: "weigh" }]), session: SESSION }, NOW);
-  const gh = fakeGh({}, {}, false, undefined, { [PR]: FEEDBACK });
-  const j = (await run(["retro", "inputs", "e", "1", "--json"], ctx(home, { gh }))).json as RetroInputs;
-  assert.deepEqual(j.triage, [{ id: "C1", proposed: "weigh", final: "weigh", edited: false, merged_into: null, defer_to: null }]);
-  assert.equal(j.triage_errors, 1);
-  const text = await run(["retro", "inputs", "e", "1"], ctx(home, { gh }));
-  assert.match(text.stdout, /triage overrides 0/);
+  assert.match(text.stdout, /loop commits 1$/m);
 });
 
 test("prompt kind is passed through and defaults to implementation for old lines", async () => {

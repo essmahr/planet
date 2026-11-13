@@ -49,12 +49,6 @@ Loop prompts under the category each drove. With no loop commits, replace
 the table: review comments grouped by theme, one line each with the file, and
 failed checks with the commit that fixed each, from `git log`.
 
-Triage overrides: <count> (an override: final bucket differs from proposed,
-the draft was edited, or `merged_into` is set), one example per kind (bucket
-changed, draft edited, merged into another commit).
-
-Deferred: one line per item with its target phase. "none" when empty.
-
 ## Plan versus shipped
 One paragraph. A blocked event opens it: the commit, why, what the re-plan
 changed. Then planned files not changed, changed files not planned, commits

@@ -82,8 +82,7 @@ export function listRetros(home: string, epic: string): Retro[] {
   const dir = paths.retros(home, epic);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => /^\d{2}-[a-z0-9-]+\.md$/.test(f))
-    .sort()
+    .filter((f) => /^\d{2,}-[a-z0-9-]+\.md$/.test(f))
     .map((f) => {
       const path = join(dir, f);
       const { data, body } = parseFrontmatter(readFileSync(path, "utf8"));
@@ -97,5 +96,6 @@ export function listRetros(home: string, epic: string): Retro[] {
         written: String(o.written ?? ""),
       };
       return { meta, body, path };
-    });
+    })
+    .sort((a, b) => a.meta.phase - b.meta.phase);
 }

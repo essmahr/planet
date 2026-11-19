@@ -26,6 +26,16 @@ test("newPhases assigns consecutive ids and writes frontmatter with an empty bod
   assert.throws(() => newPhases(home, "e", [{ slug: "hooks", title: "Dup" }]), /already exists/);
 });
 
+test("listPhases includes three-digit ids in numeric order", () => {
+  const home = epicHome();
+  const [a] = newPhases(home, "e", [{ slug: "codegen", title: "Codegen" }]);
+  writePhase({ ...a, meta: { ...a.meta, id: 99 }, path: a.path.replace("01-codegen", "99-codegen") });
+  dropPhase(home, "e", 1);
+  const [b] = newPhases(home, "e", [{ slug: "hooks", title: "Hooks" }]);
+  assert.equal(b.meta.id, 100);
+  assert.deepEqual(listPhases(home, "e").map((p) => p.meta.id), [99, 100]);
+});
+
 test("writeBody keeps frontmatter and ensures a trailing newline", () => {
   const home = epicHome();
   newPhases(home, "e", [{ slug: "codegen", title: "Codegen" }]);

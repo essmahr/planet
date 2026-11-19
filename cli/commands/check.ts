@@ -31,10 +31,10 @@ export function checkStore(home: string): CheckError[] {
   for (const slug of slugs) {
     const epicFile = paths.epicFile(home, slug);
     attempt(errors, epicFile, () => validateEpic(parseYaml(readFileSync(epicFile, "utf8")), epicFile));
-    for (const file of listFiles(paths.phases(home, slug), /^\d{2}-[a-z0-9-]+\.md$/)) {
+    for (const file of listFiles(paths.phases(home, slug), /^\d{2,}-[a-z0-9-]+\.md$/)) {
       attempt(errors, file, () => validatePhaseMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));
     }
-    for (const file of listFiles(paths.proposals(home, slug), /^\d{3}-[a-z-]+\.md$/)) {
+    for (const file of listFiles(paths.proposals(home, slug), /^\d{3,}-[a-z-]+\.md$/)) {
       attempt(errors, file, () => validateProposalMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));
     }
     const promptsFile = paths.prompts(home, slug);

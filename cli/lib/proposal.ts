@@ -24,7 +24,7 @@ export function listProposals(home: string, epic: string): Proposal[] {
   const dir = paths.proposals(home, epic);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => /^\d{3}-[a-z-]+\.md$/.test(f))
+    .filter((f) => /^\d{3,}-[a-z-]+\.md$/.test(f))
     .map((f) => readProposalFile(join(dir, f)))
     .sort((a, b) => a.meta.id - b.meta.id);
 }

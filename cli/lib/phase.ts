@@ -36,7 +36,7 @@ export function listPhases(home: string, epic: string): Phase[] {
   const dir = paths.phases(home, epic);
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => /^\d{2}-[a-z0-9-]+\.md$/.test(f))
+    .filter((f) => /^\d{2,}-[a-z0-9-]+\.md$/.test(f))
     .map((f) => readPhaseFile(join(dir, f)))
     .sort((a, b) => a.meta.id - b.meta.id);
 }

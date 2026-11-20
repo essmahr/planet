@@ -10,8 +10,10 @@ called it done. Read only; do not edit files, do not run `planet` commands, do
 not enter plan mode.
 
 Repo: <the phase's repo>, checked out in the current directory.
-Range: <implemented_sha>..<head_sha>, PR <n>. Run `git diff --stat <range>`,
-`git diff <range>`, then `git log -p <range>`. If a sha is missing, run
+Range: <implemented_sha>..<head_sha>, PR <n>. Run
+`git log --no-merges --stat <range>`, then `git log -p --no-merges <range>`.
+Merge commits bring in the base branch's changes, not the author's, so never
+read `git diff <range>`. If a sha is missing, run
 `git fetch origin pull/<n>/head` once and retry; if it is still missing, reply
 with that and stop.
 Loop commits, made in answer to review: <shas, space-separated, or "none">
@@ -21,13 +23,14 @@ Loop prompts, typed while answering review, oldest first:
 <one line per prompt: "<ts> <text>", or "none">
 
 Produce:
-1. One stat line for the range: <files> files, <insertions>+ <deletions>-.
+1. One stat line summing the non-merge commits: <files> files, <insertions>+
+   <deletions>-.
 2. Two tables, "Own refinements" (commits in the range that are not loop
    commits) and "Review-driven" (loop commits only). Each has one row per
    category, in this order: naming, comments, tests, structure, scope, other.
    Columns: hunks (a count, 0 allowed), example (a file path and a phrase, no
-   code). Count each hunk of `git diff <range>` once, by its final state; the
-   last commit in `git log -p` that touched it picks the table.
+   code). Count each hunk once, by its final state; when several non-merge
+   commits touch the same lines, the last one picks the table.
 3. Each own prompt quoted once under the Own refinements category it drove,
    and each loop prompt under the Review-driven category it drove; prompts
    that drove no change go under "unpaired".

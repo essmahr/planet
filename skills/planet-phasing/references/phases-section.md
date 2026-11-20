@@ -25,19 +25,17 @@ approval, the `planet phase new` calls mirror these entries exactly.
 
 Slugs are kebab-case and unique within the epic. "manual" after the slug marks
 a phase with no PR. The Repo line appears only when the epic spans more than one
-repo; without it, the phase lands in the epic's primary repo.
+repo; otherwise the phase lands in the primary repo.
 
 ## What the scope says
 
-The entry exists so the user can check the epic's shape and catch a wrong
-direction while skimming. Its scope sentences hold only:
+The entry lets the user skim the epic's shape and catch a wrong direction. Its
+scope sentences hold only:
 
 - **The change**: what is different once the phase ships.
-- **Exclusions**: the `Not:` line, only for work a reader could reasonably
-  expect in this phase. Omit the line otherwise.
-- **Ordering**: the `Why first:` line, only when the position is not explained
-  by `Depends on`, such as a spike or the riskiest phase going first. Omit the
-  line otherwise.
+- **Exclusions**: the `Not:` line, only for work a reader could expect here.
+- **Ordering**: the `Why first:` line, only when `Depends on` does not explain
+  the position, such as a spike or the riskiest phase going first.
 
 Everything else goes in `research/phase-<N>.md`, which phase-plan reads:
 
@@ -70,8 +68,7 @@ user reads only the entries that can change:
 <1 to 3 sentences of scope>
 ```
 
-The status is the phase's status in the store, except that a `reviewed` phase
-says `shipped`. `planet proposal approve --to
-phases` swaps each collapsed line for the entry with the same number in
-plan.md, and refuses when that entry is missing or has another slug. plan.md
-never holds a collapsed line.
+The status comes from the store; a `reviewed` phase says `shipped`.
+`planet proposal approve --to phases` swaps each collapsed line for the entry
+with the same number in plan.md, and refuses when that entry is missing or has
+another slug. plan.md never holds a collapsed line.

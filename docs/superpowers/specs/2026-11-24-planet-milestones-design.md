@@ -130,7 +130,7 @@ Commands that need a proposal take `--proposal <id>`. The CLI accepts it only wh
 - `planet phase drop <epic> <id> [--proposal <id>]`: drafts only, as today; needs `--proposal` when the phase blocks unshipped work, and removes it from their `blocked_by`.
 - `planet phase ready <epic> [--repo <owner/name>] [--json]`: plannable drafts and ready planned phases, each list ordered by most remaining work unblocked (transitive dependents), then lowest id.
 - `planet milestone new <epic> <slug> --title <t> [--proposal <id>]`; `planet milestone drop` likewise, refusing while it has phases. `--proposal` is required once the epic has phases.
-- `planet epic show`: adds `milestones` (with derived status) and each phase's `milestone`, `blocked_by`, `ready`.
+- `planet epic show`: adds `milestones` (with derived status), each phase's `milestone` and `blocked_by`, and top-level `plannable` and `ready` lists. Text output groups phases under milestone headings, each with its status and blockers.
 - `planet status`: CURRENT shows the first ready phase.
 - `planet proposal approve --to milestones` replaces `--to phases`. It writes the proposal's `## Milestones` section to `plan.md` and ignores the rest of the body; phase entries stay in proposal history, and the skill writes them into draft bodies. A proposal that adds or changes milestones carries the whole section, unchanged entries collapsed to their heading and expanded on approval, as Phases entries are today. `cli/lib/proposal.ts`'s heading check and collapsed-entry expansion move to Milestones.
 - `planet proposal approve --to none`: records the approval and writes nothing. Used by add and re-cut proposals that change no milestone. `planet-proposal` accepts `to: none`.

@@ -6,6 +6,7 @@ import { createProposal, markApproved, markRejected } from "../cli/lib/proposal.
 import { git } from "../cli/lib/store.ts";
 import type { EpicBrief, EpicView } from "../cli/lib/view.ts";
 import { linkPrs } from "../cli/lib/link.ts";
+import { newMilestone } from "../cli/lib/milestone.ts";
 import { newPhases, readPhase, writePhase } from "../cli/lib/phase.ts";
 import { writeRetro } from "../cli/lib/retro.ts";
 
@@ -109,6 +110,24 @@ test("epic show --brief lists merged PR urls per phase", async () => {
   writePhase(phase);
   const brief = (await run(["epic", "show", "e", "--brief", "--json"], ctx(home))).json as EpicBrief;
   assert.deepEqual(brief.phases.map((p) => [p.open_prs, p.merged_prs]), [[[], ["https://github.com/o/r/pull/7"]]]);
+});
+
+test("epic show text groups phases by milestone with status and blockers", async () => {
+  const home = tmpHome();
+  await run(["epic", "new", "e", "--title", "E", "--repo", "o/r"], ctx(home));
+  newMilestone(home, "e", { slug: "core", title: "Core" });
+  newPhases(home, "e", [{ slug: "a", title: "A", milestone: 1 }, { slug: "b", title: "B", milestone: 1, blockedBy: [1] }, { slug: "c", title: "C", blockedBy: [1, 2] }]);
+  const full = (await run(["epic", "show", "e"], ctx(home))).stdout.split("\n");
+  assert.deepEqual(full.slice(1, 6), ["  M1 Core (open)", "    01 a  draft  prs=0", "    02 b  draft  blocked by 1  prs=0", "  No milestone", "    03 c  draft  blocked by 1, 2  prs=0"]);
+  const brief = (await run(["epic", "show", "e", "--brief"], ctx(home))).stdout;
+  assert.match(brief, /\n {2}M1 Core \(open\)\n {4}01 a {2}draft {2}open_prs=0\n {4}02 b {2}draft {2}blocked by 1 {2}open_prs=0\n {2}No milestone\n/);
+
+  const flat = tmpHome();
+  await run(["epic", "new", "f", "--title", "F", "--repo", "o/r"], ctx(flat));
+  newPhases(flat, "f", [{ slug: "a", title: "A" }, { slug: "b", title: "B", blockedBy: [1] }]);
+  const lines = (await run(["epic", "show", "f"], ctx(flat))).stdout.split("\n");
+  assert.deepEqual(lines.slice(1, 3), ["  01 a  draft  prs=0", "  02 b  draft  blocked by 1  prs=0"]);
+  assert.equal(lines.some((l) => /milestone|^ {2}M\d/i.test(l)), false, "no headings without milestones");
 });
 
 test("epic resolve returns candidates", async () => {

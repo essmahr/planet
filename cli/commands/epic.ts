@@ -5,6 +5,7 @@ import { listPhases } from "../lib/phase.ts";
 import { commit } from "../lib/store.ts";
 import { assertRepos } from "../schema/validate.ts";
 import { epicBrief, epicView } from "../lib/view.ts";
+import type { MilestoneView } from "../lib/view.ts";
 
 const MANUAL_STATUSES = ["paused", "abandoned", "active"] as const;
 type ManualStatus = (typeof MANUAL_STATUSES)[number];
@@ -70,6 +71,32 @@ async function epicRepo(args: string[], ctx: Ctx): Promise<CommandResult> {
   return { json: epic, text: `added ${repo} to ${slug}` };
 }
 
+interface PhaseLine {
+  id: number;
+  slug: string;
+  status: string;
+  milestone: number | null;
+  blocked_by: number[];
+}
+
+function phaseLine<P extends PhaseLine>(p: P, indent: string, prs: (p: P) => string): string {
+  const blocked = p.blocked_by.length ? `  blocked by ${p.blocked_by.join(", ")}` : "";
+  return `${indent}${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}${blocked}  ${prs(p)}`;
+}
+
+/** Phase lines grouped under each milestone heading, then a "No milestone" group when any phase lacks one. An epic with no milestones gets a flat list. */
+function phaseLines<P extends PhaseLine>(milestones: MilestoneView[], phases: P[], prs: (p: P) => string): string[] {
+  if (milestones.length === 0) return phases.map((p) => phaseLine(p, "  ", prs));
+  const known = new Set(milestones.map((m) => m.id));
+  const lines = milestones.flatMap((m) => [
+    `  M${m.id} ${m.title} (${m.status})`,
+    ...phases.filter((p) => p.milestone === m.id).map((p) => phaseLine(p, "    ", prs)),
+  ]);
+  const loose = phases.filter((p) => p.milestone === null || !known.has(p.milestone));
+  if (loose.length === 0) return lines;
+  return [...lines, "  No milestone", ...loose.map((p) => phaseLine(p, "    ", prs))];
+}
+
 async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { brief: { type: "boolean" } });
   const slug = need(positionals, 0, "epic slug");
@@ -77,7 +104,7 @@ async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
     const brief = epicBrief(ctx.home, slug);
     const lines = [
       `${brief.epic.slug}  ${brief.epic.title}  [${brief.epic.status}]  ${brief.epic.repos.join(", ")}`,
-      ...brief.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  open_prs=${p.open_prs.length}`),
+      ...phaseLines(brief.milestones, brief.phases, (p) => `open_prs=${p.open_prs.length}`),
       `  last approved step: ${brief.last_approved_step ?? "none"}`,
     ];
     return { json: brief, text: lines.join("\n") };
@@ -85,7 +112,7 @@ async function epicShow(args: string[], ctx: Ctx): Promise<CommandResult> {
   const view = epicView(ctx.home, slug);
   const lines = [
     `${view.epic.slug}  ${view.epic.title}  [${view.epic.status}]  ${view.epic.repos.join(", ")}`,
-    ...view.phases.map((p) => `  ${String(p.id).padStart(2, "0")} ${p.slug}  ${p.status}  prs=${p.prs.length}`),
+    ...phaseLines(view.milestones, view.phases, (p) => `prs=${p.prs.length}`),
     `  plan: ${view.paths.plan ?? "none"}`,
   ];
   return { json: view, text: lines.join("\n") };

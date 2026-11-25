@@ -1,14 +1,14 @@
 import { readFileSync } from "node:fs";
 import type { Command, CommandResult, Ctx } from "../lib/context.ts";
 import { flag, need, needInt, needString, optList, optString, parse } from "../lib/args.ts";
-import { readEpic, writeEpic } from "../lib/epic.ts";
+import { readEpic } from "../lib/epic.ts";
 import { EVENT_KINDS, appendEvent } from "../lib/events.ts";
 import type { EventKind } from "../lib/events.ts";
 import { isLegacy, readyLists } from "../lib/graph.ts";
-import { recomputeEpicStatus } from "../lib/lifecycle.ts";
+import { touchEpic } from "../lib/lifecycle.ts";
 import { dropPhase, listPhases, movePhase, newPhases, phaseRepo, readPhase, setBlockers, setPhaseLinear, setPhaseRepo, setPhaseStatus, writeBody } from "../lib/phase.ts";
 import type { NewPhaseInput } from "../lib/phase.ts";
-import { resolveProposalId } from "../lib/proposal.ts";
+import { optProposal, resolveProposalId } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
 
@@ -21,13 +21,6 @@ function parseId(text: string, what: string): number {
 function parseIds(text: string | undefined, what: string): number[] {
   if (text === undefined) return [];
   return text.split(",").map((t) => parseId(t.trim(), what));
-}
-
-function touchEpic(ctx: Ctx, epic: string): void {
-  const epicDoc = readEpic(ctx.home, epic);
-  epicDoc.updated = ctx.now();
-  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
-  writeEpic(ctx.home, epicDoc);
 }
 
 async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
@@ -47,7 +40,6 @@ async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
   const milestone = milestoneText === undefined ? null : parseId(milestoneText, "--milestone");
   const blockedBy = parseIds(optString(values, "blocked-by"), "--blocked-by");
   const blocks = parseIds(optString(values, "blocks"), "--blocks");
-  const proposalText = optString(values, "proposal");
   const inputs: NewPhaseInput[] = [];
   const slug = positionals[1];
   const manual = flag(values, "manual");
@@ -61,9 +53,9 @@ async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
   }
   if (inputs.length === 0) throw new Error("pass <slug> --title or --phase slug:title");
   readEpic(ctx.home, epic);
-  const proposal = proposalText === undefined || blocks.length === 0 ? undefined : resolveProposalId(ctx.home, epic, proposalText);
+  const proposal = blocks.length === 0 ? undefined : optProposal(ctx, epic, values);
   const created = newPhases(ctx.home, epic, inputs, proposal);
-  touchEpic(ctx, epic);
+  touchEpic(ctx.home, epic, ctx.now());
   commit(ctx.home, `${epic}: add phase${created.length > 1 ? "s" : ""} ${created.map((p) => p.meta.slug).join(", ")}`);
   return { json: created.map((p) => p.meta), text: created.map((p) => `created phase ${p.meta.id} ${p.meta.slug}`).join("\n") };
 }
@@ -100,7 +92,7 @@ async function phaseSet(args: string[], ctx: Ctx): Promise<CommandResult> {
     setPhaseRepo(ctx.home, epic, id, repo);
     changes.push(`repo ${repo}`);
   }
-  touchEpic(ctx, epic);
+  touchEpic(ctx.home, epic, ctx.now());
   commit(ctx.home, `${epic}: set phase ${id} ${changes.join(", ")}`);
   const phase = listPhases(ctx.home, epic).find((p) => p.meta.id === id);
   return { json: phase?.meta ?? null, text: `updated phase ${id}: ${changes.join(", ")}` };
@@ -110,10 +102,9 @@ async function phaseDrop(args: string[], ctx: Ctx): Promise<CommandResult> {
   const { positionals, values } = parse(args, { proposal: { type: "string" } });
   const epic = need(positionals, 0, "epic slug");
   const id = needInt(positionals, 1, "phase id");
-  const proposalText = optString(values, "proposal");
-  const proposal = proposalText === undefined ? undefined : resolveProposalId(ctx.home, epic, proposalText);
+  const proposal = optProposal(ctx, epic, values);
   const dropped = dropPhase(ctx.home, epic, id, proposal);
-  touchEpic(ctx, epic);
+  touchEpic(ctx.home, epic, ctx.now());
   commit(ctx.home, `${epic}: drop phase ${id}`);
   return { json: dropped.meta, text: `dropped phase ${id} ${dropped.meta.slug}` };
 }
@@ -126,7 +117,7 @@ async function phaseBlock(args: string[], ctx: Ctx): Promise<CommandResult> {
   const remove = flag(values, "remove");
   const proposal = resolveProposalId(ctx.home, epic, needString(values, "proposal"));
   const phase = setBlockers(ctx.home, epic, id, by, remove, proposal);
-  touchEpic(ctx, epic);
+  touchEpic(ctx.home, epic, ctx.now());
   const message = `${remove ? "unblock" : "block"} phase ${id} by ${by.join(", ")}`;
   commit(ctx.home, `${epic}: ${message}`);
   return { json: phase.meta, text: message };
@@ -139,7 +130,7 @@ async function phaseMove(args: string[], ctx: Ctx): Promise<CommandResult> {
   const target = needString(values, "milestone");
   const milestone = target === "none" ? null : parseId(target, "--milestone");
   const phase = movePhase(ctx.home, epic, id, milestone);
-  touchEpic(ctx, epic);
+  touchEpic(ctx.home, epic, ctx.now());
   const label = milestone === null ? "no milestone" : `milestone ${milestone}`;
   commit(ctx.home, `${epic}: move phase ${id} to ${label}`);
   return { json: phase.meta, text: `moved phase ${id} to ${label}` };

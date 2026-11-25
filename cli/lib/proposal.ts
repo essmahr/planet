@@ -2,6 +2,8 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, write
 import { join } from "node:path";
 import type { Proposal, ProposalMeta, Step, Tag } from "../schema/types.ts";
 import { validateProposalMeta } from "../schema/validate.ts";
+import type { Parsed } from "./args.ts";
+import type { Ctx } from "./context.ts";
 import { NotFound } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
 import { writeBody } from "./phase.ts";
@@ -251,4 +253,11 @@ export function tagProposal(home: string, epic: string, id: number, tag: Tag): s
   mkdirSync(paths.feedback(home, epic), { recursive: true });
   appendFileSync(paths.notes(home, epic), `${line}\n`);
   return line;
+}
+
+/** Resolves the `--proposal` flag to an id, or undefined when it wasn't passed. */
+export function optProposal(ctx: Ctx, epic: string, values: Parsed["values"]): number | undefined {
+  const text = values.proposal;
+  if (typeof text !== "string") return undefined;
+  return resolveProposalId(ctx.home, epic, text);
 }

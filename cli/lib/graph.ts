@@ -89,7 +89,8 @@ export function readyLists(phases: PhaseMeta[], legacy: boolean): { plannable: n
   const known = byId(phases);
   const lowest = (status: PhaseStatus): number[] => {
     const first = phases.filter((p) => p.status === status).sort((a, b) => a.id - b.id)[0];
-    return first ? [first.id] : [];
+    if (!first) return [];
+    return [first.id];
   };
   if (legacy) return { plannable: lowest("draft"), ready: lowest("planned") };
   const blockersAre = (p: PhaseMeta, ok: (b: PhaseMeta) => boolean): boolean =>

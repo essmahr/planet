@@ -1,4 +1,6 @@
 import type { Epic, PhaseMeta } from "../schema/types.ts";
+import { readEpic, writeEpic } from "./epic.ts";
+import { listPhases } from "./phase.ts";
 
 const STARTED: ReadonlySet<PhaseMeta["status"]> = new Set(["in-progress", "shipped", "reviewed"]);
 
@@ -33,4 +35,12 @@ export function recomputeEpicStatus(epic: Epic, phases: PhaseMeta[], now: string
     return true;
   }
   return false;
+}
+
+/** Stamps the epic's `updated` time and recomputes its status from the current phases, after a phase or milestone command. */
+export function touchEpic(home: string, epic: string, now: string): void {
+  const doc = readEpic(home, epic);
+  doc.updated = now;
+  recomputeEpicStatus(doc, listPhases(home, epic).map((p) => p.meta), now);
+  writeEpic(home, doc);
 }

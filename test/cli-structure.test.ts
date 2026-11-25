@@ -272,3 +272,18 @@ test("phase ready --json lists plannable and ready, filtered by --repo", async (
   assert.deepEqual(other.plannable.map((p: { id: number }) => p.id), [2]);
   assert.deepEqual(other.ready, []);
 });
+
+test("legacy phase ready --repo picks the lowest draft and planned among that repo's phases", async () => {
+  const home = await setup();
+  await run(["epic", "repo", "add", "e", "o/other"], ctx(home));
+  await run(["phase", "new", "e", "--phase", "a:A", "--phase", "b:B"], ctx(home));
+  await run(["phase", "new", "e", "--phase", "c:C", "--phase", "d:D", "--repo", "o/other"], ctx(home));
+  await run(["phase", "set", "e", "1", "--status", "planned"], ctx(home));
+  await run(["phase", "set", "e", "3", "--status", "planned"], ctx(home));
+  writeFileSync(paths.plan(home, "e"), "# Plan\n\n## Phases\n\n### 1. A (a)\n");
+  const ids = (list: { id: number }[]) => list.map((p) => p.id);
+  const all = JSON.parse((await run(["phase", "ready", "e", "--json"], ctx(home))).stdout);
+  assert.deepEqual([ids(all.plannable), ids(all.ready)], [[2], [1]]);
+  const other = JSON.parse((await run(["phase", "ready", "e", "--json", "--repo", "o/other"], ctx(home))).stdout);
+  assert.deepEqual([ids(other.plannable), ids(other.ready)], [[4], [3]]);
+});

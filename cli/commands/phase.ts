@@ -8,6 +8,7 @@ import { isLegacy, readyLists } from "../lib/graph.ts";
 import { touchEpic } from "../lib/lifecycle.ts";
 import { dropPhase, listPhases, movePhase, newPhases, phaseRepo, readPhase, setBlockers, setPhaseLinear, setPhaseRepo, setPhaseStatus, writeBody } from "../lib/phase.ts";
 import type { NewPhaseInput } from "../lib/phase.ts";
+import type { PhaseMeta } from "../schema/types.ts";
 import { optProposal, resolveProposalId } from "../lib/proposal.ts";
 import { sessionIdFrom } from "../lib/session.ts";
 import { commit } from "../lib/store.ts";
@@ -142,8 +143,11 @@ async function phaseReady(args: string[], ctx: Ctx): Promise<CommandResult> {
   const epicDoc = readEpic(ctx.home, epic);
   const repo = optString(values, "repo");
   const phases = listPhases(ctx.home, epic).map((p) => p.meta);
-  const lists = readyLists(phases, isLegacy(ctx.home, epic));
-  const pick = (ids: number[]) => phases.filter((p) => ids.includes(p.id) && (repo === undefined || phaseRepo(epicDoc, p) === repo)).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  const inRepo = (p: PhaseMeta) => repo === undefined || phaseRepo(epicDoc, p) === repo;
+  const legacy = isLegacy(ctx.home, epic);
+  // Legacy order is just the lowest id per status, so it has to be taken within the repo, not across the epic.
+  const lists = readyLists(legacy ? phases.filter(inRepo) : phases, legacy);
+  const pick = (ids: number[]) => phases.filter((p) => ids.includes(p.id) && inRepo(p)).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
   const plannable = pick(lists.plannable);
   const ready = pick(lists.ready);
   const line = (p: { id: number; slug: string }) => `  ${p.id} ${p.slug}`;

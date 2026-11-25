@@ -2,6 +2,7 @@ import type { Command, Ctx } from "../lib/context.ts";
 import type { Parsed } from "../lib/args.ts";
 import { flag, parse } from "../lib/args.ts";
 import { listEpics } from "../lib/epic.ts";
+import { isLegacy } from "../lib/graph.ts";
 import { currentPhase, listPhases } from "../lib/phase.ts";
 import { commitSync, syncAll } from "../lib/sync.ts";
 import { renderTable } from "../lib/table.ts";
@@ -26,7 +27,7 @@ export function buildRows(home: string, stale: Set<string>): StatusRow[] {
   return listEpics(home).map((epic) => {
     const metas = listPhases(home, epic.slug).map((p) => p.meta);
     const prs = metas.flatMap((m) => m.prs);
-    const current = currentPhase(metas);
+    const current = currentPhase(metas, isLegacy(home, epic.slug));
     return {
       slug: epic.slug,
       title: epic.title,

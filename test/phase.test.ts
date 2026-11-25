@@ -53,11 +53,13 @@ test("setPhaseStatus enforces manual transitions", () => {
   assert.throws(() => readPhase(home, "e", 9), /no phase 9/);
 });
 
-test("currentPhase prefers in-progress, then planned, then draft", () => {
-  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr", repo: null, milestone: null, blocked_by: [] });
-  assert.equal(currentPhase([mk(1, "reviewed"), mk(2, "draft"), mk(3, "planned")])?.id, 3);
-  assert.equal(currentPhase([mk(1, "planned"), mk(2, "in-progress")])?.id, 2);
-  assert.equal(currentPhase([mk(1, "reviewed")]), null);
+test("currentPhase prefers in-progress, then first ready, then first plannable", () => {
+  const mk = (id: number, status: PhaseMeta["status"], blocked_by: number[] = []): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr", repo: null, milestone: null, blocked_by });
+  assert.equal(currentPhase([mk(1, "reviewed"), mk(2, "draft"), mk(3, "planned")], false)?.id, 3);
+  assert.equal(currentPhase([mk(1, "planned"), mk(2, "in-progress")], false)?.id, 2);
+  assert.equal(currentPhase([mk(1, "planned", [2]), mk(2, "draft"), mk(3, "planned")], false)?.id, 3);
+  assert.equal(currentPhase([mk(1, "planned", [2]), mk(2, "draft")], false)?.id, 2);
+  assert.equal(currentPhase([mk(1, "reviewed")], false), null);
 });
 
 test("recomputeEpicStatus derives active and shipped", () => {

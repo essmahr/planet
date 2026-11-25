@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { NOW, SESSION, ctx, fakeGh, run, tmpHome } from "./helpers.ts";
 import { createEpic, writeEpic, readEpic } from "../cli/lib/epic.ts";
 import { linkPrs } from "../cli/lib/link.ts";
-import { newPhases } from "../cli/lib/phase.ts";
+import { newPhases, readPhase, setPhaseStatus, writePhase } from "../cli/lib/phase.ts";
 import { readMarker } from "../cli/lib/session.ts";
 import { renderTable } from "../cli/lib/table.ts";
 import type { StatusRow } from "../cli/commands/status.ts";
@@ -44,6 +44,19 @@ test("status syncs, hides terminal epics, and renders rows", async () => {
   assert.match(all.stdout, /^EPIC\s+REPO\s+STATUS\s+PHASES\s+CURRENT\s+OPEN\s+REVIEW\s+SYNCED/);
   assert.match(all.stdout, /\nold\s+o\/r\s+shipped/);
   assert.equal(gh.calls.length, 1, "--no-sync does not call gh");
+});
+
+test("status CURRENT is the first ready phase, not the lowest planned", async () => {
+  const home = tmpHome();
+  createEpic(home, { slug: "e", title: "E", repos: ["o/r"] }, NOW);
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }, { slug: "c", title: "C" }]);
+  setPhaseStatus(home, "e", 1, "planned", NOW);
+  setPhaseStatus(home, "e", 3, "planned", NOW);
+  const phase1 = readPhase(home, "e", 1);
+  phase1.meta.blocked_by = [2];
+  writePhase(phase1);
+  const r = await run(["status", "--json", "--no-sync"], ctx(home));
+  assert.equal((r.json as StatusRow[])[0].current, "3 c");
 });
 
 test("status marks stale rows when gh is unavailable", async () => {

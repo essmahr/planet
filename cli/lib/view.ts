@@ -1,7 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { Epic, PhaseMeta, Step } from "../schema/types.ts";
+import type { Epic, Milestone, PhaseMeta, Step } from "../schema/types.ts";
 import { readEpic } from "./epic.ts";
+import { isLegacy, readyLists, unshippedBlockers } from "./graph.ts";
+import { milestoneStatus } from "./milestone.ts";
 import { listPhases, phaseRepo } from "./phase.ts";
 import { listProposals } from "./proposal.ts";
 import { listRetros } from "./retro.ts";
@@ -14,8 +16,14 @@ export interface EpicLesson {
   text: string;
 }
 
+export type MilestoneView = Milestone & { status: "open" | "done" };
+
 export interface EpicView {
   epic: Epic;
+  milestones: MilestoneView[];
+  legacy: boolean;
+  plannable: number[];
+  ready: number[];
   phases: Array<PhaseMeta & { path: string }>;
   last_approved_step: Step | null;
   lessons: EpicLesson[];
@@ -32,7 +40,18 @@ export interface EpicView {
 /** What the router needs to pick the next step: statuses and paths, no PR detail, no retro or proposal paths. */
 export interface EpicBrief {
   epic: Pick<Epic, "slug" | "title" | "repos" | "status">;
-  phases: Array<Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear"> & { repo: string; open_prs: string[]; merged_prs: string[] }>;
+  milestones: MilestoneView[];
+  legacy: boolean;
+  plannable: number[];
+  ready: number[];
+  phases: Array<
+    Pick<PhaseMeta, "id" | "slug" | "title" | "status" | "kind" | "linear" | "milestone" | "blocked_by"> & {
+      repo: string;
+      unshipped_blockers: number[];
+      open_prs: string[];
+      merged_prs: string[];
+    }
+  >;
   last_approved_step: Step | null;
   paths: { dir: string; plan: string | null };
 }
@@ -61,6 +80,15 @@ export function epicLessons(home: string, slug: string): EpicLesson[] {
   return listRetros(home, slug).flatMap((r) => r.meta.lessons.filter((l) => l.apply).map((l) => ({ phase: r.meta.phase, skill: l.skill, text: l.text })));
 }
 
+function graphFields(home: string, epic: Epic, metas: PhaseMeta[]) {
+  const legacy = isLegacy(home, epic.slug);
+  return {
+    milestones: epic.milestones.map((m) => ({ ...m, status: milestoneStatus(m.id, metas) })),
+    legacy,
+    ...readyLists(metas, legacy),
+  };
+}
+
 export function epicView(home: string, slug: string): EpicView {
   const epic = readEpic(home, slug);
   const phases = listPhases(home, slug);
@@ -71,6 +99,7 @@ export function epicView(home: string, slug: string): EpicView {
     : [];
   return {
     epic,
+    ...graphFields(home, epic, phases.map((p) => p.meta)),
     phases: phases.map((p) => ({ ...p.meta, path: p.path })),
     last_approved_step: lastApprovedStep(home, slug),
     lessons: epicLessons(home, slug),
@@ -87,9 +116,12 @@ export function epicView(home: string, slug: string): EpicView {
 
 export function epicBrief(home: string, slug: string): EpicBrief {
   const epic = readEpic(home, slug);
+  const phases = listPhases(home, slug);
+  const metas = phases.map((p) => p.meta);
   return {
     epic: { slug: epic.slug, title: epic.title, repos: epic.repos, status: epic.status },
-    phases: listPhases(home, slug).map(({ meta }) => ({
+    ...graphFields(home, epic, metas),
+    phases: phases.map(({ meta }) => ({
       id: meta.id,
       slug: meta.slug,
       title: meta.title,
@@ -97,6 +129,9 @@ export function epicBrief(home: string, slug: string): EpicBrief {
       kind: meta.kind,
       repo: phaseRepo(epic, meta),
       linear: meta.linear,
+      milestone: meta.milestone,
+      blocked_by: meta.blocked_by,
+      unshipped_blockers: unshippedBlockers(metas, meta.id),
       open_prs: meta.prs.filter((pr) => pr.state === "open").map((pr) => pr.url),
       merged_prs: meta.prs.filter((pr) => pr.state === "merged").map((pr) => pr.url),
     })),

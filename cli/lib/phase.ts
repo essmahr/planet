@@ -4,7 +4,7 @@ import type { Epic, Phase, PhaseKind, PhaseMeta, PhaseStatus } from "../schema/t
 import { assertSlug, validatePhaseMeta } from "../schema/validate.ts";
 import { NotFound, readEpic } from "./epic.ts";
 import { parseFrontmatter, serializeFrontmatter } from "./frontmatter.ts";
-import { isShipped, wouldCycle } from "./graph.ts";
+import { isShipped, readyLists, wouldCycle } from "./graph.ts";
 import { assertPhasingApproval } from "./proposal.ts";
 import { paths } from "./store.ts";
 
@@ -221,10 +221,10 @@ export function setPhaseRepo(home: string, epic: string, id: number, repo: strin
   return phase;
 }
 
-export function currentPhase(phases: PhaseMeta[]): PhaseMeta | null {
-  for (const status of ["in-progress", "planned", "draft"] as const) {
-    const found = phases.find((p) => p.status === status);
-    if (found) return found;
-  }
-  return null;
+export function currentPhase(phases: PhaseMeta[], legacy: boolean): PhaseMeta | null {
+  const inProgress = phases.find((p) => p.status === "in-progress");
+  if (inProgress) return inProgress;
+  const { plannable, ready } = readyLists(phases, legacy);
+  const id = ready[0] ?? plannable[0];
+  return phases.find((p) => p.id === id) ?? null;
 }

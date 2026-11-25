@@ -5,6 +5,9 @@ import { join } from "node:path";
 import { NOW, tmpHome } from "./helpers.ts";
 import { createEpic, listEpics, readEpic, resolveEpics, writeEpic, NotFound } from "../cli/lib/epic.ts";
 import type { PhaseMeta } from "../cli/schema/types.ts";
+import { newMilestone } from "../cli/lib/milestone.ts";
+import { newPhases, setPhaseStatus } from "../cli/lib/phase.ts";
+import { epicBrief, epicView } from "../cli/lib/view.ts";
 
 const input = { slug: "gql-migration", title: "GQL migration", repos: ["closeio/close-ui"], linear: ["CRM-123"] };
 
@@ -79,4 +82,31 @@ test("resolveEpics: tokens split on punctuation, not just whitespace", () => {
   const phasesOf = (): PhaseMeta[] => [];
   const epics = [gql, auth, db];
   assert.deepEqual(resolveEpics(epics, "what's up with gql?", phasesOf).map((e) => e.slug), ["gql-migration"]);
+});
+
+test("epicBrief includes milestones, ready lists, and unshipped blockers", () => {
+  const home = tmpHome();
+  createEpic(home, input, NOW);
+  newMilestone(home, "gql-migration", { slug: "alpha", title: "Alpha" });
+  newPhases(home, "gql-migration", [
+    { slug: "a", title: "A", milestone: 1 },
+    { slug: "b", title: "B", milestone: 1, blockedBy: [1] },
+    { slug: "c", title: "C" },
+  ]);
+  setPhaseStatus(home, "gql-migration", 1, "planned", NOW);
+  const brief = epicBrief(home, "gql-migration");
+  assert.deepEqual(brief.milestones, [{ id: 1, slug: "alpha", title: "Alpha", status: "open" }]);
+  assert.equal(brief.legacy, false);
+  assert.deepEqual(brief.ready, [1]);
+  assert.deepEqual(brief.plannable, [2, 3]);
+  const [a, b, c] = brief.phases;
+  assert.equal(a.milestone, 1);
+  assert.deepEqual(b.blocked_by, [1]);
+  assert.deepEqual(b.unshipped_blockers, [1]);
+  assert.equal(c.milestone, null);
+  assert.deepEqual(c.unshipped_blockers, []);
+  const view = epicView(home, "gql-migration");
+  assert.deepEqual(view.ready, [1]);
+  assert.equal(view.milestones[0].status, "open");
+  assert.deepEqual(view.phases[1].blocked_by, [1]);
 });

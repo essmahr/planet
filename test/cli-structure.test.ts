@@ -120,6 +120,16 @@ test("check reports every invalid file and exits 1", async () => {
   assert.match(errors[1].message, /epic must be a non-empty string/);
 });
 
+test("check reports blocker errors", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));
+  const file = join(home, "epics", "e", "phases", "01-a.md");
+  writeFileSync(file, readFileSync(file, "utf8").replace("blocked_by: []", "blocked_by: [9]"));
+  const r = await run(["check"], ctx(home));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /e: phase 1 is blocked by missing phase 9/);
+});
+
 test("check validates prompts.jsonl lines and skips dotfiles in sessions", async () => {
   const home = await setup();
   const valid = { ts: "t", session: "s", kind: "planning", phase: null, proposal: null, text: "hi" };

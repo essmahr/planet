@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { Command } from "../lib/context.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
+import { graphErrors } from "../lib/graph.ts";
 import { paths } from "../lib/store.ts";
+import type { PhaseMeta } from "../schema/types.ts";
 import { validateEpic, validateMarker, validatePhaseMeta, validatePromptLine, validateProposalMeta } from "../schema/validate.ts";
 
 interface CheckError {
@@ -31,8 +33,13 @@ export function checkStore(home: string): CheckError[] {
   for (const slug of slugs) {
     const epicFile = paths.epicFile(home, slug);
     attempt(errors, epicFile, () => validateEpic(parseYaml(readFileSync(epicFile, "utf8")), epicFile));
-    for (const file of listFiles(paths.phases(home, slug), /^\d{2,}-[a-z0-9-]+\.md$/)) {
-      attempt(errors, file, () => validatePhaseMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));
+    const phaseFiles = listFiles(paths.phases(home, slug), /^\d{2,}-[a-z0-9-]+\.md$/);
+    const metas: PhaseMeta[] = [];
+    for (const file of phaseFiles) {
+      attempt(errors, file, () => metas.push(validatePhaseMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file)));
+    }
+    if (metas.length === phaseFiles.length) {
+      for (const message of graphErrors(metas)) errors.push({ file: paths.phases(home, slug), message: `${slug}: ${message}` });
     }
     for (const file of listFiles(paths.proposals(home, slug), /^\d{3,}-[a-z-]+\.md$/)) {
       attempt(errors, file, () => validateProposalMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));

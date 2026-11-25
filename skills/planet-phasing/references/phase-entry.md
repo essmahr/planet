@@ -26,26 +26,25 @@ plan.md never holds them.
 ```
 
 The number is the phase id the store will give it: the highest existing id plus
-one, counting up in entry order. Ids are labels, not an order. Slugs are
-kebab-case and unique within the epic. "manual" after the slug marks a phase
-with no PR. The Milestone line appears only when the epic has milestones. The
+one, counting up in entry order. Ids are labels, not an order, but entries
+list blockers first: `planet phase new` refuses a blocker that does not exist
+yet. Slugs are kebab-case and unique within the epic. "manual" after the slug
+marks a phase with no PR. The Milestone line appears only when the epic has milestones. The
 Repo line appears on every entry when the epic spans more than one repo or the
 cut needs a repo it does not list yet; otherwise the phase lands in the primary
 repo.
 
 `Blocked by` names only phases whose result this one needs: shared code, a
-finding, a flag. Two phases that merely touch the same area are not blocked.
+finding, a flag. Touching the same area is not a blocker.
 `Blocks` appears only on an add or re-cut, naming existing phases that must
-wait for this new one.
+wait for this new one. After `planet phase block` or `planet phase move`, a
+body's Milestone, Blocked by, and Blocks lines can be stale; the frontmatter in
+`planet epic show` wins.
 
 ## What the scope says
 
-The entry lets the user skim the epic's shape and catch a wrong direction. Its
-scope sentences hold only:
-
-- **The change**: what is different once the phase ships.
-- **Exclusions**: the `Not:` line, only for work a reader could expect here.
-- **Ordering**: the `Why first:` line, only for a spike or the riskiest phase.
+So the user can skim the epic's shape, scope sentences say only what is
+different once the phase ships, plus the `Not:` and `Why first:` lines.
 
 Everything else goes in `research/phase-<N>.md`, which phase-plan reads:
 

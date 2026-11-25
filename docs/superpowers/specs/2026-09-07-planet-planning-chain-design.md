@@ -1,5 +1,7 @@
 # Planet skills, follow-on 3: scoping, phasing, phase-plan
 
+Phasing superseded by `2026-11-24-planet-milestones-design.md`.
+
 Follow-on 3 of `2026-09-03-planet-design.md`, after `2026-09-07-planet-skills-design.md`.
 It adds the forward planning chain: `planet-scoping`, `planet-phasing`, and
 `planet-phase-plan`, plus the router changes that connect them and four small

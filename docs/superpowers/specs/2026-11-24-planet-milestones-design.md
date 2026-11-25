@@ -176,8 +176,8 @@ Lessons and proposed edits target the phases this one blocks, not "later phases"
 A one-time pass per active epic. The router dispatches phasing with `migrate` when `plan.md` has a `## Phases` section and any phase hasn't shipped, before any other step (my call). Until an epic migrates, `planet phase ready` falls back to today's lowest-id order, so nothing runs out of order.
 
 1. Read the existing `## Phases` section.
-2. Propose milestones (by disconnected group, split by topic when large) and `blocked_by` for every phase, including shipped ones, from the `Depends on` lines. Small epics get no milestones.
-3. On approval (`--to milestones`, which replaces `## Phases` with `## Milestones`, or removes it when there are no milestones): create milestones, set every phase's `milestone` and `blocked_by` with `--proposal <id>` (the migration proposal is the latest approved phasing proposal, so the normal check passes), and move each draft's entry into its body. The old section stays in the proposal history.
+2. Propose milestones (by disconnected group, split by topic when large) and `blocked_by` for every unshipped phase, from the `Depends on` lines. Small epics get no milestones.
+3. On approval (`--to milestones`, which replaces `## Phases` with `## Milestones`, or removes it when there are no milestones): create milestones, set every phase's `milestone`, and `blocked_by` on unshipped phases only, with `--proposal <id>` (the migration proposal is the latest approved phasing proposal, so the normal check passes), and move each draft's entry into its body. The CLI refuses blocker changes on shipped phases, so those keep an empty list (readiness ignores them). The old section stays in the proposal history.
 
 Shipped epics stay as they are; missing fields read as empty.
 

@@ -14,6 +14,7 @@ Every time you reject a plan with feedback, Planet remembers. Later plans take t
 /planet:go CRM-123                    # start an epic from a Linear ticket
 /planet:go                            # what am I working on?
 /planet:go next phase of the gql epic # planet infers and takes the next step
+/planet:go add phase swap the icon    # add a phase to the current epic
 ```
 
 ## Features
@@ -22,7 +23,7 @@ Every time you reject a plan with feedback, Planet remembers. Later plans take t
 
 Start an **epic** from a Linear ticket, a PR, a doc, or a few sentences. Planet researches it, brainstorms, talks through the approach with you, and cuts it into **phases**: small, shippable PRs. Each step is plan mode. I love plan mode.
 
-Phases have a dependency order size budget, and can be re-cut if they get too big or when new information comes to light.
+Phases are grouped in optional **milestones**, and each phase names the phases that block it. Phases have a size budget, and can be re-cut if they get too big or when new information comes to light. Adding a phase that changes no other phase's blockers is one step with no plan-mode review. Blocker changes on unshipped work go through plan mode.
 
 ### Implementation
 

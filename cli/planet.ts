@@ -47,7 +47,7 @@ commands:
   open <text> [--step <name>]
   epic new|set|show|resolve
   epic repo add <epic> <owner/name>
-  phase new|write|set|drop|event
+  phase new|write|set|block|move|drop|ready|event
   link <epic> <phase> <pr-url>...
   unlink <epic> <phase> <pr-url>
   session start|step [--phase <n>]|review|show [--json]|end

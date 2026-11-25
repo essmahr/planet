@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { NOW, tmpHome } from "./helpers.ts";
-import { createEpic } from "../cli/lib/epic.ts";
-import { currentPhase, dropPhase, listPhases, newPhases, phaseFileName, phaseRepo, readPhase, setPhaseRepo, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
+import { NOW, SESSION, tmpHome } from "./helpers.ts";
+import { createEpic, readEpic, writeEpic } from "../cli/lib/epic.ts";
+import { currentPhase, dropPhase, listPhases, movePhase, newPhases, phaseFileName, phaseRepo, readPhase, setBlockers, setPhaseRepo, setPhaseStatus, writeBody, writePhase } from "../cli/lib/phase.ts";
+import { createProposal, markApproved } from "../cli/lib/proposal.ts";
 import { recomputeEpicStatus } from "../cli/lib/lifecycle.ts";
 import type { Epic, PhaseMeta } from "../cli/schema/types.ts";
 
@@ -173,4 +174,101 @@ test("setPhaseRepo moves only draft or planned phases with no prs", () => {
   b.meta.status = "in-progress";
   writePhase(b);
   assert.throws(() => setPhaseRepo(home, "e", 2, "o/be"), /status is in-progress/);
+});
+
+function approvedPhasing(home: string): number {
+  const p = createProposal(home, "e", { step: "phasing", phase: null, session: SESSION, toolUse: null, planFile: null, body: "# Phases\n" }, NOW);
+  markApproved(home, "e", p.meta.id);
+  return p.meta.id;
+}
+
+function withMilestone(home: string): void {
+  const epic = readEpic(home, "e");
+  epic.milestones = [{ id: 1, slug: "m", title: "M" }];
+  writeEpic(home, epic);
+}
+
+test("newPhases writes milestone and blocked_by, defaulting to null and []", () => {
+  const home = epicHome();
+  withMilestone(home);
+  const [a, b] = newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B", milestone: 1, blockedBy: [1] }]);
+  assert.equal(a.meta.milestone, null);
+  assert.deepEqual(a.meta.blocked_by, []);
+  const onDisk = readPhase(home, "e", b.meta.id).meta;
+  assert.equal(onDisk.milestone, 1);
+  assert.deepEqual(onDisk.blocked_by, [1]);
+});
+
+test("newPhases with blockedBy needs no proposal", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  const [b] = newPhases(home, "e", [{ slug: "b", title: "B", blockedBy: [1] }]);
+  assert.deepEqual(b.meta.blocked_by, [1]);
+});
+
+test("newPhases with blocks needs an approved phasing proposal and updates the target", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  assert.throws(() => newPhases(home, "e", [{ slug: "b", title: "B", blocks: [1] }]), /--blocks needs --proposal/);
+  const p = approvedPhasing(home);
+  const [b] = newPhases(home, "e", [{ slug: "b", title: "B", blocks: [1] }], p);
+  assert.deepEqual(readPhase(home, "e", 1).meta.blocked_by, [b.meta.id]);
+});
+
+test("newPhases refuses an unknown milestone or blocker", () => {
+  const home = epicHome();
+  assert.throws(() => newPhases(home, "e", [{ slug: "a", title: "A", milestone: 7 }]), /no milestone 7/);
+  assert.throws(() => newPhases(home, "e", [{ slug: "a", title: "A", blockedBy: [9] }]), /no phase 9/);
+  assert.deepEqual(listPhases(home, "e"), []);
+});
+
+test("newPhases refuses blocks on a shipped phase", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A", kind: "manual" }]);
+  setPhaseStatus(home, "e", 1, "shipped", NOW);
+  const p = approvedPhasing(home);
+  assert.throws(() => newPhases(home, "e", [{ slug: "b", title: "B", blocks: [1] }], p), /phase 1 has shipped/);
+});
+
+test("setBlockers refuses a cycle and writes nothing", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B", blockedBy: [1] }]);
+  const p = approvedPhasing(home);
+  const before = readFileSync(readPhase(home, "e", 1).path, "utf8");
+  assert.throws(() => setBlockers(home, "e", 1, [2], false, p), /would form a cycle/);
+  assert.equal(readFileSync(readPhase(home, "e", 1).path, "utf8"), before);
+});
+
+test("setBlockers adds and removes blockers", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B" }, { slug: "c", title: "C" }]);
+  const p = approvedPhasing(home);
+  assert.deepEqual(setBlockers(home, "e", 3, [1, 2], false, p).meta.blocked_by, [1, 2]);
+  assert.deepEqual(setBlockers(home, "e", 3, [1], true, p).meta.blocked_by, [2]);
+});
+
+test("setBlockers refuses a shipped phase", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A", kind: "manual" }, { slug: "b", title: "B" }]);
+  setPhaseStatus(home, "e", 1, "shipped", NOW);
+  const p = approvedPhasing(home);
+  assert.throws(() => setBlockers(home, "e", 1, [2], false, p), /phase 1 has shipped/);
+});
+
+test("dropPhase of a blocker needs a proposal and unlinks the dependents", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B", blockedBy: [1] }]);
+  assert.throws(() => dropPhase(home, "e", 1), /blocks phase 2; pass --proposal/);
+  dropPhase(home, "e", 1, approvedPhasing(home));
+  assert.deepEqual(readPhase(home, "e", 2).meta.blocked_by, []);
+});
+
+test("movePhase sets and clears milestone with no proposal", () => {
+  const home = epicHome();
+  withMilestone(home);
+  newPhases(home, "e", [{ slug: "a", title: "A" }]);
+  assert.equal(movePhase(home, "e", 1, 1).meta.milestone, 1);
+  assert.equal(readPhase(home, "e", 1).meta.milestone, 1);
+  assert.equal(movePhase(home, "e", 1, null).meta.milestone, null);
+  assert.throws(() => movePhase(home, "e", 1, 5), /no milestone 5/);
 });

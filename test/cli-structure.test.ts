@@ -219,3 +219,46 @@ test("phase new on a shipped epic puts it back to active", async () => {
   assert.equal(epic.status, "active", "a re-cut reopens the epic so sync and status stop skipping it");
   assert.equal(epic.shipped_at, null);
 });
+
+function phasingProposal(home: string): number {
+  const p = createProposal(home, "e", { step: "phasing", phase: null, session: SESSION, toolUse: null, planFile: null, body: "# Phases\n" }, NOW);
+  return p.meta.id;
+}
+
+test("phase new --blocks without --proposal exits 1", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));
+  const r = await run(["phase", "new", "e", "b", "--title", "B", "--blocks", "1"], ctx(home));
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /--blocks needs --proposal/);
+});
+
+test("phase block --proposal latest after a later proposal exits 1", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "--phase", "a:A", "--phase", "b:B"], ctx(home));
+  phasingProposal(home);
+  await run(["proposal", "approve", "e", "latest", "--to", "none"], ctx(home));
+  const ok = await run(["phase", "block", "e", "2", "--by", "1", "--proposal", "latest"], ctx(home));
+  assert.equal(ok.code, 0);
+  assert.deepEqual(readPhase(home, "e", 2).meta.blocked_by, [1]);
+  assert.equal(git(home, ["log", "-1", "--format=%s"]).trim(), "e: block phase 2 by 1");
+  createProposal(home, "e", { step: "phase-plan", phase: 1, session: SESSION, toolUse: null, planFile: null, body: "x" }, NOW);
+  const stale = await run(["phase", "block", "e", "2", "--by", "1", "--remove", "--proposal", "1"], ctx(home));
+  assert.equal(stale.code, 1);
+  assert.match(stale.stderr, /not the latest proposal/);
+});
+
+test("phase ready --json lists plannable and ready, filtered by --repo", async () => {
+  const home = await setup();
+  await run(["epic", "repo", "add", "e", "o/other"], ctx(home));
+  await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));
+  await run(["phase", "new", "e", "b", "--title", "B", "--blocked-by", "1", "--repo", "o/other"], ctx(home));
+  await run(["phase", "set", "e", "1", "--status", "planned"], ctx(home));
+  const all = await run(["phase", "ready", "e", "--json"], ctx(home));
+  const json = JSON.parse(all.stdout);
+  assert.deepEqual(json.plannable.map((p: { id: number }) => p.id), [2]);
+  assert.deepEqual(json.ready.map((p: { id: number }) => p.id), [1]);
+  const other = JSON.parse((await run(["phase", "ready", "e", "--json", "--repo", "o/other"], ctx(home))).stdout);
+  assert.deepEqual(other.plannable.map((p: { id: number }) => p.id), [2]);
+  assert.deepEqual(other.ready, []);
+});

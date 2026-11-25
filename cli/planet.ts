@@ -9,6 +9,7 @@ import { checkCommand } from "./commands/check.ts";
 import { epicCommand } from "./commands/epic.ts";
 import { feedbackCommand } from "./commands/feedback.ts";
 import { linkCommand, unlinkCommand } from "./commands/link.ts";
+import { milestoneCommand } from "./commands/milestone.ts";
 import { openCommand } from "./commands/open.ts";
 import { phaseCommand } from "./commands/phase.ts";
 import { prCommand } from "./commands/pr.ts";
@@ -25,6 +26,7 @@ export const COMMANDS: Record<string, Command> = {
   open: openCommand,
   epic: epicCommand,
   phase: phaseCommand,
+  milestone: milestoneCommand,
   link: linkCommand,
   unlink: unlinkCommand,
   session: sessionCommand,
@@ -47,6 +49,8 @@ commands:
   open <text> [--step <name>]
   epic new|set|show|resolve
   epic repo add <epic> <owner/name>
+  milestone new <epic> <slug> --title <t> [--proposal <id|latest>]
+  milestone drop <epic> <id> [--proposal <id|latest>]
   phase new|write|set|block|move|drop|ready|event
   link <epic> <phase> <pr-url>...
   unlink <epic> <phase> <pr-url>

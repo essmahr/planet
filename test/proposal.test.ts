@@ -4,7 +4,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { NOW, SESSION, tmpHome } from "./helpers.ts";
 import { createEpic } from "../cli/lib/epic.ts";
 import { newPhases, readPhase } from "../cli/lib/phase.ts";
-import { approveTo, createProposal, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal, resolveProposalId, sameText, tagProposal } from "../cli/lib/proposal.ts";
+import { approveTo, assertPhasingApproval, createProposal, findProposalByToolUse, latestPending, latestProposalId, listProposals, markApproved, markRejected, nextProposalId, parseDestination, proposalFileName, readProposal, resolveProposalId, sameText, tagProposal } from "../cli/lib/proposal.ts";
 import { paths } from "../cli/lib/store.ts";
 
 const input = { step: "phasing" as const, phase: null, session: SESSION, toolUse: "toolu_1", planFile: "/plans/x.md", body: "# Phases\n\n1. A\n2. B\n" };
@@ -70,8 +70,9 @@ test("markRejected stores the message verbatim", () => {
 test("parseDestination and approveTo", () => {
   assert.deepEqual(parseDestination("plan"), { kind: "plan" });
   assert.deepEqual(parseDestination("phase:3"), { kind: "phase", id: 3 });
-  assert.deepEqual(parseDestination("phases"), { kind: "phases" });
-  assert.throws(() => parseDestination("phase:x"), /--to must be plan, phases, phase:<n>, or review/);
+  assert.deepEqual(parseDestination("milestones"), { kind: "milestones" });
+  assert.deepEqual(parseDestination("none"), { kind: "none" });
+  assert.throws(() => parseDestination("phase:x"), /--to must be plan, milestones, none, phase:<n>, or review/);
 
   const home = setup();
   const p = createProposal(home, "e", input, NOW);
@@ -92,40 +93,88 @@ test("parseDestination and approveTo", () => {
   assert.equal(readProposal(home, "e", s.meta.id).meta.outcome, "approved");
 });
 
-test("approveTo --to phases replaces only the Phases section, or appends it", () => {
+const phasing = { ...input, step: "phasing" as const };
+
+test("assertPhasingApproval accepts only the latest approved phasing proposal", () => {
   const home = setup();
-  const above = "# E\n\n## Approach\nAlias first.\n";
-  writeFileSync(paths.plan(home, "e"), above);
-  const first = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (alias)\n" }, NOW);
-  approveTo(home, "e", first.meta.id, { kind: "phases" }, undefined, NOW);
-  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n### 1. Alias (alias)\n`, "appended after the approach");
-  const recut = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (alias)\n### 2. Move (move)\n" }, NOW);
-  approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW);
-  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n### 1. Alias (alias)\n### 2. Move (move)\n`, "replaced from the heading down, approach untouched");
-  const bad = createProposal(home, "e", { ...input, step: "phasing", body: "### 1. No heading\n" }, NOW);
-  assert.throws(() => approveTo(home, "e", bad.meta.id, { kind: "phases" }, undefined, NOW), /must start with a '## Phases' heading/);
-  assert.equal(readProposal(home, "e", bad.meta.id).meta.outcome, "pending", "a refused proposal stays pending");
-  rmSync(paths.plan(home, "e"));
-  assert.throws(() => approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW), /no plan.md/);
+  const p = createProposal(home, "e", phasing, NOW);
+  assert.throws(() => assertPhasingApproval(home, "e", p.meta.id), /not approved/);
+  markApproved(home, "e", p.meta.id);
+  assertPhasingApproval(home, "e", p.meta.id);
+  const scoping = createProposal(home, "e", { ...input, step: "scoping" }, NOW);
+  markApproved(home, "e", scoping.meta.id);
+  assert.throws(() => assertPhasingApproval(home, "e", scoping.meta.id), /not a phasing proposal/);
+  createProposal(home, "e", { ...input, step: "phase-plan", phase: 1 }, NOW);
+  assert.throws(() => assertPhasingApproval(home, "e", p.meta.id), /proposal 1 is not the latest proposal/);
 });
 
-test("approveTo --to phases fills collapsed entries from plan.md", () => {
+test("approve --to none records approval and writes nothing", () => {
   const home = setup();
-  const above = "# E\n\n## Approach\nAlias first.\n";
-  const alias = "### 1. Alias (alias)\nAdd the alias.\n- Depends on: none";
-  const spike = "### 2. Spike (spike), manual\nMeasure.\n- Depends on: phase 1";
-  writeFileSync(paths.plan(home, "e"), `${above}\n## Phases\n\n${alias}\n\n${spike}\n\n### 3. Move (move)\nOld scope.\n`);
-  const move = "### 3. Move (move)\nNew scope.\n\n### 4. Lint (lint)\nAdd the rule.\n";
-  const recut = createProposal(home, "e", { ...input, step: "phasing", body: `## Phases\n\n### 1. Alias (alias): shipped\n### 2. Spike (spike), manual: in-progress\n\n${move}` }, NOW);
-  approveTo(home, "e", recut.meta.id, { kind: "phases" }, undefined, NOW);
-  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Phases\n\n${alias}\n\n${spike}\n\n${move}`);
-  assert.match(readProposal(home, "e", recut.meta.id).body, /### 1\. Alias \(alias\): shipped/, "the proposal keeps the collapsed text");
+  writeFileSync(paths.plan(home, "e"), "# E\n");
+  const p = createProposal(home, "e", phasing, NOW);
+  const r = approveTo(home, "e", p.meta.id, { kind: "none" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), "# E\n");
+  assert.equal(r.proposal.meta.outcome, "approved");
+  assert.equal(r.wrote, p.path);
+});
 
-  const missing = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 5. Docs (docs): shipped\n" }, NOW);
-  assert.throws(() => approveTo(home, "e", missing.meta.id, { kind: "phases" }, undefined, NOW), /plan\.md has no entry 5/);
-  assert.equal(readProposal(home, "e", missing.meta.id).meta.outcome, "pending", "a refused proposal stays pending");
-  const renamed = createProposal(home, "e", { ...input, step: "phasing", body: "## Phases\n\n### 1. Alias (path-alias): shipped\n" }, NOW);
-  assert.throws(() => approveTo(home, "e", renamed.meta.id, { kind: "phases" }, undefined, NOW), /entry 1 in plan\.md is \(alias\), not \(path-alias\)/);
+test("approve --to milestones takes the Milestones section out of a larger body", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nViews first.\n";
+  writeFileSync(paths.plan(home, "e"), above);
+  const body = "## Milestones\n\n### 1. Views (views)\nGoal.\n\n## Phases\n\n### 1. A (a)\nScope.\n";
+  const p = createProposal(home, "e", { ...phasing, body }, NOW);
+  approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Milestones\n\n### 1. Views (views)\nGoal.\n`);
+});
+
+test("approve --to milestones requires a Milestones heading", () => {
+  const home = setup();
+  writeFileSync(paths.plan(home, "e"), "# E\n");
+  const p = createProposal(home, "e", { ...phasing, body: "### 1. Views (views)\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW), /must have a '## Milestones' heading/);
+  assert.equal(readProposal(home, "e", p.meta.id).meta.outcome, "pending", "a refused proposal stays pending");
+});
+
+test("approve --to milestones replaces a legacy Phases section", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nViews first.\n";
+  writeFileSync(paths.plan(home, "e"), `${above}\n## Phases\n\n### 1. A (a)\nScope.\n`);
+  const p = createProposal(home, "e", { ...phasing, body: "## Milestones\n\n### 1. Views (views)\nGoal.\n" }, NOW);
+  approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW);
+  const plan = readFileSync(paths.plan(home, "e"), "utf8");
+  assert.equal(plan, `${above}\n## Milestones\n\n### 1. Views (views)\nGoal.\n`);
+  assert.doesNotMatch(plan, /## Phases/);
+});
+
+test("approve --to milestones with no entries removes Phases and writes no heading", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nViews first.\n";
+  writeFileSync(paths.plan(home, "e"), `${above}\n## Milestones\n\n### 1. Views (views)\nGoal.\n`);
+  const p = createProposal(home, "e", { ...phasing, body: "## Milestones\n" }, NOW);
+  approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW);
+  const plan = readFileSync(paths.plan(home, "e"), "utf8");
+  assert.equal(plan, above);
+  assert.doesNotMatch(plan, /## (Milestones|Phases)/);
+});
+
+test("collapsed milestone entries expand from plan.md", () => {
+  const home = setup();
+  const above = "# E\n\n## Approach\nViews first.\n";
+  writeFileSync(paths.plan(home, "e"), `${above}\n## Milestones\n\n### 1. Views (views)\nGoal one.\n`);
+  const p = createProposal(home, "e", { ...phasing, body: "## Milestones\n\n### 1. Views (views): unchanged\n\n### 2. Docs (docs)\nGoal two.\n" }, NOW);
+  approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW);
+  assert.equal(readFileSync(paths.plan(home, "e"), "utf8"), `${above}\n## Milestones\n\n### 1. Views (views)\nGoal one.\n\n### 2. Docs (docs)\nGoal two.\n`);
+  assert.match(readProposal(home, "e", p.meta.id).body, /\(views\): unchanged/, "the proposal keeps the collapsed text");
+
+  const renamed = createProposal(home, "e", { ...phasing, body: "## Milestones\n\n### 1. Views (screens): unchanged\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", renamed.meta.id, { kind: "milestones" }, undefined, NOW), /write the entry in full/);
+  const missing = createProposal(home, "e", { ...phasing, body: "## Milestones\n\n### 5. Docs (docs): unchanged\n" }, NOW);
+  assert.throws(() => approveTo(home, "e", missing.meta.id, { kind: "milestones" }, undefined, NOW), /plan\.md has no entry 5/);
+});
+
+test("--to phases is refused", () => {
+  assert.throws(() => parseDestination("phases"), /--to must be plan, milestones, none, phase:<n>, or review/);
 });
 
 test("approveTo refuses to flip a rejected proposal without --from", () => {

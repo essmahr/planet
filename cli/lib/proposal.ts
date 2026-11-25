@@ -102,24 +102,35 @@ export function markRejected(home: string, epic: string, id: number, feedback: s
   return proposal;
 }
 
-export type Destination = { kind: "plan" } | { kind: "phases" } | { kind: "phase"; id: number } | { kind: "review" };
+export type Destination = { kind: "plan" } | { kind: "milestones" } | { kind: "none" } | { kind: "phase"; id: number } | { kind: "review" };
 
 export function parseDestination(text: string): Destination {
   if (text === "plan") return { kind: "plan" };
-  if (text === "phases") return { kind: "phases" };
+  if (text === "milestones") return { kind: "milestones" };
+  if (text === "none") return { kind: "none" };
   if (text === "review") return { kind: "review" };
   const m = /^phase:(\d+)$/.exec(text);
-  if (!m) throw new Error("--to must be plan, phases, phase:<n>, or review");
+  if (!m) throw new Error("--to must be plan, milestones, none, phase:<n>, or review");
   return { kind: "phase", id: Number(m[1]) };
 }
 
-const PHASES_HEADING_RE = /^## Phases[ \t]*$/m;
+/** Throws unless proposal `id` is the latest proposal, a phasing proposal, and approved. */
+export function assertPhasingApproval(home: string, epic: string, id: number): void {
+  const proposal = readProposal(home, epic, id);
+  if (latestProposalId(home, epic) !== id) throw new Error(`proposal ${id} is not the latest proposal`);
+  if (proposal.meta.step !== "phasing") throw new Error(`proposal ${id} is not a phasing proposal`);
+  if (proposal.meta.outcome !== "approved") throw new Error(`proposal ${id} is not approved`);
+}
+
+const MILESTONES_HEADING_RE = /^## Milestones[ \t]*$/m;
+const LEGACY_PHASES_HEADING_RE = /^## Phases[ \t]*$/m;
+const NEXT_SECTION_RE = /^## /m;
 
 const ENTRY_HEADING_RE = /^### (\d+)\. .*$/gm;
-const ENTRY_SLUG_RE = /\(([a-z0-9-]+)\)(?:, manual)?[ \t]*$/;
-const COLLAPSED_ENTRY_RE = /^### (\d+)\. .*\(([a-z0-9-]+)\)(?:, manual)?: [a-z-]+[ \t]*\n*/gm;
+const ENTRY_SLUG_RE = /\(([a-z0-9-]+)\)[ \t]*$/;
+const COLLAPSED_ENTRY_RE = /^### (\d+)\. .*\(([a-z0-9-]+)\): unchanged[ \t]*\n*/gm;
 
-function phaseEntries(section: string): Map<number, string> {
+function milestoneEntries(section: string): Map<number, string> {
   const headings = [...section.matchAll(ENTRY_HEADING_RE)];
   const entries = new Map<number, string>();
   headings.forEach((heading, i) => {
@@ -129,19 +140,29 @@ function phaseEntries(section: string): Map<number, string> {
   return entries;
 }
 
+/** Cuts the `## Milestones` section out of a proposal body, up to the next `## ` heading or the end. */
+function sliceMilestonesSection(body: string): string {
+  const at = body.search(MILESTONES_HEADING_RE);
+  if (at === -1) throw new Error("a milestones proposal must have a '## Milestones' heading");
+  const rest = body.slice(at);
+  const next = rest.slice(1).search(NEXT_SECTION_RE);
+  const section = next === -1 ? rest : rest.slice(0, next + 1);
+  return `${section.trimEnd()}\n`;
+}
+
 /**
- * Swaps each collapsed entry in a proposed Phases section for the full entry plan.md has.
+ * Swaps each collapsed entry in a proposed Milestones section for the full entry plan.md has.
  *
- * A collapsed entry is a lone heading ending in a status, like `### 3. Move (move): shipped`.
- * A re-cut proposal uses them for the phases it can't change, so the user only reads the new ones.
+ * A collapsed entry is a lone heading ending in `: unchanged`, like `### 3. Move (move): unchanged`.
+ * A re-cut proposal uses them for the milestones it keeps, so the user only reads the new ones.
  */
 export function expandCollapsedEntries(home: string, epic: string, section: string): string {
   if (!section.match(COLLAPSED_ENTRY_RE)) return section;
   const file = paths.plan(home, epic);
-  if (!existsSync(file)) throw new Error("no plan.md to put a Phases section in; approve scoping first");
+  if (!existsSync(file)) throw new Error("no plan.md to put a Milestones section in; approve scoping first");
   const plan = readFileSync(file, "utf8");
-  const at = plan.search(PHASES_HEADING_RE);
-  const existing = phaseEntries(at === -1 ? "" : plan.slice(at));
+  const at = plan.search(MILESTONES_HEADING_RE);
+  const existing = milestoneEntries(at === -1 ? "" : plan.slice(at));
   const expanded = section.replace(COLLAPSED_ENTRY_RE, (_line, number: string, slug: string) => {
     const entry = existing.get(Number(number));
     if (!entry) throw new Error(`plan.md has no entry ${number} to fill the collapsed one; write the entry in full`);
@@ -153,16 +174,21 @@ export function expandCollapsedEntries(home: string, epic: string, section: stri
 }
 
 /**
- * Replaces plan.md's `## Phases` section with `section`, or appends it. The section is
- * always the last one in plan.md, so everything from its heading to the end goes.
+ * Replaces plan.md's `## Milestones` section (or a legacy `## Phases` one) with `section`.
+ *
+ * The section is always last in plan.md, so everything from the earlier of the two headings
+ * to the end goes. A section with no `### ` entries only removes, so plan.md never keeps an empty heading.
  */
-export function writePhasesSection(home: string, epic: string, section: string): string {
+export function writeMilestonesSection(home: string, epic: string, section: string): string {
   const file = paths.plan(home, epic);
-  if (!existsSync(file)) throw new Error("no plan.md to put a Phases section in; approve scoping first");
-  if (!PHASES_HEADING_RE.test(section)) throw new Error("a phases proposal must start with a '## Phases' heading");
+  if (!existsSync(file)) throw new Error("no plan.md to put a Milestones section in; approve scoping first");
   const plan = readFileSync(file, "utf8");
-  const at = plan.search(PHASES_HEADING_RE);
-  const above = (at === -1 ? plan : plan.slice(0, at)).replace(/\s+$/, "");
+  const cuts = [plan.search(LEGACY_PHASES_HEADING_RE), plan.search(MILESTONES_HEADING_RE)].filter((at) => at !== -1);
+  const above = (cuts.length ? plan.slice(0, Math.min(...cuts)) : plan).replace(/\s+$/, "");
+  if (!/^### /m.test(section)) {
+    writeFileSync(file, `${above}\n`);
+    return file;
+  }
   writeFileSync(file, `${above}\n\n${section}`);
   return file;
 }
@@ -184,10 +210,10 @@ export function approveTo(home: string, epic: string, id: number, dest: Destinat
   }
   const text = fromText ?? proposal.body;
   const body = text.endsWith("\n") ? text : `${text}\n`;
-  if (dest.kind === "phases" && !PHASES_HEADING_RE.test(body)) throw new Error("a phases proposal must start with a '## Phases' heading");
-  const section = dest.kind === "phases" ? expandCollapsedEntries(home, epic, body) : body;
+  const section = dest.kind === "milestones" ? expandCollapsedEntries(home, epic, sliceMilestonesSection(body)) : body;
   if (proposal.meta.outcome !== "approved") proposal = markApproved(home, epic, id);
-  if (dest.kind === "phases") return { proposal, wrote: writePhasesSection(home, epic, section) };
+  if (dest.kind === "milestones") return { proposal, wrote: writeMilestonesSection(home, epic, section) };
+  if (dest.kind === "none") return { proposal, wrote: proposal.path };
   if (dest.kind === "plan") {
     const file = paths.plan(home, epic);
     writeFileSync(file, body);

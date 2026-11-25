@@ -52,7 +52,7 @@ commands:
   unlink <epic> <phase> <pr-url>
   session start|step [--phase <n>]|review|show [--json]|end
   propose <epic> <step> --file <path>
-  proposal approve <epic> <id|latest|latest-N> --to plan|phases|phase:<n>|review
+  proposal approve <epic> <id|latest|latest-N> --to plan|milestones|none|phase:<n>|review
   proposal reject <epic> <id|latest|latest-N> [--feedback <text>]
   proposal tag <epic> <id|latest|latest-N> <tag>
   sync [epic] [--force]

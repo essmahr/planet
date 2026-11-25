@@ -10,7 +10,8 @@ repos, and the user means the next phase this checkout can run.
    skipped, not a repo-check mismatch.
 3. Apply step 5's phase rows to this repo: any phase `shipped` whose `repo`
    equals it, retro, lowest id first; else the first `plannable`, phase-plan;
-   else implement the first `ready`, or the lowest `planned` there, per step 8.
+   else implement the first `ready`, or the lowest `planned` there whose
+   unshipped blockers are all `in-progress`, per step 8.
 4. No phase in this repo fits: say `no phase left in <repo>`, name the phase step 5
    would pick across all repos, and follow mismatch in
    `references/repo-check.md` for it. Stop.

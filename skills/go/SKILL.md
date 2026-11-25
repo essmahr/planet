@@ -6,7 +6,7 @@ disable-model-invocation: true
 allowed-tools: Bash(planet *), Bash(gh repo view *), Bash(git rev-parse *), Bash(grep *)
 compatibility: Claude Code with the planet plugin loaded. Node 24, gh authenticated, Linear MCP connected for tickets.
 metadata:
-  version: 0.12.0
+  version: 0.13.0
 ---
 
 # Planet: go
@@ -36,9 +36,9 @@ Request: $ARGUMENTS
    - `match` is a slug: say `opened <slug>`. `work on N` was handled. `pr feedback [N]` goes to step 11; `add repo` to step 13. With `implement N`, run step 6, then read phase N in the payload's `phases`: `planned` or `in-progress` goes to step 8's Implement path; `draft` dispatches phase-plan N per step 7 and then that path; `shipped` or `reviewed` says the phase is already built and goes to step 5; absent, say which steps are missing and ask with AskUserQuestion whether to start at the earliest, dispatching it and going to step 5 on yes. Otherwise go to step 5.
    - `match` null: judge the request against each row's slug and title (`DS linting` fits `design-system-lint-enforcement`). One clear fit: run `planet open <slug> --json`, say `opened <slug>`, go on as a match. A weak second fit is still one fit. Two fit about equally: ask which. None fits or none picked: go to step 4 if the request names a Linear ID, a linear.app URL, or asks to start/plan something new; else ask which epic and stop.
 4. **New epic.** Follow `references/new-epic.md`. It ends at `planet open <slug> --json` with the sources kept for step 7, or stops.
-5. **Choose the step** from the epic view (`last_approved_step`, `paths.plan`, `legacy`, `plannable`, `ready`, `phases`; the `epic` field in the `planet open` payload), without reading any file. No `paths.plan`: intake. `last_approved_step` `intake`: scoping. `scoping`, no phases: phasing. `scoping` with phases and any not `shipped`: phasing, with `reason: re-cut: after re-scoping`. `phasing`, no phases: phasing. `legacy` true and any phase not `shipped`: phasing, with `reason: migrate`. A request for the next phase picks among this repo's phases per `references/next-phase.md`. Any phase `shipped`: retro, lowest id first. Any `plannable`: phase-plan `plannable[0]`. Else implement `ready[0]`, or the lowest `planned` phase, per step 8. Every phase `reviewed`: say the epic is done and run `planet session end`. A step named in the request wins over every row above, including the stops; `phase-plan N` also fixes the phase.
+5. **Choose the step** from the epic view (`last_approved_step`, `paths.plan`, `legacy`, `plannable`, `ready`, `phases`; the `epic` field in the `planet open` payload), without reading any file. No `paths.plan`: intake. `last_approved_step` `intake`: scoping. `scoping`, no phases: phasing. `scoping` with phases and any not `shipped`: phasing, with `reason: re-cut: after re-scoping`. `phasing`, no phases: phasing. `legacy` true and any phase not `shipped`: phasing, with `reason: migrate`. A request for the next phase picks among this repo's phases per `references/next-phase.md`. Any phase `shipped`: retro, lowest id first. Any `plannable`: phase-plan `plannable[0]`. Else implement `ready[0]`, or the lowest `planned` phase whose unshipped blockers are all `in-progress`, per step 8. Every phase `reviewed`: say the epic is done and run `planet session end`. A step named in the request wins over every row above, including the stops; `phase-plan N` also fixes the phase.
 6. **Repo check**, before intake, scoping, phase-plan, retro, implement, or pr feedback: follow `references/repo-check.md`. A mismatch stops.
-7. **Dispatch.** Retro on a phase with non-empty `merged_prs` first runs the merged cleanup in `references/pr-feedback.md`. Run `planet session step <step>`, adding `--phase <N>` for phase-plan and retro. Invoke `planet:planet-<step>` with `epic: <slug>` and `dir: <epic.paths.dir>`; intake also gets a `sources:` block, one line per source as `- <kind> <ref> (<role>)` or `- text: <prose>`, or `sources: none`; phase-plan and retro also get `phase: <N>`, the id step 5 chose or the request named; pass `reason: <why>` whenever one was supplied. Act on its last line:
+7. **Dispatch.** Retro on a phase with non-empty `merged_prs` first runs the merged cleanup in `references/pr-feedback.md`. Run `planet session step <step>`, adding `--phase <N>` for phase-plan and retro. Invoke `planet:planet-<step>` with `epic: <slug>` and `dir: <epic.paths.dir>`; intake also gets a `sources:` block, one line per source as `- <kind> <ref> (<role>)` or `- text: <prose>`, or `sources: none`; phase-plan and retro also get `phase: <N>`, the id step 5 chose or the request named; pass any `reason:` supplied. Act on its last line:
    - `... done, next step <name>`: refresh with `planet epic show <slug> --json --brief` (read-only, same view as the payload's `epic` field), then go to step 5.
    - `phase N planned`: go to step 8.
    - `retro done for phase N`: refresh, go to step 5.
@@ -60,7 +60,7 @@ Request: $ARGUMENTS
 
 ## Example
 
-`continue the GQL thing` matches `gql-migration`; `last_approved_step` `scoping`, no phases: phasing. It returns done; refresh; phase 1 is a draft: repo check, phase-plan; on `phase 1 planned`, no blockers: implement at once; on `phase 1 implemented`, say so and end the turn.
+`continue the GQL thing` matches `gql-migration`; `last_approved_step` `scoping`, no phases: phasing. It returns done; phase 1 is plannable: repo check, phase-plan; on `phase 1 planned`, no blockers: implement at once; on `phase 1 implemented`, say so and end the turn.
 
 ## Troubleshooting
 

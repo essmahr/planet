@@ -64,3 +64,27 @@ test("validatePhaseMeta defaults kind to pr and rejects unknown kinds", () => {
   assert.equal(validatePhaseMeta({ ...base, kind: "manual" }, "f").kind, "manual");
   assert.throws(() => validatePhaseMeta({ ...base, kind: "review" }, "f"), /kind must be one of pr, manual/);
 });
+
+test("validateEpic reads milestones and defaults them to []", () => {
+  assert.deepEqual(validateEpic(epic, "f").milestones, []);
+  const milestones = [{ id: 1, slug: "views", title: "Views" }];
+  assert.deepEqual(validateEpic({ ...epic, milestones }, "f").milestones, milestones);
+  assert.throws(() => validateEpic({ ...epic, milestones: [{ id: 1, slug: "Bad Slug", title: "T" }] }, "f"), ValidationError);
+  assert.throws(() => validateEpic({ ...epic, milestones: [{ id: 1.5, slug: "a", title: "T" }] }, "f"), ValidationError);
+  assert.throws(
+    () => validateEpic({ ...epic, milestones: [{ id: 1, slug: "a", title: "A" }, { id: 1, slug: "b", title: "B" }] }, "f"),
+    /milestone ids must not repeat/,
+  );
+});
+
+test("validatePhaseMeta reads milestone and blocked_by with defaults", () => {
+  const base = { id: 2, slug: "a", title: "A", status: "draft", linear: [], prs: [], shipped_at: null };
+  const plain = validatePhaseMeta(base, "f");
+  assert.equal(plain.milestone, null);
+  assert.deepEqual(plain.blocked_by, []);
+  const set = validatePhaseMeta({ ...base, milestone: 1, blocked_by: [1, 3] }, "f");
+  assert.equal(set.milestone, 1);
+  assert.deepEqual(set.blocked_by, [1, 3]);
+  assert.throws(() => validatePhaseMeta({ ...base, blocked_by: [3, "x"] }, "f"), /blocked_by must be a list of integers/);
+  assert.throws(() => validatePhaseMeta({ ...base, blocked_by: [2] }, "f"), /cannot block itself/);
+});

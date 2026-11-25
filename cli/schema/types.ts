@@ -19,6 +19,12 @@ export interface PrRef {
   session: string | null;
 }
 
+export interface Milestone {
+  id: number;
+  slug: string;
+  title: string;
+}
+
 export interface Epic {
   slug: string;
   title: string;
@@ -30,6 +36,7 @@ export interface Epic {
   synced_at: string | null;
   shipped_at: string | null;
   sessions: string[];
+  milestones: Milestone[];
 }
 
 export interface PhaseMeta {
@@ -43,6 +50,10 @@ export interface PhaseMeta {
   linear: string[];
   prs: PrRef[];
   shipped_at: string | null;
+  /** The id of the milestone this phase belongs to, if any. */
+  milestone: number | null;
+  /** Ids of phases that must ship before this one can start. */
+  blocked_by: number[];
 }
 
 export interface Phase {

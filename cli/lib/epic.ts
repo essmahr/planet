@@ -47,6 +47,7 @@ export function createEpic(home: string, input: NewEpicInput, now: string): Epic
     synced_at: null,
     shipped_at: null,
     sessions: [],
+    milestones: [],
   };
   writeEpic(home, epic);
   return epic;

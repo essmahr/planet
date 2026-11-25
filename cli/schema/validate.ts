@@ -1,4 +1,4 @@
-import type { Epic, PhaseMeta, PrRef, ProposalMeta, SessionMarker } from "./types.ts";
+import type { Epic, Milestone, PhaseMeta, PrRef, ProposalMeta, SessionMarker } from "./types.ts";
 import { EPIC_STATUSES, OUTCOMES, PHASE_KINDS, PHASE_STATUSES, PR_STATES, STEPS } from "./types.ts";
 
 export class ValidationError extends Error {
@@ -56,6 +56,14 @@ function strList(o: Obj, key: string, file: string): string[] {
   return v as string[];
 }
 
+function intList(o: Obj, key: string, file: string): number[] {
+  const v = o[key] ?? [];
+  if (!Array.isArray(v) || v.some((x) => typeof x !== "number" || !Number.isInteger(x))) {
+    throw new ValidationError(file, `${key} must be a list of integers`);
+  }
+  return v as number[];
+}
+
 function oneOf<T extends string>(o: Obj, key: string, file: string, allowed: readonly T[]): T {
   const v = o[key];
   if (typeof v !== "string" || !(allowed as readonly string[]).includes(v)) {
@@ -82,6 +90,19 @@ function epicRepos(o: Obj, file: string): string[] {
   return repos;
 }
 
+function validateMilestones(o: Obj, file: string): Milestone[] {
+  const v = o.milestones ?? [];
+  if (!Array.isArray(v)) throw new ValidationError(file, "milestones must be a list");
+  const milestones = v.map((m): Milestone => {
+    const mo = obj(m, file);
+    const slug = str(mo, "slug", file);
+    assertSlug(slug, file);
+    return { id: int(mo, "id", file), slug, title: str(mo, "title", file) };
+  });
+  if (new Set(milestones.map((m) => m.id)).size !== milestones.length) throw new ValidationError(file, "milestone ids must not repeat");
+  return milestones;
+}
+
 export function validateEpic(v: unknown, file: string): Epic {
   const o = obj(v, file);
   const slug = str(o, "slug", file);
@@ -97,6 +118,7 @@ export function validateEpic(v: unknown, file: string): Epic {
     synced_at: nullableStr(o, "synced_at", file),
     shipped_at: nullableStr(o, "shipped_at", file),
     sessions: strList(o, "sessions", file),
+    milestones: validateMilestones(o, file),
   };
 }
 
@@ -117,8 +139,11 @@ export function validatePhaseMeta(v: unknown, file: string): PhaseMeta {
   if (!Array.isArray(prs)) throw new ValidationError(file, "prs must be a list");
   const slug = str(o, "slug", file);
   assertSlug(slug, file);
+  const id = int(o, "id", file);
+  const blockedBy = intList(o, "blocked_by", file);
+  if (blockedBy.includes(id)) throw new ValidationError(file, "a phase cannot block itself");
   return {
-    id: int(o, "id", file),
+    id,
     slug,
     title: str(o, "title", file),
     status: oneOf(o, "status", file, PHASE_STATUSES),
@@ -127,6 +152,8 @@ export function validatePhaseMeta(v: unknown, file: string): PhaseMeta {
     linear: strList(o, "linear", file),
     prs: prs.map((p) => validatePr(p, file)),
     shipped_at: nullableStr(o, "shipped_at", file),
+    milestone: nullableInt(o, "milestone", file),
+    blocked_by: blockedBy,
   };
 }
 

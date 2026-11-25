@@ -53,7 +53,7 @@ test("setPhaseStatus enforces manual transitions", () => {
 });
 
 test("currentPhase prefers in-progress, then planned, then draft", () => {
-  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr", repo: null });
+  const mk = (id: number, status: PhaseMeta["status"]): PhaseMeta => ({ id, slug: `p${id}`, title: "", status, linear: [], prs: [], shipped_at: null, kind: "pr", repo: null, milestone: null, blocked_by: [] });
   assert.equal(currentPhase([mk(1, "reviewed"), mk(2, "draft"), mk(3, "planned")])?.id, 3);
   assert.equal(currentPhase([mk(1, "planned"), mk(2, "in-progress")])?.id, 2);
   assert.equal(currentPhase([mk(1, "reviewed")]), null);
@@ -61,9 +61,9 @@ test("currentPhase prefers in-progress, then planned, then draft", () => {
 
 test("recomputeEpicStatus derives active and shipped", () => {
   const home = epicHome();
-  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [], milestones: [] };
   const pr = { url: "https://github.com/o/r/pull/1", state: "open" as const, merged_at: null, session: null };
-  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr", repo: null };
+  const phase: PhaseMeta = { id: 1, slug: "a", title: "A", status: "in-progress", linear: [], prs: [pr], shipped_at: null, kind: "pr", repo: null, milestone: null, blocked_by: [] };
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), true);
   assert.equal(epic.status, "active");
   assert.equal(recomputeEpicStatus(epic, [phase], NOW), false);
@@ -74,8 +74,8 @@ test("recomputeEpicStatus derives active and shipped", () => {
 });
 
 test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed", () => {
-  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [], milestones: [] };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null, milestone: null, blocked_by: [] };
   assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b", status: "shipped" }], NOW), true, "a shipped manual phase activates the epic");
   assert.equal(epic.status, "active");
   assert.equal(recomputeEpicStatus(epic, [manual, { ...manual, id: 2, slug: "b" }], "2026-10-01T00:00:00Z"), true);
@@ -84,15 +84,15 @@ test("recomputeEpicStatus ships an epic whose phases are all manual and reviewed
 });
 
 test("recomputeEpicStatus goes straight from planning to shipped when every phase is already reviewed", () => {
-  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null };
+  const epic = { slug: "e", title: "E", repos: ["o/r"], status: "planning" as const, linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [], milestones: [] };
+  const manual: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "manual", repo: null, milestone: null, blocked_by: [] };
   assert.equal(recomputeEpicStatus(epic, [manual], NOW), true);
   assert.equal(epic.status, "shipped");
 });
 
 test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () => {
-  const epic: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [] };
-  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null };
+  const epic: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "shipped", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: NOW, sessions: [], milestones: [] };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null, milestone: null, blocked_by: [] };
   const draft: PhaseMeta = { ...done, id: 2, slug: "b", status: "draft", shipped_at: null };
   assert.equal(recomputeEpicStatus(epic, [done], NOW), false, "still shipped while every phase is reviewed");
   assert.equal(recomputeEpicStatus(epic, [done, draft], "2026-10-01T00:00:00Z"), true);
@@ -104,8 +104,8 @@ test("recomputeEpicStatus un-ships an epic that gains an unreviewed phase", () =
 });
 
 test("recomputeEpicStatus leaves paused and abandoned alone", () => {
-  const base: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [] };
-  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null };
+  const base: Epic = { slug: "e", title: "E", repos: ["o/r"], status: "paused", linear: [], created: NOW, updated: NOW, synced_at: null, shipped_at: null, sessions: [], milestones: [] };
+  const done: PhaseMeta = { id: 1, slug: "a", title: "A", status: "reviewed", linear: [], prs: [], shipped_at: NOW, kind: "pr", repo: null, milestone: null, blocked_by: [] };
   for (const status of ["paused", "abandoned"] as const) {
     const epic: Epic = { ...base, status };
     assert.equal(recomputeEpicStatus(epic, [done], NOW), false);

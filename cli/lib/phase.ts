@@ -12,6 +12,8 @@ export interface NewPhaseInput {
   linear?: string[];
   kind?: PhaseKind;
   repo?: string | null;
+  milestone?: number | null;
+  blockedBy?: number[];
 }
 
 /** The repo a phase's PRs land in: its own, else the epic's primary repo. */
@@ -82,6 +84,8 @@ export function newPhases(home: string, epic: string, inputs: NewPhaseInput[]): 
       linear: input.linear ?? [],
       prs: [],
       shipped_at: null,
+      milestone: input.milestone ?? null,
+      blocked_by: input.blockedBy ?? [],
     };
     const phase: Phase = { meta, body: "", path: join(dir, phaseFileName(meta.id, meta.slug)) };
     writePhase(phase);

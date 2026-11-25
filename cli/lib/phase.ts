@@ -194,6 +194,7 @@ export function dropPhase(home: string, epic: string, id: number, proposal?: num
     if (proposal === undefined) throw new Error(`cannot drop phase ${id}: it blocks phase ${open.map((p) => p.meta.id).join(", ")}; pass --proposal`);
     assertPhasingApproval(home, epic, proposal);
   }
+  // shipped dependents are cleaned too, so no dangling ids remain
   for (const d of dependents) {
     d.meta.blocked_by = d.meta.blocked_by.filter((b) => b !== id);
     writePhase(d);

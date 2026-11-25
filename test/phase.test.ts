@@ -272,3 +272,13 @@ test("movePhase sets and clears milestone with no proposal", () => {
   assert.equal(movePhase(home, "e", 1, null).meta.milestone, null);
   assert.throws(() => movePhase(home, "e", 1, 5), /no milestone 5/);
 });
+
+test("newPhases refuses a cycle through blocks and writes nothing", () => {
+  const home = epicHome();
+  newPhases(home, "e", [{ slug: "a", title: "A" }, { slug: "b", title: "B", blockedBy: [1] }]);
+  const p = approvedPhasing(home);
+  const before = readFileSync(readPhase(home, "e", 1).path, "utf8");
+  assert.throws(() => newPhases(home, "e", [{ slug: "c", title: "C", blockedBy: [2], blocks: [1] }], p), /would form a cycle/);
+  assert.equal(readFileSync(readPhase(home, "e", 1).path, "utf8"), before);
+  assert.deepEqual(listPhases(home, "e").map((x) => x.meta.slug), ["a", "b"]);
+});

@@ -233,7 +233,7 @@ test("phase new --blocks without --proposal exits 1", async () => {
   assert.match(r.stderr, /--blocks needs --proposal/);
 });
 
-test("phase block --proposal latest after a later proposal exits 1", async () => {
+test("phase block with a superseded proposal id exits 1", async () => {
   const home = await setup();
   await run(["phase", "new", "e", "--phase", "a:A", "--phase", "b:B"], ctx(home));
   phasingProposal(home);

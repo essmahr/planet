@@ -61,12 +61,9 @@ async function phaseNew(args: string[], ctx: Ctx): Promise<CommandResult> {
   }
   if (inputs.length === 0) throw new Error("pass <slug> --title or --phase slug:title");
   readEpic(ctx.home, epic);
-  const proposal = proposalText === undefined ? undefined : resolveProposalId(ctx.home, epic, proposalText);
+  const proposal = proposalText === undefined || blocks.length === 0 ? undefined : resolveProposalId(ctx.home, epic, proposalText);
   const created = newPhases(ctx.home, epic, inputs, proposal);
-  const epicDoc = readEpic(ctx.home, epic);
-  epicDoc.updated = ctx.now();
-  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
-  writeEpic(ctx.home, epicDoc);
+  touchEpic(ctx, epic);
   commit(ctx.home, `${epic}: add phase${created.length > 1 ? "s" : ""} ${created.map((p) => p.meta.slug).join(", ")}`);
   return { json: created.map((p) => p.meta), text: created.map((p) => `created phase ${p.meta.id} ${p.meta.slug}`).join("\n") };
 }
@@ -103,10 +100,7 @@ async function phaseSet(args: string[], ctx: Ctx): Promise<CommandResult> {
     setPhaseRepo(ctx.home, epic, id, repo);
     changes.push(`repo ${repo}`);
   }
-  const epicDoc = readEpic(ctx.home, epic);
-  epicDoc.updated = ctx.now();
-  recomputeEpicStatus(epicDoc, listPhases(ctx.home, epic).map((p) => p.meta), ctx.now());
-  writeEpic(ctx.home, epicDoc);
+  touchEpic(ctx, epic);
   commit(ctx.home, `${epic}: set phase ${id} ${changes.join(", ")}`);
   const phase = listPhases(ctx.home, epic).find((p) => p.meta.id === id);
   return { json: phase?.meta ?? null, text: `updated phase ${id}: ${changes.join(", ")}` };
@@ -145,8 +139,10 @@ async function phaseMove(args: string[], ctx: Ctx): Promise<CommandResult> {
   const target = needString(values, "milestone");
   const milestone = target === "none" ? null : parseId(target, "--milestone");
   const phase = movePhase(ctx.home, epic, id, milestone);
-  commit(ctx.home, `${epic}: move phase ${id} to ${milestone === null ? "no milestone" : `milestone ${milestone}`}`);
-  return { json: phase.meta, text: `moved phase ${id} to ${milestone === null ? "no milestone" : `milestone ${milestone}`}` };
+  touchEpic(ctx, epic);
+  const label = milestone === null ? "no milestone" : `milestone ${milestone}`;
+  commit(ctx.home, `${epic}: move phase ${id} to ${label}`);
+  return { json: phase.meta, text: `moved phase ${id} to ${label}` };
 }
 
 async function phaseReady(args: string[], ctx: Ctx): Promise<CommandResult> {

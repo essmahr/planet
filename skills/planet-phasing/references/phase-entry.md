@@ -1,8 +1,8 @@
-# Phases section format
+# Phase entry format
 
-The `## Phases` section of plan.md, always its last section; approving
-`--to phases` replaces it in place. One entry per phase, in order. After
-approval, the `planet phase new` calls mirror these entries exactly.
+The `## Phases` entries of a phasing proposal, one per new or changed phase.
+After approval each entry becomes its draft's body through `planet phase write`;
+plan.md never holds them.
 
 ```
 ## Phases
@@ -10,22 +10,33 @@ approval, the `planet phase new` calls mirror these entries exactly.
 ### 1. <Title> (<slug>)
 <1 to 3 sentences of scope: the result, not how it's done>
 - Not: <exclusions a reader could expect in scope>
-- Why first: <why it goes here, when dependency does not explain it>
-- Depends on: none | phase N
+- Why first: <only for a spike or the riskiest phase>
+- Milestone: <n>. <milestone title>
+- Blocked by: none | phase N, M
+- Blocks: phase N, M
 - Size: small | medium | large, or about <files> files; phase-plan counts exactly | not applicable because <why>
 - Closes: <Linear ID> | none
 - Repo: <owner/name>
 
 ### 2. <Title> (<slug>), manual
 <what done means for this phase>
-- Depends on: phase 1
+- Blocked by: phase 1
 - Size: not applicable
 - Closes: none
 ```
 
-Slugs are kebab-case and unique within the epic. "manual" after the slug marks
-a phase with no PR. The Repo line appears only when the epic spans more than one
-repo; otherwise the phase lands in the primary repo.
+The number is the phase id the store will give it: the highest existing id plus
+one, counting up in entry order. Ids are labels, not an order. Slugs are
+kebab-case and unique within the epic. "manual" after the slug marks a phase
+with no PR. The Milestone line appears only when the epic has milestones. The
+Repo line appears on every entry when the epic spans more than one repo or the
+cut needs a repo it does not list yet; otherwise the phase lands in the primary
+repo.
+
+`Blocked by` names only phases whose result this one needs: shared code, a
+finding, a flag. Two phases that merely touch the same area are not blocked.
+`Blocks` appears only on an add or re-cut, naming existing phases that must
+wait for this new one.
 
 ## What the scope says
 
@@ -34,8 +45,7 @@ scope sentences hold only:
 
 - **The change**: what is different once the phase ships.
 - **Exclusions**: the `Not:` line, only for work a reader could expect here.
-- **Ordering**: the `Why first:` line, only when `Depends on` does not explain
-  the position, such as a spike or the riskiest phase going first.
+- **Ordering**: the `Why first:` line, only for a spike or the riskiest phase.
 
 Everything else goes in `research/phase-<N>.md`, which phase-plan reads:
 
@@ -50,25 +60,7 @@ Example:
 The call bar's Contact and Lead panel, the call-switch confirm, and the desktop
 call notifications use the org's labels.
 - Not: Local Presence copy, anything in the dialer
-- Depends on: phase 1
+- Blocked by: phase 1
 - Size: about 15 files, 4 commits
 - Closes: CRM-1310
 ```
-
-## Collapsed entries on a re-cut
-
-A re-cut from phase N proposes the entries below N as one line each, so the
-user reads only the entries that can change:
-
-```
-### 1. <Title> (<slug>): shipped
-### 2. <Title> (<slug>), manual: in-progress
-
-### 3. <Title> (<slug>)
-<1 to 3 sentences of scope>
-```
-
-The status comes from the store; a `reviewed` phase says `shipped`.
-`planet proposal approve --to phases` swaps each collapsed line for the entry
-with the same number in plan.md, and refuses when that entry is missing or has
-another slug. plan.md never holds a collapsed line.

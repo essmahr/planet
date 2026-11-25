@@ -13,11 +13,12 @@ interface CheckError {
   message: string;
 }
 
-function attempt(errors: CheckError[], file: string, fn: () => void): void {
+function attempt<T>(errors: CheckError[], file: string, fn: () => T): T | null {
   try {
-    fn();
+    return fn();
   } catch (err) {
     errors.push({ file, message: err instanceof Error ? err.message : String(err) });
+    return null;
   }
 }
 
@@ -32,7 +33,7 @@ export function checkStore(home: string): CheckError[] {
   const slugs = existsSync(epicsDir) ? readdirSync(epicsDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort() : [];
   for (const slug of slugs) {
     const epicFile = paths.epicFile(home, slug);
-    attempt(errors, epicFile, () => validateEpic(parseYaml(readFileSync(epicFile, "utf8")), epicFile));
+    const epic = attempt(errors, epicFile, () => validateEpic(parseYaml(readFileSync(epicFile, "utf8")), epicFile));
     const phaseFiles = listFiles(paths.phases(home, slug), /^\d{2,}-[a-z0-9-]+\.md$/);
     const metas: PhaseMeta[] = [];
     for (const file of phaseFiles) {
@@ -40,6 +41,12 @@ export function checkStore(home: string): CheckError[] {
     }
     if (metas.length === phaseFiles.length) {
       for (const message of graphErrors(metas)) errors.push({ file: paths.phases(home, slug), message: `${slug}: ${message}` });
+    }
+    if (epic !== null) {
+      const milestoneIds = new Set(epic.milestones.map((m) => m.id));
+      for (const p of metas) {
+        if (p.milestone !== null && !milestoneIds.has(p.milestone)) errors.push({ file: paths.phases(home, slug), message: `${slug}: phase ${p.id} points at missing milestone ${p.milestone}` });
+      }
     }
     for (const file of listFiles(paths.proposals(home, slug), /^\d{3,}-[a-z-]+\.md$/)) {
       attempt(errors, file, () => validateProposalMeta(parseFrontmatter(readFileSync(file, "utf8")).data, file));

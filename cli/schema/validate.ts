@@ -100,6 +100,7 @@ function validateMilestones(o: Obj, file: string): Milestone[] {
     return { id: int(mo, "id", file), slug, title: str(mo, "title", file) };
   });
   if (new Set(milestones.map((m) => m.id)).size !== milestones.length) throw new ValidationError(file, "milestone ids must not repeat");
+  if (new Set(milestones.map((m) => m.slug)).size !== milestones.length) throw new ValidationError(file, "milestone slugs must not repeat");
   return milestones;
 }
 

@@ -130,6 +130,16 @@ test("check reports blocker errors", async () => {
   assert.match(r.stdout, /e: phase 1 is blocked by missing phase 9/);
 });
 
+test("check reports a phase whose milestone is missing", async () => {
+  const home = await setup();
+  await run(["phase", "new", "e", "a", "--title", "A"], ctx(home));
+  const file = join(home, "epics", "e", "phases", "01-a.md");
+  writeFileSync(file, readFileSync(file, "utf8").replace("milestone: null", "milestone: 4"));
+  const r = await run(["check"], ctx(home));
+  assert.equal(r.code, 1);
+  assert.match(r.stdout, /e: phase 1 points at missing milestone 4/);
+});
+
 test("check validates prompts.jsonl lines and skips dotfiles in sessions", async () => {
   const home = await setup();
   const valid = { ts: "t", session: "s", kind: "planning", phase: null, proposal: null, text: "hi" };

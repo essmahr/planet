@@ -75,6 +75,10 @@ test("validateEpic reads milestones and defaults them to []", () => {
     () => validateEpic({ ...epic, milestones: [{ id: 1, slug: "a", title: "A" }, { id: 1, slug: "b", title: "B" }] }, "f"),
     /milestone ids must not repeat/,
   );
+  assert.throws(
+    () => validateEpic({ ...epic, milestones: [{ id: 1, slug: "a", title: "A" }, { id: 2, slug: "a", title: "B" }] }, "f"),
+    /milestone slugs must not repeat/,
+  );
 });
 
 test("validatePhaseMeta reads milestone and blocked_by with defaults", () => {

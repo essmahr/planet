@@ -5,7 +5,7 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded.
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
 
 # Planet: phasing
@@ -36,13 +36,13 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line picki
 
 ## Steps
 
-1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints, and any `## Milestones` or legacy `## Phases`; and `planet epic show <epic> --json --brief` for repos, milestones, and phases. If the latest proposal is an approved phasing one and some entry slug in it is missing from `planet epic show`, take its body from `<dir>/proposals/` and go to step 5.
+1. **Read** `plan.md`: Approach, Sequencing notes, PR budget, Constraints, and any `## Milestones` or legacy `## Phases`; and `planet epic show <epic> --json --brief` for repos, milestones, and phases. If the latest proposal is an approved phasing one made in this session (its frontmatter `session` equals the `session` field of `planet session step phasing --json`) and some entry slug in it is missing from `planet epic show`, take its body from `<dir>/proposals/` and go to step 5.
 2. **Draft** by path. Entries follow `references/phase-entry.md`, numbered from the highest phase id plus one; milestones follow `references/milestones-section.md`, before the entries. Implementation detail goes in `research/phase-<N>.md`, written alongside. Nothing else in `plan.md` is touched or shown.
    - **First cut:** start from the pattern in `references/cut-patterns.md` for `plan.md`'s `Shape:` line, or Spike then build when the approach is uncertain. Draft `## Milestones` (left out when none), then a `## Phases` entry per phase.
    - **Add:** an entry per new phase. A new milestone also goes in, existing ones collapsed to `: unchanged`.
-   - **Re-cut:** redraw only the named phases and their edges; untouched phases keep their ids, bodies, and blockers. New or changed phases get full entries; drops, moves, and blocker changes close `## Phases`, one bullet each. `## Milestones` appears only when milestones change, kept ones collapsed.
+   - **Re-cut:** redraw only the named phases and their edges, or every draft when none are named; untouched phases keep their ids, bodies, and blockers. New or changed phases get full entries; drops, moves, and blocker changes close `## Phases`, one bullet each. `## Milestones` appears only when milestones change, kept ones collapsed.
    - **Migrate:** `## Milestones` by the milestone rule, or the heading alone when none. Then `## Phases`, one bullet per phase, shipped included: `- <id> <slug>: milestone <n|none>, blocked by <ids>`, from `Depends on`. Approval removes the legacy section, so first save each draft's entry, `Depends on` renamed `Blocked by`, plus a `Milestone:` line when there are milestones.
-3. **Check the review rule.** An add or re-cut that needs no proposal skips step 4: apply it, say the change in one line, and go to step 6.
+3. **Check the review rule.** A re-cut `after re-scoping` always proposes. Any other add or re-cut that needs no proposal skips step 4: apply it, say the change in one line, and go to step 6.
 4. **Propose.** Invoke `planet:planet-proposal` with `epic: <slug>` and `to: milestones` when the draft has a `## Milestones` section, else `to: none`. A first cut passes no `changes:`; others pass `changes:` naming the new phases and changed edges, with a last bullet for what is untouched. On rejection, amend in place and propose again with `changes:` for the amendment; a rejection that says the approach is wrong returns `back to scoping: <message>` instead. On `aborted: <message>`, run `planet proposal reject <slug> latest --feedback "<message>"`, then return `phasing aborted: <message>`.
 5. **Apply.** First write each new or changed entry to its own scratch file, and run `planet epic repo add <epic> <owner/name>` for any Repo line not in `epic.repos`. Then chain with `&&` in one Bash command, in this order, ids comma-separated with no spaces (`--blocked-by 3,4`):
    - `planet milestone new <epic> <slug> --title "<title>" --proposal latest` per new milestone.
@@ -53,7 +53,7 @@ Input from the router: `epic: <slug>`, `dir: <path>`, and a `reason:` line picki
    - `planet phase write <epic> <id> --body-file <path>` per new or changed draft, every draft on a migrate.
    If the chain stops partway, fix the failing call and rerun from there; never recreate a phase that exists.
 6. **Verify** with `planet epic show <epic> --json --brief` that milestones and each phase's kind, repo, milestone, and `blocked_by` match the draft.
-7. **Return** `phases added: <ids>` for an add; otherwise `phasing done, N phases drafted, next step phase-plan`, N counting drafts.
+7. **Return** `phases added: <ids>` for an add; `phasing done without review, N phases drafted, next step phase-plan` for a re-cut that skipped step 4; otherwise `phasing done, N phases drafted, next step phase-plan`, N counting drafts.
 
 ## Example
 

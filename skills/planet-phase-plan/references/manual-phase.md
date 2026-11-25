@@ -20,10 +20,10 @@ Size, Out of scope, and Closes stay.
 - A phase that replaces an existing document starts with a Step that reads
   the current version.
 - An investigate or measuring phase ends with a Step that writes its findings
-  to `research/<name>.md` and names the later phases those findings can
-  change. When they do change one, implement returns
-  `re-cut from phase <N>: <what the findings showed>` rather than re-planning
-  the later phase in place.
+  to `research/<name>.md` and names the phases those findings can change.
+  When they do change one, implement returns
+  `re-cut: <what the findings showed>`, naming those phases, rather than
+  re-planning them in place.
 
 ## Done means
 

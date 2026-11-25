@@ -9,7 +9,7 @@ You are researching one phase of a plan. Read only; do not edit source files,
 do not run `planet` commands, do not enter plan mode.
 
 Repo: <the phase's repo>, checked out in the current directory.
-Phase: <title>. Scope: <the paragraph from the Phases section>.
+Phase: <title>. Scope: <the scope paragraph from the phase's draft body>.
 
 Answer with file paths:
 1. The files this phase will change, and the modules that import each.

@@ -19,8 +19,8 @@ whose Kind is move or rename or whose Files list deletes an entry.
 ## Before keeping a legacy form
 
 Count who reaches a legacy parameter, branch, or re-export: none means delete
-it, a few means repoint them. In an epic, a `migration` whose Phases section has a later
-removal phase: the old form stays until that phase; Decisions says so.
+it, a few means repoint them. In a `migration` epic where a removal phase is
+blocked by this one: the old form stays until that phase; Decisions says so.
 
 ## A deletion
 

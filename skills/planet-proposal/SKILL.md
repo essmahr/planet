@@ -5,12 +5,12 @@ user-invocable: false
 allowed-tools: Bash(planet *)
 compatibility: Claude Code with the planet plugin loaded and its hooks active.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Planet: proposal
 
-Input from the calling step: `epic` slug (or `review` for a feedback review), `to` (`plan`, `phases`, `phase:<n>`, or `review`), and `changes`, one to four bullets, omitted only on the first proposal of a document. The draft is already in your context. This step does no research or new reasoning.
+Input from the calling step: `epic` slug (or `review` for a feedback review), `to` (`plan`, `milestones`, `none`, `phase:<n>`, or `review`), and `changes`, one to four bullets, omitted only on the first proposal of a document. The draft is already in your context. This step does no research or new reasoning.
 
 ## Critical rules
 

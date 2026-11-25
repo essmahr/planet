@@ -5,12 +5,12 @@ user-invocable: false
 allowed-tools: Bash(planet *), Bash(git diff *), Bash(git log *), Bash(git fetch *)
 compatibility: Claude Code with the planet plugin loaded, run from the epic's repo. gh authenticated.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
 ---
 
 # Planet: retro
 
-Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition: the phase is `shipped`. Output: `retros/NN-<slug>.md` written through the CLI, status `reviewed`, and the return line. The next phase-plan reads the retro; this step edits no plan.
+Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition: the phase is `shipped`. Output: `retros/NN-<slug>.md` written through the CLI, status `reviewed`, and the return line. Phase-plan reads the retro for each phase this one blocks (`planet epic show` lists them by `blocked_by`); this step edits no plan.
 
 ## Critical rules
 
@@ -26,8 +26,8 @@ Input from the router: `epic: <slug>`, `dir: <path>`, `phase: <N>`. Precondition
 2. **Blocks.** For each `blocked` event, note the commit, the why, and what the re-plan changed, read from the proposals for that phase (the files under `<dir>/proposals/` whose frontmatter has `step: phase-plan` and `phase: <N>`; an older proposal with `phase: null` cannot be attributed, so say the re-plan history is unavailable). They open Plan versus shipped.
 3. **Refinements.** With an implemented sha and a head sha (the `head_sha` of the last entry in the inputs' `prs`; with several PRs the range runs to that one): dispatch one general-purpose subagent on model sonnet with `references/refinement-brief.md` as written, filling only the slots: the range, the PR number, the `loop_commits` shas, own prompts (every kind but `review`), and loop prompts (`kind: review`). It writes `<dir>/research/retro-<N>-refinements.md` and returns the stat line and the two category tables with each prompt under the category it drove. Read that reply, not the diff. Without an implemented event, write that refinements were not measurable and go on.
 4. **Review feedback.** Fill the template's Review feedback section: the review-driven table. Lessons from review-driven fixes go to `planet-implement` (what to check before opening the PR) or `not-planet` (team conventions).
-5. **Plan versus shipped.** Compare the phase document's Files (or Changes) and commit subjects against `files.files` and `git log --format=%s` on the PR range. One paragraph, each difference classed plan wrong, discovered, or scope changed. A cut that was wrong is a hand-up: return `re-cut from phase <N>: <why>` and write nothing.
-6. **Lessons.** Only what would change a skill. Each: one sentence, the skill it points at, the evidence line, and `repeat_of` when it matches a prior lesson. With candidates, ask one multi-select question: which of these should change how Planet works next time? The rest are `apply: false`. With none, say so. Say the retro's five-line summary in the same message.
+5. **Plan versus shipped.** Compare the phase document's Files (or Changes) and commit subjects against `files.files` and `git log --format=%s` on the PR range. One paragraph, each difference classed plan wrong, discovered, or scope changed. A cut that was wrong is a hand-up: return `re-cut: <why>`, naming this phase and the phases it blocks, and write nothing.
+6. **Lessons.** Only what would change a skill; a `planet-phase-plan` lesson targets the phases this one blocks. Each: one sentence, the skill it points at, the evidence line, and `repeat_of` when it matches a prior lesson. With candidates, ask one multi-select question: which of these should change how Planet works next time? The rest are `apply: false`. With none, say so. Say the retro's five-line summary in the same message.
 7. **Write.** Compose from `references/retro-template.md` into a file in the scratch directory; `planet retro write <slug> <N> --file <path>` plus `--head <head_sha>` (omit for a manual phase or when there is no PR); `planet phase set <slug> <N> --status reviewed`.
 8. **Return** `retro done for phase <N>`.
 

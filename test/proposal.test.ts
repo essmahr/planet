@@ -150,12 +150,19 @@ test("approve --to milestones replaces a legacy Phases section", () => {
 test("approve --to milestones with no entries removes Phases and writes no heading", () => {
   const home = setup();
   const above = "# E\n\n## Approach\nViews first.\n";
-  writeFileSync(paths.plan(home, "e"), `${above}\n## Milestones\n\n### 1. Views (views)\nGoal.\n`);
+  writeFileSync(paths.plan(home, "e"), `${above}\n## Phases\n\n### 1. A (a)\nScope.\n`);
   const p = createProposal(home, "e", { ...phasing, body: "## Milestones\n" }, NOW);
   approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW);
   const plan = readFileSync(paths.plan(home, "e"), "utf8");
   assert.equal(plan, above);
   assert.doesNotMatch(plan, /## (Milestones|Phases)/);
+});
+
+test("approve --to milestones throws without a plan.md", () => {
+  const home = setup();
+  const p = createProposal(home, "e", { ...phasing, body: "## Milestones\n\n### 1. Views (views)\nGoal.\n" }, NOW);
+  rmSync(paths.plan(home, "e"), { force: true });
+  assert.throws(() => approveTo(home, "e", p.meta.id, { kind: "milestones" }, undefined, NOW), /no plan.md/);
 });
 
 test("collapsed milestone entries expand from plan.md", () => {

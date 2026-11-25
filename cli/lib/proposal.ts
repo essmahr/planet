@@ -114,7 +114,6 @@ export function parseDestination(text: string): Destination {
   return { kind: "phase", id: Number(m[1]) };
 }
 
-/** Throws unless proposal `id` is the latest proposal, a phasing proposal, and approved. */
 export function assertPhasingApproval(home: string, epic: string, id: number): void {
   const proposal = readProposal(home, epic, id);
   if (latestProposalId(home, epic) !== id) throw new Error(`proposal ${id} is not the latest proposal`);
@@ -140,7 +139,6 @@ function milestoneEntries(section: string): Map<number, string> {
   return entries;
 }
 
-/** Cuts the `## Milestones` section out of a proposal body, up to the next `## ` heading or the end. */
 function sliceMilestonesSection(body: string): string {
   const at = body.search(MILESTONES_HEADING_RE);
   if (at === -1) throw new Error("a milestones proposal must have a '## Milestones' heading");
@@ -186,7 +184,7 @@ export function writeMilestonesSection(home: string, epic: string, section: stri
   const cuts = [plan.search(LEGACY_PHASES_HEADING_RE), plan.search(MILESTONES_HEADING_RE)].filter((at) => at !== -1);
   const above = (cuts.length ? plan.slice(0, Math.min(...cuts)) : plan).replace(/\s+$/, "");
   if (!/^### /m.test(section)) {
-    writeFileSync(file, `${above}\n`);
+    if (cuts.length) writeFileSync(file, `${above}\n`);
     return file;
   }
   writeFileSync(file, `${above}\n\n${section}`);
